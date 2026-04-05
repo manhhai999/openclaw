@@ -71,6 +71,7 @@ function createHost() {
       navWidth: 280,
       navGroupsCollapsed: {},
       borderRadius: 50,
+      textScale: 110,
     },
     password: "",
     clientInstanceId: "instance-test",
