@@ -24,6 +24,34 @@ describe("extractTextCached", () => {
     expect(extractTextCached(message)).toBe("plain text");
   });
 
+  it("strips relevant-memories scaffolding from persisted user messages", () => {
+    const message = {
+      role: "user",
+      content: [
+        {
+          type: "text",
+          text: [
+            "<relevant-memories>",
+            "The following OpenViking memories may be relevant:",
+            "- [] User basic info: Mạnh Hải, prefers Vietnamese interaction",
+            "- [] Behavior policy: Soft long-term policy for Jenni",
+            "- [] Communication tone: Natural, warm, and slightly teasing",
+            "</relevant-memories>",
+            "",
+            "Sender (untrusted metadata):",
+            "```json",
+            '{ "label": "openclaw-control-ui", "id": "openclaw-control-ui" }',
+            "```",
+            "",
+            "[Thu 2026-04-10 04:52 GMT+9] mới nhắc thì không hiển thị nhưng F5 cái lại bị",
+          ].join("\n"),
+        },
+      ],
+    };
+    expect(extractText(message)).toBe("mới nhắc thì không hiển thị nhưng F5 cái lại bị");
+    expect(extractTextCached(message)).toBe("mới nhắc thì không hiển thị nhưng F5 cái lại bị");
+  });
+
   it("strips assistant relevant-memories scaffolding", () => {
     const message = {
       role: "assistant",

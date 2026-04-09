@@ -60,6 +60,24 @@ describe("stripInboundMetadata", () => {
     expect(stripInboundMetadata(input)).toBe("Got it, thanks!");
   });
 
+  it("strips leading relevant-memories blocks before inbound metadata", () => {
+    const input = `<relevant-memories>
+The following OpenViking memories may be relevant:
+- [] User basic info: Mạnh Hải, prefers Vietnamese interaction
+- [] Communication tone: Natural, warm, and slightly teasing
+</relevant-memories>
+
+${SENDER_BLOCK}
+
+[Thu 2026-04-10 04:52 GMT+9] tin nhan hien thi cho anh`;
+    expect(stripInboundMetadata(input)).toBe("tin nhan hien thi cho anh");
+  });
+
+  it("does not strip inline literal relevant-memories text from user content", () => {
+    const input = "Please keep `<relevant-memories>literal</relevant-memories>` in this snippet.";
+    expect(stripInboundMetadata(input)).toBe(input);
+  });
+
   it("strips all six known sentinel types", () => {
     const sentinels = [
       "Conversation info (untrusted metadata):",

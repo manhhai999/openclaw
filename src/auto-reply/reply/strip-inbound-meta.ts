@@ -16,6 +16,8 @@ import { z } from "zod";
 import { safeParseJsonWithSchema } from "../../utils/zod-parse.js";
 
 const LEADING_TIMESTAMP_PREFIX_RE = /^\[[A-Za-z]{3} \d{4}-\d{2}-\d{2} \d{2}:\d{2}[^\]]*\] */;
+const LEADING_RELEVANT_MEMORIES_OPEN_RE = /^\s*<\s*relevant[-_]memories\b[^<>]*>/i;
+const RELEVANT_MEMORIES_CLOSE_RE = /<\s*\/\s*relevant[-_]memories\b[^<>]*>/i;
 
 /**
  * Sentinel strings that identify the start of an injected metadata block.
@@ -125,6 +127,36 @@ function stripTrailingUntrustedContextSuffix(lines: string[]): string[] {
   return lines;
 }
 
+function stripLeadingRelevantMemoriesBlocks(text: string): string {
+  if (!text || !LEADING_RELEVANT_MEMORIES_OPEN_RE.test(text)) {
+    return text;
+  }
+
+  let remaining = text;
+  let changed = false;
+
+  while (true) {
+    const openMatch = remaining.match(LEADING_RELEVANT_MEMORIES_OPEN_RE);
+    if (!openMatch) {
+      break;
+    }
+
+    const afterOpen = remaining.slice(openMatch[0].length);
+    const closeMatch = RELEVANT_MEMORIES_CLOSE_RE.exec(afterOpen);
+    if (!closeMatch) {
+      // Preserve unfinished literal text instead of risking destructive stripping.
+      return changed ? remaining : text;
+    }
+
+    remaining = afterOpen
+      .slice(closeMatch.index + closeMatch[0].length)
+      .replace(/^(?:[ \t]*\r?\n)+/, "");
+    changed = true;
+  }
+
+  return changed ? remaining : text;
+}
+
 /**
  * Remove all injected inbound metadata prefix blocks from `text`.
  *
@@ -145,7 +177,8 @@ export function stripInboundMetadata(text: string): string {
     return text;
   }
 
-  const withoutTimestamp = text.replace(LEADING_TIMESTAMP_PREFIX_RE, "");
+  const withoutRelevantMemories = stripLeadingRelevantMemoriesBlocks(text);
+  const withoutTimestamp = withoutRelevantMemories.replace(LEADING_TIMESTAMP_PREFIX_RE, "");
   if (!SENTINEL_FAST_RE.test(withoutTimestamp)) {
     return withoutTimestamp;
   }
