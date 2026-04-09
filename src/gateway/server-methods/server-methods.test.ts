@@ -1189,7 +1189,12 @@ describe("exec approval handlers", () => {
     );
     expect(respondTwo).toHaveBeenCalledWith(
       true,
-      expect.objectContaining({ id: "approval-two", decision: null }),
+      expect.objectContaining({
+        id: "approval-two",
+        decision: null,
+        status: "expired",
+        expiredReason: "timeout",
+      }),
       undefined,
     );
   });
@@ -1247,7 +1252,12 @@ describe("exec approval handlers", () => {
     expect(expireSpy).toHaveBeenCalledWith("approval-no-approver", "no-approval-route");
     expect(respond).toHaveBeenCalledWith(
       true,
-      expect.objectContaining({ id: "approval-no-approver", decision: null }),
+      expect.objectContaining({
+        id: "approval-no-approver",
+        decision: null,
+        status: "expired",
+        expiredReason: "no-approval-route",
+      }),
       undefined,
     );
   });

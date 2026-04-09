@@ -282,6 +282,113 @@ describe("connectGateway", () => {
     expect(chatHost.chatQueue).toHaveLength(0);
   });
 
+  it("rehydrates pending plugin approvals after a normal reconnect hello", async () => {
+    const host = createHost();
+    host.execApprovalQueue = [
+      {
+        id: "plugin:approval-stale-local",
+        kind: "plugin",
+        request: { command: "echo stale" },
+        createdAtMs: 1,
+        expiresAtMs: Date.now() + 60_000,
+      },
+    ];
+
+    connectGateway(host);
+    const firstClient = gatewayClientInstances[0];
+    expect(firstClient).toBeDefined();
+
+    connectGateway(host);
+    const reconnectClient = gatewayClientInstances[1];
+    expect(reconnectClient).toBeDefined();
+    expect(host.execApprovalQueue).toEqual([]);
+
+    reconnectClient.request.mockImplementation(async (method: string) => {
+      if (method === "exec.approval.list") {
+        return [];
+      }
+      if (method === "plugin.approval.list") {
+        return [
+          {
+            id: "plugin:approval-old",
+            request: { title: "Old", description: "Desc old" },
+            createdAtMs: 10,
+            expiresAtMs: Date.now() + 90_000,
+          },
+          {
+            id: "plugin:approval-new",
+            request: { title: "New", description: "Desc new" },
+            createdAtMs: 20,
+            expiresAtMs: Date.now() + 120_000,
+          },
+        ];
+      }
+      return {};
+    });
+
+    reconnectClient.emitHello();
+
+    await vi.waitFor(() => {
+      expect(reconnectClient.request).toHaveBeenCalledWith("plugin.approval.list", {});
+      expect(host.execApprovalQueue.map((entry) => entry.id)).toEqual([
+        "plugin:approval-new",
+        "plugin:approval-old",
+      ]);
+    });
+  });
+
+  it("rehydrates pending exec approvals after a normal reconnect hello", async () => {
+    const host = createHost();
+    host.execApprovalQueue = [
+      {
+        id: "approval-stale-local",
+        kind: "exec",
+        request: { command: "echo stale" },
+        createdAtMs: 1,
+        expiresAtMs: Date.now() + 60_000,
+      },
+    ];
+
+    connectGateway(host);
+    const firstClient = gatewayClientInstances[0];
+    expect(firstClient).toBeDefined();
+
+    connectGateway(host);
+    const reconnectClient = gatewayClientInstances[1];
+    expect(reconnectClient).toBeDefined();
+    expect(host.execApprovalQueue).toEqual([]);
+
+    reconnectClient.request.mockImplementation(async (method: string) => {
+      if (method === "exec.approval.list") {
+        return [
+          {
+            id: "approval-old",
+            request: { command: "echo old" },
+            createdAtMs: 10,
+            expiresAtMs: Date.now() + 90_000,
+          },
+          {
+            id: "approval-new",
+            request: { command: "echo new" },
+            createdAtMs: 20,
+            expiresAtMs: Date.now() + 120_000,
+          },
+        ];
+      }
+      return [];
+    });
+
+    reconnectClient.emitHello();
+
+    await vi.waitFor(() => {
+      expect(reconnectClient.request).toHaveBeenCalledWith("exec.approval.list", {});
+      expect(host.execApprovalQueue.map((entry) => entry.id)).toEqual([
+        "approval-new",
+        "approval-old",
+      ]);
+    });
+  });
+
   it("ignores stale client onEvent callbacks after reconnect", () => {
     const host = createHost();
 
@@ -738,12 +845,16 @@ describe("connectGateway", () => {
           agentId: "agent-1",
           sessionKey: "main",
         },
+        routeStatus: "delivery-failed",
+        recoverability: "reconnect-recoverable",
       },
     });
 
     expect(host.execApprovalQueue).toHaveLength(1);
     expect(host.execApprovalQueue[0]?.id).toBe("plugin-approval-1");
     expect((host.execApprovalQueue[0] as { kind: string }).kind).toBe("plugin");
+    expect(host.execApprovalQueue[0]?.routeStatus).toBe("delivery-failed");
+    expect(host.execApprovalQueue[0]?.recoverability).toBe("reconnect-recoverable");
   });
 
   it("routes plugin.approval.resolved to remove from execApprovalQueue", () => {
