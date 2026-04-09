@@ -120,7 +120,11 @@ describe("createPluginApprovalHandlers", () => {
       // Final response with decision
       expect(respond).toHaveBeenCalledWith(
         true,
-        expect.objectContaining({ id: approvalId, decision: "allow-once" }),
+        expect.objectContaining({
+          id: approvalId,
+          decision: "allow-once",
+          routeStatus: "pending-route",
+        }),
         undefined,
       );
     });
@@ -140,7 +144,12 @@ describe("createPluginApprovalHandlers", () => {
       await handlers["plugin.approval.request"](opts);
       expect(opts.respond).toHaveBeenCalledWith(
         true,
-        expect.objectContaining({ decision: null }),
+        expect.objectContaining({
+          decision: null,
+          expiredReason: "no-approval-route",
+          routeStatus: "no-route",
+          recoverability: "terminal",
+        }),
         undefined,
       );
     });
@@ -196,7 +205,12 @@ describe("createPluginApprovalHandlers", () => {
         await vi.waitFor(() => {
           expect(respond).toHaveBeenCalledWith(
             true,
-            expect.objectContaining({ status: "accepted", id: expect.any(String) }),
+            expect.objectContaining({
+              status: "accepted",
+              id: expect.any(String),
+              routeStatus: "pending-route",
+              recoverability: "reconnect-recoverable",
+            }),
             undefined,
           );
         });
@@ -211,6 +225,58 @@ describe("createPluginApprovalHandlers", () => {
       } finally {
         vi.useRealTimers();
       }
+    });
+
+    it("reports delivery-failed but keeps approval reconnect-recoverable", async () => {
+      const forwarder = {
+        handleRequested: vi.fn(async () => false),
+        handleResolved: vi.fn(async () => {}),
+        stop: vi.fn(),
+        handlePluginApprovalRequested: vi.fn(async () => {
+          throw new Error("delivery exploded");
+        }),
+      };
+      const handlers = createPluginApprovalHandlers(manager, { forwarder });
+      const respond = vi.fn();
+      const opts = createMockOptions(
+        "plugin.approval.request",
+        {
+          title: "T",
+          description: "D",
+          twoPhase: true,
+          turnSourceChannel: "slack",
+          turnSourceTo: "C123",
+        },
+        {
+          respond,
+          context: {
+            broadcast: vi.fn(),
+            logGateway: { error: vi.fn(), warn: vi.fn(), info: vi.fn(), debug: vi.fn() },
+            hasExecApprovalClients: () => false,
+          } as unknown as GatewayRequestHandlerOptions["context"],
+        },
+      );
+
+      const requestPromise = handlers["plugin.approval.request"](opts);
+
+      await vi.waitFor(() => {
+        expect(respond).toHaveBeenCalledWith(
+          true,
+          expect.objectContaining({
+            status: "accepted",
+            routeStatus: "delivery-failed",
+            recoverability: "reconnect-recoverable",
+          }),
+          undefined,
+        );
+      });
+
+      const acceptedCall = respond.mock.calls.find(
+        (call) => (call[1] as Record<string, unknown>)?.status === "accepted",
+      );
+      const approvalId = (acceptedCall?.[1] as Record<string, unknown>)?.id as string;
+      manager.resolve(approvalId, "allow-once");
+      await requestPromise;
     });
 
     it("rejects invalid severity value", async () => {
