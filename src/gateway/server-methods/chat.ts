@@ -28,6 +28,7 @@ import {
   normalizeLowercaseStringOrEmpty,
   normalizeOptionalString,
 } from "../../shared/string-coerce.js";
+import { sanitizeAssistantVisibleTextWithProfile } from "../../shared/text/assistant-visible-text.js";
 import {
   stripInlineDirectiveTagsForDisplay,
   stripInlineDirectiveTagsFromMessageForDisplay,
@@ -518,7 +519,10 @@ function sanitizeChatHistoryContentBlock(
   let changed = false;
   if (typeof entry.text === "string") {
     const stripped = stripInlineDirectiveTagsForDisplay(entry.text);
-    const res = truncateChatHistoryText(stripped.text, maxChars);
+    const res = truncateChatHistoryText(
+      sanitizeAssistantVisibleTextWithProfile(stripped.text, "history"),
+      maxChars,
+    );
     entry.text = res.text;
     changed ||= stripped.changed || res.truncated;
   }
@@ -664,7 +668,10 @@ function sanitizeChatHistoryMessage(
 
   if (typeof entry.content === "string") {
     const stripped = stripInlineDirectiveTagsForDisplay(entry.content);
-    const res = truncateChatHistoryText(stripped.text, maxChars);
+    const res = truncateChatHistoryText(
+      sanitizeAssistantVisibleTextWithProfile(stripped.text, "history"),
+      maxChars,
+    );
     entry.content = res.text;
     changed ||= stripped.changed || res.truncated;
   } else if (Array.isArray(entry.content)) {
@@ -673,7 +680,10 @@ function sanitizeChatHistoryMessage(
     const hasPhaseMetadata = hasAssistantPhaseMetadata(entry);
     if (hasPhaseMetadata) {
       const stripped = stripInlineDirectiveTagsForDisplay(extractAssistantHistoryText(entry) ?? "");
-      const res = truncateChatHistoryText(stripped.text, maxChars);
+      const res = truncateChatHistoryText(
+        sanitizeAssistantVisibleTextWithProfile(stripped.text, "history"),
+        maxChars,
+      );
       const nonTextBlocks = sanitizedBlocks.filter(
         (block) =>
           !block || typeof block !== "object" || (block as { type?: unknown }).type !== "text",
@@ -690,7 +700,10 @@ function sanitizeChatHistoryMessage(
 
   if (typeof entry.text === "string") {
     const stripped = stripInlineDirectiveTagsForDisplay(entry.text);
-    const res = truncateChatHistoryText(stripped.text, maxChars);
+    const res = truncateChatHistoryText(
+      sanitizeAssistantVisibleTextWithProfile(stripped.text, "history"),
+      maxChars,
+    );
     entry.text = res.text;
     changed ||= stripped.changed || res.truncated;
   }
