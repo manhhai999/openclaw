@@ -353,6 +353,7 @@ describe("switchChatSession", () => {
       navCollapsed: false,
       navGroupsCollapsed: {},
       borderRadius: 50,
+      textScale: 110,
       chatFocusMode: false,
       chatShowThinking: false,
       chatShowToolCalls: true,

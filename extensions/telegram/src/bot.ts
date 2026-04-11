@@ -171,7 +171,10 @@ export function createTelegramBot(opts: TelegramBotOptions): TelegramBotInstance
     // causing "signals[0] must be an instance of AbortSignal" errors).
     finalFetch = (input: TelegramFetchInput, init?: TelegramFetchInit) => {
       const controller = new AbortController();
-      const abortWith = (signal: AbortSignal) => controller.abort(signal.reason);
+      const abortWith = (signal: { aborted: boolean }) => {
+        const reason = "reason" in signal ? (signal as { reason?: unknown }).reason : undefined;
+        controller.abort(reason);
+      };
       const shutdownSignal = opts.fetchAbortSignal;
       const onShutdown = () => {
         if (shutdownSignal) {
