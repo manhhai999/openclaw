@@ -1,7 +1,10 @@
 import { randomUUID } from "node:crypto";
 import type { ExecApprovalForwarder } from "../../infra/exec-approval-forwarder.js";
 import type { ExecApprovalDecision } from "../../infra/exec-approvals.js";
-import type { PluginApprovalRequestPayload } from "../../infra/plugin-approvals.js";
+import type {
+  PluginApprovalRequest,
+  PluginApprovalRequestPayload,
+} from "../../infra/plugin-approvals.js";
 import {
   DEFAULT_PLUGIN_APPROVAL_TIMEOUT_MS,
   MAX_PLUGIN_APPROVAL_TIMEOUT_MS,
@@ -110,7 +113,7 @@ export function createPluginApprovalHandlers(
         return;
       }
 
-      const requestEvent = {
+      const requestEvent: PluginApprovalRequest = {
         id: record.id,
         request: record.request,
         createdAtMs: record.createdAtMs,

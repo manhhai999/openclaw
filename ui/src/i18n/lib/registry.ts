@@ -11,7 +11,7 @@ type LazyLocaleRegistration = {
 export const DEFAULT_LOCALE: Locale = "en";
 export const DEFAULT_APP_LOCALE: Locale = "vi";
 
-const LAZY_LOCALES: readonly LazyLocale[] = new Set(["vi"]);
+const LAZY_LOCALES = new Set<LazyLocale>(["vi"]);
 
 const LAZY_LOCALE_REGISTRY: Record<LazyLocale, LazyLocaleRegistration> = {
   vi: {

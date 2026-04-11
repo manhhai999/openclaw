@@ -102,18 +102,24 @@ export type ExecApprovalRegistration = {
   expiredReason?: ExecApprovalExpiredReason;
 };
 
+type ExecApprovalRequestResult = {
+  id?: string;
+  expiresAtMs?: number;
+  decision?: string;
+  status?: string;
+  expiredReason?: string;
+};
+
+type ExecApprovalWaitDecisionResult = {
+  decision?: string;
+};
+
 export async function registerExecApprovalRequest(
   params: RequestExecApprovalDecisionParams,
 ): Promise<ExecApprovalRegistration> {
   // Two-phase registration is critical: the ID must be registered server-side
   // before exec returns `approval-pending`, otherwise `/approve` can race and orphan.
-  const registrationResult = await callGatewayTool<{
-    id?: string;
-    expiresAtMs?: number;
-    decision?: string;
-    status?: string;
-    expiredReason?: string;
-  }>(
+  const registrationResult: ExecApprovalRequestResult = await callGatewayTool(
     "exec.approval.request",
     { timeoutMs: DEFAULT_APPROVAL_REQUEST_TIMEOUT_MS },
     buildExecApprovalRequestToolParams(params),
@@ -148,7 +154,7 @@ export async function registerExecApprovalRequest(
 
 export async function waitForExecApprovalDecision(id: string): Promise<string | null> {
   try {
-    const decisionResult = await callGatewayTool<{ decision: string }>(
+    const decisionResult: ExecApprovalWaitDecisionResult = await callGatewayTool(
       "exec.approval.waitDecision",
       { timeoutMs: DEFAULT_APPROVAL_REQUEST_TIMEOUT_MS },
       { id },
