@@ -1,5 +1,6 @@
 import { render } from "lit";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { i18n } from "../../i18n/index.ts";
 import "../../test-helpers/load-styles.ts";
 import { renderChat, type ChatProps } from "./chat.ts";
 
@@ -91,6 +92,10 @@ async function renderContextNoticeChat() {
 }
 
 describe("chat context notice", () => {
+  beforeEach(async () => {
+    await i18n.setLocale("en");
+  });
+
   afterEach(() => {
     document.body.innerHTML = "";
   });

@@ -15,25 +15,11 @@ import {
   humanize,
   isSensitiveConfigPath,
   pathKey,
-  REDACTED_PLACEHOLDER,
+  redactedPlaceholder,
   schemaType,
   type JsonSchema,
 } from "./config-form.shared.ts";
-import { analyzeConfigSchema, renderConfigForm, SECTION_META } from "./config-form.ts";
-
-const BORDER_RADIUS_LABELS: Record<BorderRadiusStop, string> = {
-  0: "None",
-  25: "Slight",
-  50: "Default",
-  75: "Round",
-  100: "Full",
-};
-
-const TEXT_SCALE_LABELS: Record<TextScaleStop, string> = {
-  100: "Compact",
-  110: "Comfort",
-  120: "Large",
-};
+import { analyzeConfigSchema, getSectionMetaCopy, renderConfigForm } from "./config-form.ts";
 
 export type ConfigProps = {
   raw: string;
@@ -85,6 +71,45 @@ export type ConfigProps = {
   includeVirtualSections?: boolean;
   onRequestUpdate?: () => void;
 };
+
+function getBorderRadiusLabel(stop: BorderRadiusStop): string {
+  switch (stop) {
+    case 0:
+      return t("dashboard.config.appearance.radius.none");
+    case 25:
+      return t("dashboard.config.appearance.radius.slight");
+    case 50:
+      return t("dashboard.config.appearance.radius.default");
+    case 75:
+      return t("dashboard.config.appearance.radius.round");
+    case 100:
+      return t("dashboard.config.appearance.radius.full");
+  }
+  return t("dashboard.config.appearance.radius.default");
+}
+
+function getTextScaleLabel(stop: TextScaleStop): string {
+  switch (stop) {
+    case 100:
+      return t("dashboard.config.appearance.textScale.compact");
+    case 110:
+      return t("dashboard.config.appearance.textScale.comfort");
+    case 120:
+      return t("dashboard.config.appearance.textScale.large");
+  }
+  return t("dashboard.config.appearance.textScale.comfort");
+}
+
+function formatSensitiveCountBadge(count: number, blurred: boolean): string {
+  const key = blurred
+    ? count === 1
+      ? "dashboard.config.raw.secretsRedactedSingle"
+      : "dashboard.config.raw.secretsRedactedPlural"
+    : count === 1
+      ? "dashboard.config.raw.secretsVisibleSingle"
+      : "dashboard.config.raw.secretsVisiblePlural";
+  return t(key, { count: String(count) });
+}
 
 // SVG Icons for sidebar (Lucide-style)
 const sidebarIcons = {
@@ -368,84 +393,64 @@ type SectionCategory = {
   sections: Array<{ key: string; label: string }>;
 };
 
-const SECTION_CATEGORIES: SectionCategory[] = [
+const SECTION_CATEGORY_DEFS = [
   {
     id: "core",
-    label: "Core",
-    sections: [
-      { key: "env", label: "Environment" },
-      { key: "auth", label: "Authentication" },
-      { key: "update", label: "Updates" },
-      { key: "meta", label: "Meta" },
-      { key: "logging", label: "Logging" },
-      { key: "diagnostics", label: "Diagnostics" },
-      { key: "cli", label: "Cli" },
-      { key: "secrets", label: "Secrets" },
-    ],
+    sections: ["env", "auth", "update", "meta", "logging", "diagnostics", "cli", "secrets"],
   },
   {
     id: "ai",
-    label: "AI & Agents",
-    sections: [
-      { key: "agents", label: "Agents" },
-      { key: "models", label: "Models" },
-      { key: "skills", label: "Skills" },
-      { key: "tools", label: "Tools" },
-      { key: "memory", label: "Memory" },
-      { key: "session", label: "Session" },
-    ],
+    sections: ["agents", "models", "skills", "tools", "memory", "session"],
   },
   {
     id: "communication",
-    label: "Communication",
-    sections: [
-      { key: "channels", label: "Channels" },
-      { key: "messages", label: "Messages" },
-      { key: "broadcast", label: "Broadcast" },
-      { key: "talk", label: "Talk" },
-      { key: "audio", label: "Audio" },
-    ],
+    sections: ["channels", "messages", "broadcast", "talk", "audio"],
   },
   {
     id: "automation",
-    label: "Automation",
-    sections: [
-      { key: "commands", label: "Commands" },
-      { key: "hooks", label: "Hooks" },
-      { key: "bindings", label: "Bindings" },
-      { key: "cron", label: "Cron" },
-      { key: "approvals", label: "Approvals" },
-      { key: "plugins", label: "Plugins" },
-    ],
+    sections: ["commands", "hooks", "bindings", "cron", "approvals", "plugins"],
   },
   {
     id: "infrastructure",
-    label: "Infrastructure",
     sections: [
-      { key: "gateway", label: "Gateway" },
-      { key: "web", label: "Web" },
-      { key: "browser", label: "Browser" },
-      { key: "nodeHost", label: "NodeHost" },
-      { key: "canvasHost", label: "CanvasHost" },
-      { key: "discovery", label: "Discovery" },
-      { key: "media", label: "Media" },
-      { key: "acp", label: "Acp" },
-      { key: "mcp", label: "Mcp" },
+      "gateway",
+      "web",
+      "browser",
+      "nodeHost",
+      "canvasHost",
+      "discovery",
+      "media",
+      "acp",
+      "mcp",
     ],
   },
   {
     id: "appearance",
-    label: t("tabs.appearance"),
-    sections: [
-      { key: "__appearance__", label: "Theme" },
-      { key: "ui", label: "UI" },
-      { key: "wizard", label: "Setup Wizard" },
-    ],
+    sections: ["__appearance__", "ui", "wizard"],
   },
 ];
 
 // Flat lookup: all categorised keys
-const CATEGORISED_KEYS = new Set(SECTION_CATEGORIES.flatMap((c) => c.sections.map((s) => s.key)));
+const CATEGORISED_KEYS = new Set(SECTION_CATEGORY_DEFS.flatMap((category) => category.sections));
+
+function getConfigCategoryLabel(id: string): string {
+  return t(`dashboard.config.categories.${id}`);
+}
+
+function getConfigSectionLabel(key: string): string {
+  if (key === "__appearance__") {
+    return t("dashboard.config.sections.__appearance__.label");
+  }
+  return getSectionMetaCopy(key).label;
+}
+
+function getSectionCategories(): SectionCategory[] {
+  return SECTION_CATEGORY_DEFS.map((category) => ({
+    id: category.id,
+    label: getConfigCategoryLabel(category.id),
+    sections: category.sections.map((key) => ({ key, label: getConfigSectionLabel(key) })),
+  }));
+}
 
 function getSectionIcon(key: string) {
   return sidebarIcons[key as keyof typeof sidebarIcons] ?? sidebarIcons.default;
@@ -504,14 +509,10 @@ function resolveSectionMeta(
   label: string;
   description?: string;
 } {
-  const meta = SECTION_META[key];
-  if (meta) {
-    return meta;
-  }
-  return {
+  return getSectionMetaCopy(key, {
     label: schema?.title ?? humanize(key),
     description: schema?.description ?? "",
-  };
+  });
 }
 
 function computeDiff(
@@ -571,26 +572,44 @@ function truncateValue(value: unknown, maxLen = 40): string {
 
 function renderDiffValue(path: string, value: unknown, _uiHints: ConfigUiHints): string {
   if (isSensitiveConfigPath(path) && value != null && truncateValue(value).trim() !== "") {
-    return REDACTED_PLACEHOLDER;
+    return redactedPlaceholder();
   }
   return truncateValue(value);
 }
 
 type ThemeOption = { id: ThemeName; label: string; description: string; icon: TemplateResult };
-const THEME_OPTIONS: ThemeOption[] = [
-  { id: "claw", label: "Claw", description: "Chroma family", icon: icons.zap },
-  { id: "knot", label: "Knot", description: "Black & red", icon: icons.link },
-  { id: "dash", label: "Dash", description: "Chocolate blueprint", icon: icons.barChart },
-];
+function getThemeOptions(): ThemeOption[] {
+  return [
+    {
+      id: "claw",
+      label: t("dashboard.config.appearance.themes.claw.label"),
+      description: t("dashboard.config.appearance.themes.claw.description"),
+      icon: icons.zap,
+    },
+    {
+      id: "knot",
+      label: t("dashboard.config.appearance.themes.knot.label"),
+      description: t("dashboard.config.appearance.themes.knot.description"),
+      icon: icons.link,
+    },
+    {
+      id: "dash",
+      label: t("dashboard.config.appearance.themes.dash.label"),
+      description: t("dashboard.config.appearance.themes.dash.description"),
+      icon: icons.barChart,
+    },
+  ];
+}
 
 function renderAppearanceSection(props: ConfigProps) {
+  const themeOptions = getThemeOptions();
   return html`
     <div class="settings-appearance">
       <div class="settings-appearance__section">
-        <h3 class="settings-appearance__heading">Theme</h3>
-        <p class="settings-appearance__hint">Choose a theme family.</p>
+        <h3 class="settings-appearance__heading">${t("dashboard.config.appearance.themeTitle")}</h3>
+        <p class="settings-appearance__hint">${t("dashboard.config.appearance.themeHint")}</p>
         <div class="settings-theme-grid">
-          ${THEME_OPTIONS.map(
+          ${themeOptions.map(
             (opt) => html`
               <button
                 class="settings-theme-card ${opt.id === props.theme
@@ -620,8 +639,10 @@ function renderAppearanceSection(props: ConfigProps) {
       </div>
 
       <div class="settings-appearance__section">
-        <h3 class="settings-appearance__heading">Roundness</h3>
-        <p class="settings-appearance__hint">Adjust corner radius across the UI.</p>
+        <h3 class="settings-appearance__heading">
+          ${t("dashboard.config.appearance.roundnessTitle")}
+        </h3>
+        <p class="settings-appearance__hint">${t("dashboard.config.appearance.roundnessHint")}</p>
         <div class="settings-roundness">
           <div class="settings-roundness__options">
             ${BORDER_RADIUS_STOPS.map(
@@ -635,7 +656,7 @@ function renderAppearanceSection(props: ConfigProps) {
                     class="settings-roundness__swatch"
                     style="border-radius: ${Math.round(10 * (stop / 50))}px"
                   ></span>
-                  <span class="settings-roundness__label">${BORDER_RADIUS_LABELS[stop]}</span>
+                  <span class="settings-roundness__label">${getBorderRadiusLabel(stop)}</span>
                 </button>
               `,
             )}
@@ -644,8 +665,10 @@ function renderAppearanceSection(props: ConfigProps) {
       </div>
 
       <div class="settings-appearance__section">
-        <h3 class="settings-appearance__heading">Text size</h3>
-        <p class="settings-appearance__hint">Choose a more comfortable base reading size.</p>
+        <h3 class="settings-appearance__heading">
+          ${t("dashboard.config.appearance.textSizeTitle")}
+        </h3>
+        <p class="settings-appearance__hint">${t("dashboard.config.appearance.textSizeHint")}</p>
         <div class="settings-text-scale">
           <div class="settings-text-scale__options">
             ${TEXT_SCALE_STOPS.map(
@@ -660,7 +683,7 @@ function renderAppearanceSection(props: ConfigProps) {
                     style="font-size: ${Math.round((stop / 100) * 16)}px"
                     >Aa</span
                   >
-                  <span class="settings-text-scale__label">${TEXT_SCALE_LABELS[stop]}</span>
+                  <span class="settings-text-scale__label">${getTextScaleLabel(stop)}</span>
                 </button>
               `,
             )}
@@ -669,14 +692,20 @@ function renderAppearanceSection(props: ConfigProps) {
       </div>
 
       <div class="settings-appearance__section">
-        <h3 class="settings-appearance__heading">Connection</h3>
+        <h3 class="settings-appearance__heading">
+          ${t("dashboard.config.appearance.connectionTitle")}
+        </h3>
         <div class="settings-info-grid">
           <div class="settings-info-row">
-            <span class="settings-info-row__label">Gateway</span>
+            <span class="settings-info-row__label"
+              >${t("dashboard.config.appearance.gatewayLabel")}</span
+            >
             <span class="settings-info-row__value mono">${props.gatewayUrl || "-"}</span>
           </div>
           <div class="settings-info-row">
-            <span class="settings-info-row__label">Status</span>
+            <span class="settings-info-row__label"
+              >${t("dashboard.config.appearance.statusLabel")}</span
+            >
             <span class="settings-info-row__value">
               <span
                 class="settings-status-dot ${props.connected ? "settings-status-dot--ok" : ""}"
@@ -687,7 +716,9 @@ function renderAppearanceSection(props: ConfigProps) {
           ${props.assistantName
             ? html`
                 <div class="settings-info-row">
-                  <span class="settings-info-row__label">Assistant</span>
+                  <span class="settings-info-row__label"
+                    >${t("dashboard.config.appearance.assistantLabel")}</span
+                  >
                   <span class="settings-info-row__value">${props.assistantName}</span>
                 </div>
               `
@@ -753,25 +784,30 @@ export function renderConfig(props: ConfigProps) {
   const formMode = showModeToggle && rawAvailable ? props.formMode : "form";
   const envSensitiveVisible = cvs.envRevealed;
   const requestUpdate = props.onRequestUpdate ?? (() => props.onRawChange(props.raw));
+  const sectionCategories = getSectionCategories();
 
   // Build categorised nav from schema - only include sections that exist in the schema
   const schemaProps = analysis.schema?.properties ?? {};
 
   const VIRTUAL_SECTIONS = new Set(["__appearance__"]);
-  const visibleCategories = SECTION_CATEGORIES.map((cat) => ({
-    ...cat,
-    sections: cat.sections.filter(
-      (s) => (includeVirtualSections && VIRTUAL_SECTIONS.has(s.key)) || s.key in schemaProps,
-    ),
-  })).filter((cat) => cat.sections.length > 0);
+  const visibleCategories = sectionCategories
+    .map((cat) => ({
+      ...cat,
+      sections: cat.sections.filter(
+        (s) => (includeVirtualSections && VIRTUAL_SECTIONS.has(s.key)) || s.key in schemaProps,
+      ),
+    }))
+    .filter((cat) => cat.sections.length > 0);
 
   // Catch any schema keys not in our categories
   const extraSections = Object.keys(schemaProps)
     .filter((k) => !CATEGORISED_KEYS.has(k))
-    .map((k) => ({ key: k, label: k.charAt(0).toUpperCase() + k.slice(1) }));
+    .map((k) => ({ key: k, label: getSectionMetaCopy(k).label }));
 
   const otherCategory: SectionCategory | null =
-    extraSections.length > 0 ? { id: "other", label: "Other", sections: extraSections } : null;
+    extraSections.length > 0
+      ? { id: "other", label: t("dashboard.config.categories.other"), sections: extraSections }
+      : null;
 
   const isVirtualSection =
     includeVirtualSections &&
@@ -792,7 +828,7 @@ export function renderConfig(props: ConfigProps) {
   const effectiveSubsection = null;
 
   const topTabs = [
-    { key: null as string | null, label: props.navRootLabel ?? "Settings" },
+    { key: null as string | null, label: props.navRootLabel ?? t("dashboard.config.rootTab") },
     ...[...visibleCategories, ...(otherCategory ? [otherCategory] : [])].flatMap((cat) =>
       cat.sections.map((s) => ({ key: s.key, label: s.label })),
     ),
@@ -833,20 +869,20 @@ export function renderConfig(props: ConfigProps) {
                     <button
                       class="config-mode-toggle__btn ${formMode === "form" ? "active" : ""}"
                       ?disabled=${props.schemaLoading || !props.schema}
-                      title=${formUnsafe ? "Form view can't safely edit some fields" : ""}
+                      title=${formUnsafe ? t("dashboard.config.mode.formUnsafeTitle") : ""}
                       @click=${() => props.onFormModeChange("form")}
                     >
-                      Form
+                      ${t("dashboard.config.mode.form")}
                     </button>
                     <button
                       class="config-mode-toggle__btn ${formMode === "raw" ? "active" : ""}"
                       ?disabled=${!rawAvailable}
                       title=${rawAvailable
-                        ? "Edit raw JSON/JSON5 config"
-                        : "Raw mode unavailable for this snapshot"}
+                        ? t("dashboard.config.mode.rawTitle")
+                        : t("dashboard.config.mode.rawUnavailableTitle")}
                       @click=${() => props.onFormModeChange("raw")}
                     >
-                      Raw
+                      ${t("dashboard.config.mode.raw")}
                     </button>
                   </div>
                 `
@@ -855,28 +891,32 @@ export function renderConfig(props: ConfigProps) {
               ? html`
                   <span class="config-changes-badge"
                     >${formMode === "raw"
-                      ? "Unsaved changes"
-                      : `${diff.length} unsaved change${diff.length !== 1 ? "s" : ""}`}</span
+                      ? t("dashboard.config.status.unsavedChanges")
+                      : t("dashboard.config.status.pendingChanges", {
+                          count: String(diff.length),
+                        })}</span
                   >
                 `
-              : html` <span class="config-status muted">No changes</span> `}
+              : html`
+                  <span class="config-status muted">${t("dashboard.config.status.noChanges")}</span>
+                `}
           </div>
           <div class="config-actions__right">
             ${!rawAvailable
               ? html`
-                  <span class="config-status muted"
-                    >Raw mode disabled (snapshot cannot safely round-trip raw text).</span
-                  >
+                  <span class="config-status muted">${t("dashboard.config.mode.rawDisabled")}</span>
                 `
               : nothing}
             ${props.onOpenFile
               ? html`
                   <button
                     class="btn btn--sm"
-                    title=${props.configPath ? `Open ${props.configPath}` : "Open config file"}
+                    title=${props.configPath
+                      ? t("dashboard.config.actions.openFileAt", { path: props.configPath })
+                      : t("dashboard.config.actions.openFile")}
                     @click=${props.onOpenFile}
                   >
-                    ${icons.fileText} Open
+                    ${icons.fileText} ${t("dashboard.config.actions.open")}
                   </button>
                 `
               : nothing}
@@ -884,13 +924,17 @@ export function renderConfig(props: ConfigProps) {
               ${props.loading ? t("common.loading") : t("common.reload")}
             </button>
             <button class="btn btn--sm primary" ?disabled=${!canSave} @click=${props.onSave}>
-              ${props.saving ? "Saving…" : "Save"}
+              ${props.saving ? t("common.saving") : t("common.save")}
             </button>
             <button class="btn btn--sm" ?disabled=${!canApply} @click=${props.onApply}>
-              ${props.applying ? "Applying…" : "Apply"}
+              ${props.applying
+                ? t("dashboard.config.actions.applying")
+                : t("dashboard.config.actions.apply")}
             </button>
             <button class="btn btn--sm" ?disabled=${!canUpdate} @click=${props.onUpdate}>
-              ${props.updating ? "Updating…" : "Update"}
+              ${props.updating
+                ? t("dashboard.config.actions.updating")
+                : t("dashboard.config.actions.update")}
             </button>
           </div>
         </div>
@@ -913,8 +957,8 @@ export function renderConfig(props: ConfigProps) {
                     <input
                       type="text"
                       class="config-search__input"
-                      placeholder="Search settings..."
-                      aria-label="Search settings"
+                      placeholder=${t("dashboard.config.search.placeholder")}
+                      aria-label=${t("dashboard.config.search.aria")}
                       .value=${props.searchQuery}
                       @input=${(e: Event) =>
                         props.onSearchChange((e.target as HTMLInputElement).value)}
@@ -923,7 +967,7 @@ export function renderConfig(props: ConfigProps) {
                       ? html`
                           <button
                             class="config-search__clear"
-                            aria-label="Clear search"
+                            aria-label=${t("dashboard.config.search.clear")}
                             @click=${() => props.onSearchChange("")}
                           >
                             ×
@@ -977,7 +1021,7 @@ export function renderConfig(props: ConfigProps) {
                   <line x1="12" y1="17" x2="12.01" y2="17"></line>
                 </svg>
                 <span class="config-validity-warning__text"
-                  >Your configuration is invalid. Some settings may not work as expected.</span
+                  >${t("dashboard.config.validity.warning")}</span
                 >
                 <button
                   class="btn btn--sm"
@@ -986,7 +1030,7 @@ export function renderConfig(props: ConfigProps) {
                     requestUpdate();
                   }}
                 >
-                  Don't remind again
+                  ${t("dashboard.config.validity.dismiss")}
                 </button>
               </div>
             `
@@ -997,7 +1041,7 @@ export function renderConfig(props: ConfigProps) {
           ? html`
               <details class="config-diff">
                 <summary class="config-diff__summary">
-                  <span>View ${diff.length} pending change${diff.length !== 1 ? "s" : ""}</span>
+                  <span>${t("dashboard.config.diff.summary", { count: String(diff.length) })}</span>
                   <svg
                     class="config-diff__chevron"
                     viewBox="0 0 24 24"
@@ -1049,7 +1093,9 @@ export function renderConfig(props: ConfigProps) {
                         class="config-env-peek-btn ${envSensitiveVisible
                           ? "config-env-peek-btn--active"
                           : ""}"
-                        title=${envSensitiveVisible ? "Hide env values" : "Reveal env values"}
+                        title=${envSensitiveVisible
+                          ? t("dashboard.config.env.hideValues")
+                          : t("dashboard.config.env.revealValues")}
                         @click=${() => {
                           cvs.envRevealed = !cvs.envRevealed;
                           requestUpdate();
@@ -1068,7 +1114,7 @@ export function renderConfig(props: ConfigProps) {
                           <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
                           <circle cx="12" cy="12" r="3"></circle>
                         </svg>
-                        Peek
+                        ${t("dashboard.config.env.peek")}
                       </button>
                     `
                   : nothing}
@@ -1088,7 +1134,7 @@ export function renderConfig(props: ConfigProps) {
                     ? html`
                         <div class="config-loading">
                           <div class="config-loading__spinner"></div>
-                          <span>Loading schema…</span>
+                          <span>${t("dashboard.config.loadingSchema")}</span>
                         </div>
                       `
                     : renderConfigForm({
@@ -1122,26 +1168,24 @@ export function renderConfig(props: ConfigProps) {
                     ${formUnsafe
                       ? html`
                           <div class="callout info" style="margin-bottom: 12px">
-                            Your config contains fields the form editor can't safely represent. Use
-                            Raw mode to edit those entries.
+                            ${t("dashboard.config.raw.unsafeNotice")}
                           </div>
                         `
                       : nothing}
                     <div class="field config-raw-field">
                       <span style="display:flex;align-items:center;gap:8px;">
-                        Raw config (JSON/JSON5)
+                        ${t("dashboard.config.raw.title")}
                         ${sensitiveCount > 0
                           ? html`
                               <span class="pill pill--sm"
-                                >${sensitiveCount} secret${sensitiveCount === 1 ? "" : "s"}
-                                ${blurred ? "redacted" : "visible"}</span
+                                >${formatSensitiveCountBadge(sensitiveCount, blurred)}</span
                               >
                               <button
                                 class="btn btn--icon config-raw-toggle ${blurred ? "" : "active"}"
                                 title=${blurred
-                                  ? "Reveal sensitive values"
-                                  : "Hide sensitive values"}
-                                aria-label="Toggle raw config redaction"
+                                  ? t("dashboard.config.raw.reveal")
+                                  : t("dashboard.config.raw.hide")}
+                                aria-label=${t("dashboard.config.raw.toggleRedaction")}
                                 aria-pressed=${!blurred}
                                 @click=${() => {
                                   cvs.rawRevealed = !cvs.rawRevealed;
@@ -1156,13 +1200,14 @@ export function renderConfig(props: ConfigProps) {
                       ${blurred
                         ? html`
                             <div class="callout info" style="margin-top: 12px">
-                              ${sensitiveCount} sensitive value${sensitiveCount === 1 ? "" : "s"}
-                              hidden. Use the reveal button above to edit the raw config.
+                              ${t("dashboard.config.raw.hiddenNotice", {
+                                count: String(sensitiveCount),
+                              })}
                             </div>
                           `
                         : html`
                             <textarea
-                              placeholder="Raw config (JSON/JSON5)"
+                              placeholder=${t("dashboard.config.raw.placeholder")}
                               .value=${props.raw}
                               @input=${(e: Event) => {
                                 props.onRawChange((e.target as HTMLTextAreaElement).value);

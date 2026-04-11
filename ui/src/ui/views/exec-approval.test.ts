@@ -1,5 +1,6 @@
 import { render } from "lit";
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
+import { i18n } from "../../i18n/index.ts";
 import { renderExecApprovalPrompt } from "./exec-approval.ts";
 
 function createState() {
@@ -11,6 +12,10 @@ function createState() {
 }
 
 describe("renderExecApprovalPrompt", () => {
+  beforeEach(async () => {
+    await i18n.setLocale("en");
+  });
+
   it("renders plugin route semantics when present", () => {
     const state = createState();
     state.execApprovalQueue = [
@@ -30,7 +35,7 @@ describe("renderExecApprovalPrompt", () => {
     render(renderExecApprovalPrompt(state), root);
 
     expect(root.textContent).toContain("Delivery failed");
-    expect(root.textContent).toContain("reconnect-recoverable");
+    expect(root.textContent).toContain("Recoverable after reconnect");
   });
 
   it("does not render plugin route semantics for exec approvals", () => {
@@ -51,6 +56,6 @@ describe("renderExecApprovalPrompt", () => {
     render(renderExecApprovalPrompt(state), root);
 
     expect(root.textContent).not.toContain("Delivery failed");
-    expect(root.textContent).not.toContain("reconnect-recoverable");
+    expect(root.textContent).not.toContain("Recoverable after reconnect");
   });
 });

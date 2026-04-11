@@ -1,5 +1,6 @@
 import { render } from "lit";
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { i18n } from "../../i18n/lib/translate.ts";
 import { renderAgentTools } from "./agents-panels-tools-skills.ts";
 
 function createBaseParams(overrides: Partial<Parameters<typeof renderAgentTools>[0]> = {}) {
@@ -30,6 +31,14 @@ function createBaseParams(overrides: Partial<Parameters<typeof renderAgentTools>
 }
 
 describe("agents tools panel (browser)", () => {
+  beforeEach(async () => {
+    await i18n.setLocale("en");
+  });
+
+  afterEach(async () => {
+    await i18n.setLocale("vi");
+  });
+
   it("renders per-tool provenance badges and optional marker", async () => {
     const container = document.createElement("div");
     render(
@@ -85,7 +94,7 @@ describe("agents tools panel (browser)", () => {
 
     const text = container.textContent ?? "";
     expect(text).toContain("core");
-    expect(text).toContain("plugin:voice-call");
+    expect(text).toContain("Plugin: voice-call");
     expect(text).toContain("optional");
   });
 
