@@ -1,10 +1,10 @@
 /* @vitest-environment jsdom */
 
 import { render } from "lit";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { i18n } from "../../i18n/index.ts";
 import { getSafeLocalStorage } from "../../local-storage.ts";
-import { renderChatSessionSelect } from "../app-render.helpers.ts";
+import { renderChatSessionSelect, renderTopbarLanguageToggle } from "../app-render.helpers.ts";
 import type { AppViewState } from "../app-view-state.ts";
 import {
   createModelCatalog,
@@ -253,6 +253,10 @@ function createOverviewProps(overrides: Partial<OverviewProps> = {}): OverviewPr
 }
 
 describe("chat view", () => {
+  beforeEach(async () => {
+    await i18n.setLocale("en");
+  });
+
   it("renders BTW side results outside transcript history", () => {
     const container = document.createElement("div");
     render(
@@ -549,7 +553,7 @@ describe("chat view", () => {
     const props = createOverviewProps({
       settings: {
         ...createOverviewProps().settings,
-        locale: "zh-CN",
+        locale: "vi",
       },
     });
 
@@ -561,16 +565,49 @@ describe("chat view", () => {
 
     let select = container.querySelector<HTMLSelectElement>("select");
     expect(i18n.getLocale()).toBe("en");
-    expect(select?.value).toBe("zh-CN");
-    expect(select?.selectedOptions[0]?.textContent?.trim()).toBe("简体中文 (Simplified Chinese)");
+    expect(select?.value).toBe("vi");
+    expect(Array.from(select?.options ?? []).map((option) => option.value)).toEqual(["vi", "en"]);
+    expect(Array.from(select?.options ?? []).map((option) => option.textContent?.trim())).toEqual([
+      "Tiếng Việt",
+      "English",
+    ]);
+    expect(select?.selectedOptions[0]?.textContent?.trim()).toBe("Tiếng Việt");
 
-    await i18n.setLocale("zh-CN");
+    await i18n.setLocale("vi");
     render(renderOverview(props), container);
     await Promise.resolve();
 
     select = container.querySelector<HTMLSelectElement>("select");
-    expect(select?.value).toBe("zh-CN");
-    expect(select?.selectedOptions[0]?.textContent?.trim()).toBe("简体中文 (简体中文)");
+    expect(select?.value).toBe("vi");
+    expect(Array.from(select?.options ?? []).map((option) => option.textContent?.trim())).toEqual([
+      "Tiếng Việt",
+      "Tiếng Anh",
+    ]);
+    expect(select?.selectedOptions[0]?.textContent?.trim()).toBe("Tiếng Việt");
+
+    await i18n.setLocale("en");
+  });
+
+  it("switches the dashboard language from the topbar quick toggle", async () => {
+    const container = document.createElement("div");
+    const { state } = createChatHeaderState();
+    await i18n.setLocale("en");
+
+    render(renderTopbarLanguageToggle(state), container);
+
+    const viButton = container.querySelector<HTMLButtonElement>('[data-locale="vi"]');
+    expect(viButton).not.toBeNull();
+    viButton?.click();
+
+    expect(state.settings.locale).toBe("vi");
+    await vi.waitFor(() => {
+      expect(i18n.getLocale()).toBe("vi");
+    });
+
+    render(renderTopbarLanguageToggle(state), container);
+
+    const activeButton = container.querySelector<HTMLButtonElement>(".topbar-locale__btn--active");
+    expect(activeButton?.dataset.locale).toBe("vi");
 
     await i18n.setLocale("en");
   });

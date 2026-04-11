@@ -2,6 +2,7 @@
 
 import { render } from "lit";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { i18n } from "../../i18n/lib/translate.ts";
 import type { SkillStatusEntry, SkillStatusReport } from "../types.ts";
 import { renderSkills, type SkillsProps } from "./skills.ts";
 
@@ -98,7 +99,12 @@ describe("renderSkills", () => {
     }
   });
 
+  afterEach(async () => {
+    await i18n.setLocale("vi");
+  });
+
   it("opens the skill detail dialog as a modal", async () => {
+    await i18n.setLocale("en");
     const container = document.createElement("div");
     const showModal = vi.fn(function (this: HTMLDialogElement) {
       this.setAttribute("open", "");
@@ -120,6 +126,7 @@ describe("renderSkills", () => {
   });
 
   it("closes the skill detail dialog through the dialog close event", async () => {
+    await i18n.setLocale("en");
     const container = document.createElement("div");
     const onDetailClose = vi.fn();
 
@@ -148,6 +155,7 @@ describe("renderSkills", () => {
   });
 
   it("renders ClawHub search results and routes detail/install actions", async () => {
+    await i18n.setLocale("en");
     const container = document.createElement("div");
     const onClawHubDetailOpen = vi.fn();
     const onClawHubInstall = vi.fn();
@@ -190,6 +198,7 @@ describe("renderSkills", () => {
   });
 
   it("opens the ClawHub detail dialog and renders install feedback", async () => {
+    await i18n.setLocale("en");
     const container = document.createElement("div");
     const showModal = vi.fn(function (this: HTMLDialogElement) {
       this.setAttribute("open", "");

@@ -165,6 +165,7 @@ describe("control UI routing", () => {
     expect(app.querySelector(".topnav-shell")).not.toBeNull();
     expect(app.querySelector(".topnav-shell__content")).not.toBeNull();
     expect(app.querySelector(".topnav-shell__actions")).not.toBeNull();
+    expect(app.querySelector(".topbar-locale")).not.toBeNull();
     expect(app.querySelector(".topnav-shell .brand-title")).toBeNull();
   });
 
