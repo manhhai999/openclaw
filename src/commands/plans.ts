@@ -1,10 +1,11 @@
+import { callGateway } from "../gateway/call.js";
+import type { PlansGetResult, PlansListResult } from "../gateway/protocol/index.js";
 import { info } from "../globals.js";
-import { getPlanById, listPlanRecords, updatePlanStatus } from "../plans/plan-registry.js";
 import { summarizePlanRecords } from "../plans/plan-registry.summary.js";
-import {
-  isPlanStatusTransitionError,
-  type PlanRecord,
-  type PlanRecordStatus,
+import type {
+  PlanRecord,
+  PlanRecordStatus,
+  PlansUpdateStatusResult,
 } from "../plans/plan-registry.types.js";
 import type { RuntimeEnv } from "../runtime.js";
 import { normalizeOptionalString } from "../shared/string-coerce.js";
@@ -75,17 +76,44 @@ function formatPlanListSummary(plans: PlanRecord[]) {
   return `${summary.byStatus.draft} draft · ${summary.byStatus.ready_for_review} ready · ${summary.byStatus.approved} approved`;
 }
 
+function isUnknownPlanIdError(error: unknown, planId: string): boolean {
+  return error instanceof Error && error.message === `unknown plan id "${planId}"`;
+}
+
+async function listPlansViaGateway(status?: PlanRecordStatus): Promise<PlansListResult> {
+  return await callGateway<PlansListResult>({
+    method: "plans.list",
+    params: status ? { status } : {},
+  });
+}
+
+async function resolvePlanLookupViaGateway(lookup: string): Promise<PlanRecord | null> {
+  try {
+    const result = await callGateway<PlansGetResult>({
+      method: "plans.get",
+      params: { planId: lookup },
+    });
+    return result.plan;
+  } catch (error) {
+    if (!isUnknownPlanIdError(error, lookup)) {
+      throw error;
+    }
+  }
+
+  const result = await listPlansViaGateway();
+  return (
+    result.plans.find((candidate) => candidate.planId === lookup || candidate.title === lookup) ??
+    null
+  );
+}
+
 export async function plansListCommand(
   opts: { json?: boolean; status?: string },
   runtime: RuntimeEnv,
 ) {
-  const statusFilter = normalizeOptionalString(opts.status);
-  const plans = listPlanRecords().filter((plan) => {
-    if (statusFilter && plan.status !== statusFilter) {
-      return false;
-    }
-    return true;
-  });
+  const statusFilter = normalizeOptionalString(opts.status) as PlanRecordStatus | undefined;
+  const result = await listPlansViaGateway(statusFilter);
+  const plans = result.plans;
 
   if (opts.json) {
     runtime.log(
@@ -93,6 +121,7 @@ export async function plansListCommand(
         {
           count: plans.length,
           status: statusFilter ?? null,
+          summary: result.summary,
           plans,
         },
         null,
@@ -122,25 +151,25 @@ export async function plansSetStatusCommand(
   runtime: RuntimeEnv,
 ) {
   const lookup = opts.lookup.trim();
-  const plan = listPlanRecords().find(
-    (candidate) => candidate.planId === lookup || candidate.title === lookup,
-  );
-  const resolved = plan ? getPlanById(plan.planId) : getPlanById(lookup);
+  const resolved = await resolvePlanLookupViaGateway(lookup);
   if (!resolved) {
     runtime.error(`Plan not found: ${opts.lookup}`);
     runtime.exit(1);
     return;
   }
   try {
-    const result = updatePlanStatus({
-      planId: resolved.planId,
-      status: opts.status,
+    const result = await callGateway<PlansUpdateStatusResult>({
+      method: "plans.updateStatus",
+      params: {
+        planId: resolved.planId,
+        status: opts.status,
+      },
     });
     runtime.log(
       `Updated ${result.plan.planId} status from ${result.previousStatus} to ${result.plan.status}.`,
     );
   } catch (error) {
-    if (isPlanStatusTransitionError(error)) {
+    if (error instanceof Error) {
       runtime.error(error.message);
       runtime.exit(1);
       return;
@@ -154,10 +183,7 @@ export async function plansShowCommand(
   runtime: RuntimeEnv,
 ) {
   const lookup = opts.lookup.trim();
-  const plan = listPlanRecords().find(
-    (candidate) => candidate.planId === lookup || candidate.title === lookup,
-  );
-  const resolved = plan ? getPlanById(plan.planId) : getPlanById(lookup);
+  const resolved = await resolvePlanLookupViaGateway(lookup);
   if (!resolved) {
     runtime.error(`Plan not found: ${opts.lookup}`);
     runtime.exit(1);
