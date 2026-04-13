@@ -150,6 +150,7 @@ export const uk: TranslationMap = {
   tabs: {
     agents: "Агенти",
     overview: "Огляд",
+    plans: "Плани",
     channels: "Канали",
     instances: "Екземпляри",
     sessions: "Сеанси",
@@ -171,6 +172,7 @@ export const uk: TranslationMap = {
   subtitles: {
     agents: "Робочі простори, інструменти, ідентичності.",
     overview: "Стан, точки входу, справність.",
+    plans: "Огляд планів оркестрації та керування життєвим циклом.",
     channels: "Канали та налаштування.",
     instances: "Підключені клієнти та вузли.",
     sessions: "Активні сеанси та типові значення.",

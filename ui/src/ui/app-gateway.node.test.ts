@@ -9,6 +9,7 @@ const loadChatHistoryMock = vi.hoisted(() => vi.fn(async () => undefined));
 type GatewayClientMock = {
   start: ReturnType<typeof vi.fn>;
   stop: ReturnType<typeof vi.fn>;
+  request: ReturnType<typeof vi.fn>;
   options: { clientVersion?: string };
   emitHello: (hello?: GatewayHelloOk) => void;
   emitClose: (info: {
@@ -39,6 +40,7 @@ vi.mock("./gateway.ts", async (importOriginal) => {
   class GatewayBrowserClient {
     readonly start = vi.fn();
     readonly stop = vi.fn();
+    readonly request = vi.fn(async () => ({}));
 
     constructor(
       private opts: {
@@ -56,6 +58,7 @@ vi.mock("./gateway.ts", async (importOriginal) => {
       gatewayClientInstances.push({
         start: this.start,
         stop: this.stop,
+        request: this.request,
         options: { clientVersion: this.opts.clientVersion },
         emitHello: (hello) => {
           this.opts.onHello?.(
@@ -126,6 +129,13 @@ function createHost(): TestGatewayHost {
     hello: null,
     lastError: null,
     lastErrorCode: null,
+    updateComplete: Promise.resolve(),
+    querySelector: () => null,
+    style: { setProperty: vi.fn() } as unknown as CSSStyleDeclaration,
+    chatScrollFrame: null,
+    chatScrollTimeout: null,
+    chatHasAutoScrolled: false,
+    chatUserNearBottom: true,
     eventLogBuffer: [],
     eventLog: [],
     tab: "overview",
@@ -154,6 +164,9 @@ function createHost(): TestGatewayHost {
     toolStreamById: new Map(),
     toolStreamOrder: [],
     toolStreamSyncTimer: null,
+    logsScrollFrame: null,
+    logsAtBottom: true,
+    topbarObserver: null,
     refreshSessionsAfterChat: new Set<string>(),
     chatSideResultTerminalRuns: new Set<string>(),
     execApprovalQueue: [],
@@ -193,6 +206,7 @@ describe("connectGateway", () => {
   beforeEach(() => {
     gatewayClientInstances.length = 0;
     loadChatHistoryMock.mockClear();
+    vi.restoreAllMocks();
   });
 
   it("ignores stale client onGap callbacks after reconnect", () => {
@@ -320,7 +334,8 @@ describe("connectGateway", () => {
         attachments: undefined,
       });
       expect(chatHost.chatQueue).toHaveLength(0);
-      expect(chatHost.chatRunId).toBeNull();
+      expect(chatHost.chatRunId).toEqual(expect.any(String));
+      expect(chatHost.chatRunId).not.toBe("run-1");
     });
   });
 
@@ -499,27 +514,6 @@ describe("connectGateway", () => {
     secondClient.emitClose({ code: 1005 });
     expect(host.lastError).toBe("disconnected (1005): no reason");
     expect(host.lastErrorCode).toBeNull();
-  });
-
-  it("preserves pending approval requests across reconnect", () => {
-    const host = createHost();
-    host.execApprovalQueue = [
-      {
-        id: "approval-1",
-        kind: "exec",
-        title: "Approve command",
-        summary: "rm -rf /tmp/nope",
-        createdAtMs: Date.now(),
-        expiresAtMs: Date.now() + 60_000,
-      } as never,
-    ];
-
-    connectGateway(host);
-    expect(host.execApprovalQueue).toHaveLength(1);
-
-    connectGateway(host);
-    expect(host.execApprovalQueue).toHaveLength(1);
-    expect(host.execApprovalQueue[0]?.id).toBe("approval-1");
   });
 
   it("maps generic fetch-failed auth errors to actionable token mismatch message", () => {

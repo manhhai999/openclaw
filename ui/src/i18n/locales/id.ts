@@ -149,6 +149,7 @@ export const id: TranslationMap = {
   tabs: {
     agents: "Agen",
     overview: "Ikhtisar",
+    plans: "Rencana",
     channels: "Saluran",
     instances: "Instans",
     sessions: "Sesi",
@@ -170,6 +171,7 @@ export const id: TranslationMap = {
   subtitles: {
     agents: "Ruang kerja, alat, identitas.",
     overview: "Status, titik masuk, kesehatan.",
+    plans: "Inspeksi rencana orkestrasi dan kontrol siklus hidup.",
     channels: "Saluran dan pengaturan.",
     instances: "Klien dan node yang terhubung.",
     sessions: "Sesi aktif dan default.",

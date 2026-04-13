@@ -149,6 +149,7 @@ export const pt_BR: TranslationMap = {
   tabs: {
     agents: "Agentes",
     overview: "Visão Geral",
+    plans: "Planos",
     channels: "Canais",
     instances: "Instâncias",
     sessions: "Sessões",
@@ -170,6 +171,7 @@ export const pt_BR: TranslationMap = {
   subtitles: {
     agents: "Espaços, ferramentas, identidades.",
     overview: "Status, entrada, saúde.",
+    plans: "Inspeção de planos de orquestração e controles de ciclo de vida.",
     channels: "Canais e configurações.",
     instances: "Clientes e nós conectados.",
     sessions: "Sessões ativas e padrões.",
