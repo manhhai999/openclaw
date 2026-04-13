@@ -9,6 +9,7 @@ const loadChatHistoryMock = vi.hoisted(() => vi.fn(async () => undefined));
 type GatewayClientMock = {
   start: ReturnType<typeof vi.fn>;
   stop: ReturnType<typeof vi.fn>;
+  request: ReturnType<typeof vi.fn>;
   options: { clientVersion?: string };
   emitHello: (hello?: GatewayHelloOk) => void;
   emitClose: (info: {
@@ -39,6 +40,7 @@ vi.mock("./gateway.ts", async (importOriginal) => {
   class GatewayBrowserClient {
     readonly start = vi.fn();
     readonly stop = vi.fn();
+    readonly request = vi.fn(async () => ({}));
 
     constructor(
       private opts: {
@@ -56,6 +58,7 @@ vi.mock("./gateway.ts", async (importOriginal) => {
       gatewayClientInstances.push({
         start: this.start,
         stop: this.stop,
+        request: this.request,
         options: { clientVersion: this.opts.clientVersion },
         emitHello: (hello) => {
           this.opts.onHello?.(
@@ -319,9 +322,10 @@ describe("connectGateway", () => {
         idempotencyKey: expect.any(String),
         attachments: undefined,
       });
-      expect(chatHost.chatQueue).toHaveLength(0);
-      expect(chatHost.chatRunId).toBeNull();
     });
+    expect(chatHost.chatQueue).toHaveLength(0);
+    expect(chatHost.chatRunId).toEqual(expect.any(String));
+    expect(chatHost.chatRunId).not.toBe("run-1");
   });
 
   it("rehydrates pending plugin approvals after a normal reconnect hello", async () => {
@@ -501,7 +505,7 @@ describe("connectGateway", () => {
     expect(host.lastErrorCode).toBeNull();
   });
 
-  it("preserves pending approval requests across reconnect", () => {
+  it("clears stale local approval prompts on fresh connect", () => {
     const host = createHost();
     host.execApprovalQueue = [
       {
@@ -515,11 +519,7 @@ describe("connectGateway", () => {
     ];
 
     connectGateway(host);
-    expect(host.execApprovalQueue).toHaveLength(1);
-
-    connectGateway(host);
-    expect(host.execApprovalQueue).toHaveLength(1);
-    expect(host.execApprovalQueue[0]?.id).toBe("approval-1");
+    expect(host.execApprovalQueue).toEqual([]);
   });
 
   it("maps generic fetch-failed auth errors to actionable token mismatch message", () => {
