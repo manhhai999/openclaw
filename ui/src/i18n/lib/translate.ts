@@ -60,7 +60,14 @@ class I18nManager {
 
   private loadLocale() {
     const initialLocale = this.resolveInitialLocale();
-    this.locale = initialLocale;
+    if (initialLocale === DEFAULT_LOCALE || initialLocale === DEFAULT_APP_LOCALE) {
+      this.locale = initialLocale;
+      return;
+    }
+
+    // Use the standard setter so persisted lazy locales load their translations
+    // during startup instead of falling back to the eagerly loaded defaults.
+    void this.setLocale(initialLocale);
   }
 
   public getLocale(): Locale {

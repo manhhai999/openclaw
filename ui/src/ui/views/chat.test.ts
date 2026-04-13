@@ -2,7 +2,7 @@
 
 import { render } from "lit";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { i18n } from "../../i18n/index.ts";
+import { i18n, SUPPORTED_LOCALES } from "../../i18n/index.ts";
 import { getSafeLocalStorage } from "../../local-storage.ts";
 import { renderChatSessionSelect, renderTopbarLanguageToggle } from "../app-render.helpers.ts";
 import type { AppViewState } from "../app-view-state.ts";
@@ -582,11 +582,14 @@ describe("chat view", () => {
     let select = container.querySelector<HTMLSelectElement>("select");
     expect(i18n.getLocale()).toBe("en");
     expect(select?.value).toBe("vi");
-    expect(Array.from(select?.options ?? []).map((option) => option.value)).toEqual(["vi", "en"]);
-    expect(Array.from(select?.options ?? []).map((option) => option.textContent?.trim())).toEqual([
+    const englishOptions = Array.from(select?.options ?? []);
+    expect(englishOptions.map((option) => option.value)).toEqual([...SUPPORTED_LOCALES]);
+    expect(englishOptions.find((option) => option.value === "vi")?.textContent?.trim()).toBe(
       "Tiếng Việt",
+    );
+    expect(englishOptions.find((option) => option.value === "en")?.textContent?.trim()).toBe(
       "English",
-    ]);
+    );
     expect(select?.selectedOptions[0]?.textContent?.trim()).toBe("Tiếng Việt");
 
     await i18n.setLocale("vi");
@@ -595,10 +598,14 @@ describe("chat view", () => {
 
     select = container.querySelector<HTMLSelectElement>("select");
     expect(select?.value).toBe("vi");
-    expect(Array.from(select?.options ?? []).map((option) => option.textContent?.trim())).toEqual([
+    const vietnameseOptions = Array.from(select?.options ?? []);
+    expect(vietnameseOptions.map((option) => option.value)).toEqual([...SUPPORTED_LOCALES]);
+    expect(vietnameseOptions.find((option) => option.value === "vi")?.textContent?.trim()).toBe(
       "Tiếng Việt",
+    );
+    expect(vietnameseOptions.find((option) => option.value === "en")?.textContent?.trim()).toBe(
       "Tiếng Anh",
-    ]);
+    );
     expect(select?.selectedOptions[0]?.textContent?.trim()).toBe("Tiếng Việt");
 
     await i18n.setLocale("en");
