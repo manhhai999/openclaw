@@ -1,12 +1,10 @@
 import { Type } from "@sinclair/typebox";
 import type { OpenClawConfig } from "../../config/config.js";
 import { callGateway } from "../../gateway/call.js";
-import { loadSessionEntry } from "../../gateway/session-utils.js";
 import {
   describeExitWorktreeTool,
   EXIT_WORKTREE_TOOL_DISPLAY_SUMMARY,
 } from "../tool-description-presets.js";
-import { removeSessionWorktree } from "../worktree-runtime.js";
 import type { AnyAgentTool } from "./common.js";
 import { jsonResult, ToolInputError } from "./common.js";
 
@@ -45,70 +43,43 @@ export function createExitWorktreeTool(opts: {
         throw new ToolInputError("agent session key required");
       }
 
-      const loaded = loadSessionEntry(sessionKey);
-      const artifact = loaded.entry?.worktreeArtifact;
-      if (!artifact?.worktreeDir) {
-        return jsonResult({
-          status: "inactive",
-          sessionKey,
-          removed: false,
-        });
-      }
-
-      const cleanup =
-        params.cleanup === "remove"
-          ? "remove"
-          : params.cleanup === "keep"
-            ? "keep"
-            : (artifact.cleanupPolicy ?? "keep");
-      const now = Date.now();
-      let nextStatus = cleanup === "remove" ? "removed" : "closed";
-      let removed = false;
-      let dirty = false;
-      let error: string | undefined;
-
-      if (cleanup === "remove") {
-        const removal = await removeSessionWorktree({
-          repoRoot: artifact.repoRoot,
-          worktreeDir: artifact.worktreeDir,
-          force: params.force === true,
-        });
-        removed = removal.removed;
-        dirty = removal.dirty;
-        error = removal.error;
-        if (!removed) {
-          nextStatus = "remove_failed";
-        }
-      }
-
       const gatewayCall = opts.callGateway ?? callGateway;
-      await gatewayCall({
-        method: "sessions.patch",
+      const result = await gatewayCall({
+        requiredMethods: ["sessions.control"],
+        method: "sessions.control",
         params: {
           key: sessionKey,
-          worktreeMode: "inactive",
-          worktreeArtifact: {
-            ...artifact,
-            cleanupPolicy: cleanup,
-            status: nextStatus,
-            updatedAt: now,
-            exitedAt: now,
-            ...(error ? { lastError: error } : {}),
+          worktree: {
+            exit: true,
+            ...(params.cleanup === "remove" || params.cleanup === "keep"
+              ? { cleanup: params.cleanup }
+              : {}),
+            ...(params.force === true ? { force: true } : {}),
           },
         },
         config: opts.config,
       });
+      const actions =
+        result.actions && typeof result.actions === "object"
+          ? (result.actions as Record<string, unknown>)
+          : undefined;
+      const worktree =
+        actions?.worktree && typeof actions.worktree === "object"
+          ? (actions.worktree as Record<string, unknown>)
+          : undefined;
 
       return jsonResult({
-        status: "inactive",
-        sessionKey,
-        cleanup,
-        removed,
-        dirty,
-        error,
-        previousWorktreeDir: artifact.worktreeDir,
-        resumedWorkspaceDir: artifact.cwdBefore ?? artifact.repoRoot,
-        effectiveOnNextTurn: true,
+        status: typeof worktree?.status === "string" ? worktree.status : "inactive",
+        sessionKey: typeof result.key === "string" ? result.key : sessionKey,
+        cleanup: typeof worktree?.cleanup === "string" ? worktree.cleanup : params.cleanup,
+        removed: worktree?.removed === true,
+        dirty: worktree?.dirty === true,
+        ...(typeof worktree?.error === "string" ? { error: worktree.error } : {}),
+        previousWorktreeDir:
+          typeof worktree?.previousWorktreeDir === "string" ? worktree.previousWorktreeDir : null,
+        resumedWorkspaceDir:
+          typeof worktree?.resumedWorkspaceDir === "string" ? worktree.resumedWorkspaceDir : null,
+        effectiveOnNextTurn: worktree?.effectiveOnNextTurn !== false,
       });
     },
   };

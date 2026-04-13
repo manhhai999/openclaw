@@ -313,4 +313,118 @@ describe("sessions inspect/control handlers", () => {
       undefined,
     );
   });
+
+  it("persists inactive worktree state before destructive removal", async () => {
+    const respond = vi.fn() as unknown as RespondFn;
+    let sawInactivePatchBeforeRemoval = false;
+
+    hoisted.applySessionsPatchToStoreMock.mockImplementation(
+      async ({ patch }: { patch: Record<string, unknown> }) => {
+        currentEntry = {
+          ...currentEntry,
+          ...(patch.worktreeMode !== undefined ? { worktreeMode: patch.worktreeMode } : {}),
+          ...(patch.worktreeArtifact ? { worktreeArtifact: patch.worktreeArtifact } : {}),
+        };
+        if (
+          currentEntry.worktreeMode === "inactive" &&
+          (currentEntry.worktreeArtifact as { status?: string } | undefined)?.status === "closed"
+        ) {
+          sawInactivePatchBeforeRemoval = true;
+        }
+        return {
+          ok: true,
+          entry: currentEntry,
+        };
+      },
+    );
+    hoisted.removeSessionWorktreeMock.mockImplementation(async () => {
+      expect(sawInactivePatchBeforeRemoval).toBe(true);
+      expect(currentEntry.worktreeMode).toBe("inactive");
+      expect((currentEntry.worktreeArtifact as { status?: string } | undefined)?.status).toBe(
+        "closed",
+      );
+      return {
+        removed: true,
+        dirty: false,
+        error: undefined,
+      };
+    });
+
+    await sessionsHandlers["sessions.control"]({
+      req: { id: "req-3" } as never,
+      params: {
+        key: "main",
+        worktree: { exit: true, cleanup: "remove", force: true },
+      },
+      respond,
+      context: createContext(),
+      client: null,
+      isWebchatConnect: () => false,
+    });
+
+    expect(respond).toHaveBeenCalledWith(
+      true,
+      expect.objectContaining({
+        ok: true,
+        actions: expect.objectContaining({
+          worktree: expect.objectContaining({
+            cleanup: "remove",
+            removed: true,
+          }),
+        }),
+      }),
+      undefined,
+    );
+  });
+
+  it("keeps the session inactive if final worktree status persistence fails after removal", async () => {
+    const respond = vi.fn() as unknown as RespondFn;
+    let worktreePatchCount = 0;
+
+    hoisted.applySessionsPatchToStoreMock.mockImplementation(
+      async ({ patch }: { patch: Record<string, unknown> }) => {
+        if (patch.worktreeMode !== undefined || patch.worktreeArtifact !== undefined) {
+          worktreePatchCount += 1;
+        }
+        if (worktreePatchCount === 2) {
+          return {
+            ok: false,
+            error: { code: "INVALID_REQUEST", message: "persist failed" },
+          };
+        }
+        currentEntry = {
+          ...currentEntry,
+          ...(patch.worktreeMode !== undefined ? { worktreeMode: patch.worktreeMode } : {}),
+          ...(patch.worktreeArtifact ? { worktreeArtifact: patch.worktreeArtifact } : {}),
+        };
+        return {
+          ok: true,
+          entry: currentEntry,
+        };
+      },
+    );
+
+    await sessionsHandlers["sessions.control"]({
+      req: { id: "req-4" } as never,
+      params: {
+        key: "main",
+        worktree: { exit: true, cleanup: "remove", force: true },
+      },
+      respond,
+      context: createContext(),
+      client: null,
+      isWebchatConnect: () => false,
+    });
+
+    expect(hoisted.removeSessionWorktreeMock).toHaveBeenCalledTimes(1);
+    expect(currentEntry.worktreeMode).toBe("inactive");
+    expect((currentEntry.worktreeArtifact as { status?: string } | undefined)?.status).toBe(
+      "closed",
+    );
+    expect(respond).toHaveBeenCalledWith(
+      false,
+      undefined,
+      expect.objectContaining({ message: "persist failed" }),
+    );
+  });
 });

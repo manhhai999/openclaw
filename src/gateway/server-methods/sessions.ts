@@ -1601,6 +1601,27 @@ export const sessionsHandlers: GatewayRequestHandlers = {
               ? "keep"
               : (artifact.cleanupPolicy ?? "keep");
         const now = Date.now();
+        const deactivatedArtifact = {
+          ...artifact,
+          cleanupPolicy: cleanup,
+          status: "closed" as const,
+          updatedAt: now,
+          exitedAt: now,
+        };
+        const deactivated = await applySessionPatchMutation({
+          key: loaded.canonicalKey,
+          patch: {
+            worktreeMode: "inactive",
+            worktreeArtifact: deactivatedArtifact,
+          },
+          context,
+        });
+        if (!deactivated.ok) {
+          respond(false, undefined, deactivated.error);
+          return;
+        }
+        latestEntry = deactivated.result.entry;
+
         let nextStatus = cleanup === "remove" ? "removed" : "closed";
         let removed = false;
         let dirty = false;
@@ -1618,28 +1639,27 @@ export const sessionsHandlers: GatewayRequestHandlers = {
           if (!removed) {
             nextStatus = "remove_failed";
           }
-        }
 
-        const applied = await applySessionPatchMutation({
-          key: loaded.canonicalKey,
-          patch: {
-            worktreeMode: "inactive",
-            worktreeArtifact: {
-              ...artifact,
-              cleanupPolicy: cleanup,
-              status: nextStatus,
-              updatedAt: now,
-              exitedAt: now,
-              ...(error ? { lastError: error } : {}),
+          const finalized = await applySessionPatchMutation({
+            key: loaded.canonicalKey,
+            patch: {
+              worktreeArtifact: {
+                ...(latestEntry.worktreeArtifact ?? deactivatedArtifact),
+                cleanupPolicy: cleanup,
+                status: nextStatus,
+                updatedAt: Date.now(),
+                exitedAt: now,
+                ...(error ? { lastError: error } : {}),
+              },
             },
-          },
-          context,
-        });
-        if (!applied.ok) {
-          respond(false, undefined, applied.error);
-          return;
+            context,
+          });
+          if (!finalized.ok) {
+            respond(false, undefined, finalized.error);
+            return;
+          }
+          latestEntry = finalized.result.entry;
         }
-        latestEntry = applied.result.entry;
         actions.worktree = {
           status: latestEntry.worktreeMode ?? "inactive",
           cleanup,

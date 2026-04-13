@@ -10,12 +10,6 @@ const hoisted = vi.hoisted(() => ({
   entry: undefined as Record<string, unknown> | undefined,
 }));
 
-vi.mock("../../gateway/session-utils.js", () => ({
-  loadSessionEntry: () => ({
-    entry: hoisted.entry,
-  }),
-}));
-
 vi.mock("../../gateway/call.js", () => ({
   callGateway: (opts: unknown) => hoisted.callGatewayMock(opts),
 }));
@@ -88,19 +82,20 @@ describe("worktree tools", () => {
   });
 
   it("deactivates the worktree even when removal is skipped for dirty changes", async () => {
-    hoisted.entry = {
-      worktreeMode: "active",
-      worktreeArtifact: {
-        repoRoot: "/repo",
-        worktreeDir: "/repo/.openclaw-worktrees/main",
-        cleanupPolicy: "remove",
-        createdAt: 10,
+    hoisted.callGatewayMock.mockResolvedValue({
+      key: "agent:main:main",
+      actions: {
+        worktree: {
+          status: "inactive",
+          cleanup: "remove",
+          removed: false,
+          dirty: true,
+          error: "dirty checkout",
+          previousWorktreeDir: "/repo/.openclaw-worktrees/main",
+          resumedWorkspaceDir: "/repo",
+          effectiveOnNextTurn: true,
+        },
       },
-    };
-    hoisted.removeSessionWorktreeMock.mockResolvedValue({
-      removed: false,
-      dirty: true,
-      error: "dirty checkout",
     });
 
     const tool = createExitWorktreeTool({
@@ -112,24 +107,19 @@ describe("worktree tools", () => {
       cleanup: "remove",
     });
 
-    expect(hoisted.removeSessionWorktreeMock).toHaveBeenCalledWith({
-      repoRoot: "/repo",
-      worktreeDir: "/repo/.openclaw-worktrees/main",
-      force: false,
-    });
     expect(hoisted.callGatewayMock).toHaveBeenCalledWith(
       expect.objectContaining({
-        method: "sessions.patch",
+        method: "sessions.control",
         params: expect.objectContaining({
           key: "agent:main:main",
-          worktreeMode: "inactive",
-          worktreeArtifact: expect.objectContaining({
-            status: "remove_failed",
-            lastError: "dirty checkout",
+          worktree: expect.objectContaining({
+            exit: true,
+            cleanup: "remove",
           }),
         }),
       }),
     );
+    expect(hoisted.removeSessionWorktreeMock).not.toHaveBeenCalled();
     expect(result.details).toMatchObject({
       status: "inactive",
       removed: false,
