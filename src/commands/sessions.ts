@@ -2,6 +2,7 @@ import { lookupContextTokens } from "../agents/context.js";
 import { DEFAULT_CONTEXT_TOKENS } from "../agents/defaults.js";
 import { loadConfig } from "../config/config.js";
 import { loadSessionStore, resolveFreshSessionTotalTokens } from "../config/sessions.js";
+import type { CallGatewayOptions } from "../gateway/call.js";
 import { classifySessionKey } from "../gateway/session-utils.js";
 import { info } from "../globals.js";
 import { parseAgentSessionKey } from "../routing/session-key.js";
@@ -21,6 +22,13 @@ import {
   type SessionDisplayRow,
   toSessionDisplayRows,
 } from "./sessions-table.js";
+
+let gatewayCallModulePromise: Promise<typeof import("../gateway/call.js")> | undefined;
+
+function loadGatewayCallModule() {
+  gatewayCallModulePromise ??= import("../gateway/call.js");
+  return gatewayCallModulePromise;
+}
 
 type SessionRow = SessionDisplayRow & {
   agentId: string;
@@ -217,5 +225,265 @@ export async function sessionsCommand(
     ].join(" ");
 
     runtime.log(line.trimEnd());
+  }
+}
+
+function formatMaybeValue(value: unknown): string {
+  if (value === null || value === undefined || value === "") {
+    return "n/a";
+  }
+  if (typeof value === "object") {
+    return JSON.stringify(value);
+  }
+  if (typeof value === "string") {
+    return value;
+  }
+  if (typeof value === "number" || typeof value === "boolean" || typeof value === "bigint") {
+    return `${value}`;
+  }
+  if (typeof value === "symbol") {
+    return value.description ? `Symbol(${value.description})` : "Symbol()";
+  }
+  if (typeof value === "function") {
+    return "[function]";
+  }
+  return "n/a";
+}
+
+function formatInspectCounts(value: unknown): string {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return "n/a";
+  }
+  const entries = Object.entries(value)
+    .filter(([, count]) => typeof count === "number" && count > 0)
+    .map(([status, count]) => `${status}=${count}`);
+  return entries.length > 0 ? entries.join(", ") : "none";
+}
+
+function logInspectSection(
+  runtime: RuntimeEnv,
+  heading: string,
+  lines: Array<[label: string, value: unknown]>,
+) {
+  runtime.log(theme.heading(heading));
+  for (const [label, value] of lines) {
+    runtime.log(`${label}: ${formatMaybeValue(value)}`);
+  }
+}
+
+async function callGatewayForSessions<T>(options: CallGatewayOptions): Promise<T> {
+  const { callGateway } = await loadGatewayCallModule();
+  return await callGateway<T>(options);
+}
+
+export async function sessionsInspectCommand(
+  opts: { key: string; json?: boolean; timeoutMs?: number },
+  runtime: RuntimeEnv,
+) {
+  const payload = await callGatewayForSessions<Record<string, unknown>>({
+    method: "sessions.inspect",
+    params: {
+      key: opts.key,
+    },
+    timeoutMs: opts.timeoutMs,
+  });
+
+  if (opts.json) {
+    writeRuntimeJson(runtime, payload);
+    return;
+  }
+
+  const session = (payload.session ?? null) as Record<string, unknown> | null;
+  const plan = (payload.plan ?? null) as Record<string, unknown> | null;
+  const worktree = (payload.worktree ?? null) as Record<string, unknown> | null;
+  const team = (payload.team ?? null) as Record<string, unknown> | null;
+  const policy = (payload.policy ?? null) as Record<string, unknown> | null;
+
+  runtime.log(info(`Session: ${formatMaybeValue(payload.key)}`));
+  runtime.log(info(`Exists: ${payload.exists === true ? "yes" : "no"}`));
+
+  if (session) {
+    logInspectSection(runtime, "Session", [
+      ["sessionId", session.sessionId],
+      ["status", session.status],
+      ["label", session.label],
+      ["displayName", session.displayName],
+      ["model", [session.modelProvider, session.model].filter(Boolean).join("/") || session.model],
+      ["kind", session.kind],
+      ["spawnedBy", session.spawnedBy],
+      ["spawnedWorkspaceDir", session.spawnedWorkspaceDir],
+      ["parentSessionKey", session.parentSessionKey],
+      ["spawnDepth", session.spawnDepth],
+      ["subagentRole", session.subagentRole],
+      ["subagentControlScope", session.subagentControlScope],
+    ]);
+  }
+
+  if (plan) {
+    const artifact = (plan.artifact ?? null) as Record<string, unknown> | null;
+    logInspectSection(runtime, "Plan", [
+      ["mode", plan.mode],
+      ["status", artifact?.status],
+      ["goal", artifact?.goal],
+      ["summary", artifact?.summary],
+      ["lastExplanation", artifact?.lastExplanation],
+      ["steps", Array.isArray(artifact?.steps) ? artifact?.steps.length : 0],
+    ]);
+  }
+
+  if (worktree) {
+    const artifact = (worktree.artifact ?? null) as Record<string, unknown> | null;
+    logInspectSection(runtime, "Worktree", [
+      ["mode", worktree.mode],
+      ["status", artifact?.status],
+      ["repoRoot", artifact?.repoRoot],
+      ["worktreeDir", artifact?.worktreeDir],
+      ["branch", artifact?.branch],
+      ["cleanupPolicy", artifact?.cleanupPolicy],
+      ["preferredWorkspaceDir", worktree.preferredWorkspaceDir],
+      ["lastError", artifact?.lastError],
+    ]);
+  }
+
+  if (team) {
+    logInspectSection(runtime, "Team", [
+      ["teamId", team.teamId],
+      ["flowStatus", team.flowStatus],
+      ["currentStep", team.currentStep],
+      ["summary", team.summary],
+      ["activeWorkers", team.activeWorkers],
+      ["counts", formatInspectCounts(team.counts)],
+      ["worktreeDir", team.worktreeDir],
+    ]);
+  }
+
+  if (policy) {
+    logInspectSection(runtime, "Policy", [
+      ["sendPolicy", policy.sendPolicy],
+      ["groupActivation", policy.groupActivation],
+      ["execHost", policy.execHost],
+      ["execSecurity", policy.execSecurity],
+      ["execAsk", policy.execAsk],
+      ["execNode", policy.execNode],
+      ["responseUsage", policy.responseUsage],
+    ]);
+  }
+}
+
+export async function sessionsControlCommand(
+  opts: {
+    key: string;
+    json?: boolean;
+    timeoutMs?: number;
+    exitPlan?: boolean;
+    planStatus?: string;
+    planSummary?: string;
+    approved?: boolean;
+    exitWorktree?: boolean;
+    cleanup?: string;
+    force?: boolean;
+    closeTeam?: boolean;
+    teamId?: string;
+    teamSummary?: string;
+    cancelActive?: boolean;
+  },
+  runtime: RuntimeEnv,
+) {
+  const planRequested = opts.exitPlan === true;
+  const worktreeRequested = opts.exitWorktree === true;
+  const teamRequested = opts.closeTeam === true;
+  if (!planRequested && !worktreeRequested && !teamRequested) {
+    runtime.error(
+      "sessions control needs at least one action: --exit-plan, --exit-worktree, or --close-team",
+    );
+    runtime.exit(1);
+    return;
+  }
+
+  if (
+    opts.planStatus !== undefined &&
+    opts.planStatus !== "completed" &&
+    opts.planStatus !== "cancelled"
+  ) {
+    runtime.error('--plan-status must be "completed" or "cancelled"');
+    runtime.exit(1);
+    return;
+  }
+  if (opts.cleanup !== undefined && opts.cleanup !== "keep" && opts.cleanup !== "remove") {
+    runtime.error('--cleanup must be "keep" or "remove"');
+    runtime.exit(1);
+    return;
+  }
+
+  const payload = await callGatewayForSessions<Record<string, unknown>>({
+    method: "sessions.control",
+    params: {
+      key: opts.key,
+      ...(planRequested
+        ? {
+            plan: {
+              exit: true,
+              ...(opts.planStatus ? { status: opts.planStatus } : {}),
+              ...(opts.planSummary ? { summary: opts.planSummary } : {}),
+              ...(opts.approved === true ? { approved: true } : {}),
+            },
+          }
+        : {}),
+      ...(worktreeRequested
+        ? {
+            worktree: {
+              exit: true,
+              ...(opts.cleanup ? { cleanup: opts.cleanup } : {}),
+              ...(opts.force === true ? { force: true } : {}),
+            },
+          }
+        : {}),
+      ...(teamRequested
+        ? {
+            team: {
+              close: true,
+              ...(opts.teamId ? { teamId: opts.teamId } : {}),
+              ...(opts.teamSummary ? { summary: opts.teamSummary } : {}),
+              ...(opts.cancelActive !== undefined ? { cancelActive: opts.cancelActive } : {}),
+            },
+          }
+        : {}),
+    },
+    timeoutMs: opts.timeoutMs,
+  });
+
+  if (opts.json) {
+    writeRuntimeJson(runtime, payload);
+    return;
+  }
+
+  runtime.log(info(`Session: ${formatMaybeValue(payload.key)}`));
+  const actions = (payload.actions ?? null) as Record<string, unknown> | null;
+  if (!actions) {
+    runtime.log("No actions applied.");
+    return;
+  }
+
+  if (actions.plan) {
+    const plan = actions.plan as Record<string, unknown>;
+    const artifact = (plan.artifact ?? null) as Record<string, unknown> | null;
+    runtime.log(
+      `plan: mode=${formatMaybeValue(plan.mode)} status=${formatMaybeValue(artifact?.status)} summary=${formatMaybeValue(artifact?.summary)}`,
+    );
+  }
+  if (actions.worktree) {
+    const worktree = actions.worktree as Record<string, unknown>;
+    runtime.log(
+      `worktree: status=${formatMaybeValue(worktree.status)} cleanup=${formatMaybeValue(worktree.cleanup)} removed=${formatMaybeValue(worktree.removed)} dirty=${formatMaybeValue(worktree.dirty)}`,
+    );
+    if (worktree.error) {
+      runtime.log(`worktree-error: ${formatMaybeValue(worktree.error)}`);
+    }
+  }
+  if (actions.team) {
+    const team = actions.team as Record<string, unknown>;
+    runtime.log(
+      `team: id=${formatMaybeValue(team.teamId)} flowStatus=${formatMaybeValue(team.flowStatus)} activeWorkers=${formatMaybeValue(team.activeWorkers)} counts=${formatInspectCounts(team.counts)}`,
+    );
   }
 }

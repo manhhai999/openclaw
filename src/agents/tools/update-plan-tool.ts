@@ -1,4 +1,6 @@
 import { Type } from "@sinclair/typebox";
+import type { OpenClawConfig } from "../../config/config.js";
+import { callGateway } from "../../gateway/call.js";
 import { stringEnum } from "../schema/typebox.js";
 import {
   describeUpdatePlanTool,
@@ -73,21 +75,48 @@ function readPlanSteps(params: Record<string, unknown>): UpdatePlanStep[] {
   return steps;
 }
 
-export function createUpdatePlanTool(): AnyAgentTool {
+type GatewayCaller = typeof callGateway;
+
+export function createUpdatePlanTool(opts?: {
+  agentSessionKey?: string;
+  config?: OpenClawConfig;
+  callGateway?: GatewayCaller;
+}): AnyAgentTool {
   return {
     label: "Update Plan",
     name: "update_plan",
     displaySummary: UPDATE_PLAN_TOOL_DISPLAY_SUMMARY,
     description: describeUpdatePlanTool(),
+    searchHint: "Keep the current multi-step execution plan updated while work continues.",
+    searchTags: ["plan", "planning", "steps", "status"],
     parameters: UpdatePlanToolSchema,
     execute: async (_toolCallId, args) => {
       const params = args as Record<string, unknown>;
       const explanation = readStringParam(params, "explanation");
       const plan = readPlanSteps(params);
+      const sessionKey = opts?.agentSessionKey?.trim();
+      if (sessionKey) {
+        const gatewayCall = opts?.callGateway ?? callGateway;
+        await gatewayCall({
+          method: "sessions.patch",
+          params: {
+            key: sessionKey,
+            planMode: "active",
+            planArtifact: {
+              status: "active",
+              updatedAt: Date.now(),
+              ...(explanation ? { lastExplanation: explanation } : {}),
+              steps: plan,
+            },
+          },
+          config: opts?.config,
+        });
+      }
       return {
         content: [],
         details: {
           status: "updated" as const,
+          ...(sessionKey ? { persisted: true } : {}),
           ...(explanation ? { explanation } : {}),
           plan,
         },

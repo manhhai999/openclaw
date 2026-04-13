@@ -294,6 +294,114 @@ describe("gateway sessions patch", () => {
     expect(entry.liveModelSwitchPending).toBe(true);
   });
 
+  test("persists plan mode and merges plan artifacts", async () => {
+    const store: Record<string, SessionEntry> = {
+      [MAIN_SESSION_KEY]: {
+        sessionId: "sess-plan",
+        updatedAt: 1,
+        planArtifact: {
+          enteredAt: 10,
+          goal: "Ship phase 1",
+        },
+      } as SessionEntry,
+    };
+
+    const entry = expectPatchOk(
+      await runPatch({
+        store,
+        patch: {
+          key: MAIN_SESSION_KEY,
+          planMode: "active",
+          planArtifact: {
+            status: "active",
+            updatedAt: 20,
+            steps: [{ step: "Implement tool_search", status: "in_progress" }],
+          },
+        },
+      }),
+    );
+
+    expect(entry.planMode).toBe("active");
+    expect(entry.planArtifact).toEqual({
+      enteredAt: 10,
+      goal: "Ship phase 1",
+      status: "active",
+      updatedAt: 20,
+      steps: [{ step: "Implement tool_search", status: "in_progress" }],
+    });
+  });
+
+  test("rejects invalid plan artifacts with multiple in-progress steps", async () => {
+    const result = await runPatch({
+      patch: {
+        key: MAIN_SESSION_KEY,
+        planArtifact: {
+          steps: [
+            { step: "One", status: "in_progress" },
+            { step: "Two", status: "in_progress" },
+          ],
+        },
+      },
+    });
+
+    expectPatchError(result, "planArtifact.steps can contain at most one in_progress item");
+  });
+
+  test("persists worktree mode and merges worktree artifacts", async () => {
+    const store: Record<string, SessionEntry> = {
+      [MAIN_SESSION_KEY]: {
+        sessionId: "sess-worktree",
+        updatedAt: 1,
+        worktreeArtifact: {
+          repoRoot: "/repo",
+          worktreeDir: "/repo/.openclaw-worktrees/main",
+          createdAt: 10,
+        },
+      } as SessionEntry,
+    };
+
+    const entry = expectPatchOk(
+      await runPatch({
+        store,
+        patch: {
+          key: MAIN_SESSION_KEY,
+          worktreeMode: "active",
+          worktreeArtifact: {
+            status: "active",
+            cleanupPolicy: "keep",
+            updatedAt: 20,
+          },
+        },
+      }),
+    );
+
+    expect(entry.worktreeMode).toBe("active");
+    expect(entry.worktreeArtifact).toEqual({
+      repoRoot: "/repo",
+      worktreeDir: "/repo/.openclaw-worktrees/main",
+      createdAt: 10,
+      status: "active",
+      cleanupPolicy: "keep",
+      updatedAt: 20,
+    });
+  });
+
+  test("rejects invalid worktree artifacts", async () => {
+    const result = await runPatch({
+      patch: {
+        key: MAIN_SESSION_KEY,
+        worktreeArtifact: {
+          repoRoot: "/repo",
+          worktreeDir: "/repo/.openclaw-worktrees/main",
+          createdAt: 10,
+          cleanupPolicy: "trash" as unknown as "keep",
+        },
+      },
+    });
+
+    expectPatchError(result, "invalid worktreeArtifact.cleanupPolicy");
+  });
+
   test.each([
     {
       name: "accepts explicit allowlisted provider/model refs from sessions.patch",

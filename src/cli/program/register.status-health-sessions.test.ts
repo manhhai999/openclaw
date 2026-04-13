@@ -6,6 +6,8 @@ const mocks = vi.hoisted(() => ({
   statusCommand: vi.fn(),
   healthCommand: vi.fn(),
   sessionsCommand: vi.fn(),
+  sessionsInspectCommand: vi.fn(),
+  sessionsControlCommand: vi.fn(),
   sessionsCleanupCommand: vi.fn(),
   tasksListCommand: vi.fn(),
   tasksAuditCommand: vi.fn(),
@@ -27,6 +29,8 @@ const mocks = vi.hoisted(() => ({
 const statusCommand = mocks.statusCommand;
 const healthCommand = mocks.healthCommand;
 const sessionsCommand = mocks.sessionsCommand;
+const sessionsInspectCommand = mocks.sessionsInspectCommand;
+const sessionsControlCommand = mocks.sessionsControlCommand;
 const sessionsCleanupCommand = mocks.sessionsCleanupCommand;
 const tasksListCommand = mocks.tasksListCommand;
 const tasksAuditCommand = mocks.tasksAuditCommand;
@@ -50,6 +54,8 @@ vi.mock("../../commands/health.js", () => ({
 
 vi.mock("../../commands/sessions.js", () => ({
   sessionsCommand: mocks.sessionsCommand,
+  sessionsInspectCommand: mocks.sessionsInspectCommand,
+  sessionsControlCommand: mocks.sessionsControlCommand,
 }));
 
 vi.mock("../../commands/sessions-cleanup.js", () => ({
@@ -92,6 +98,8 @@ describe("registerStatusHealthSessionsCommands", () => {
     statusCommand.mockResolvedValue(undefined);
     healthCommand.mockResolvedValue(undefined);
     sessionsCommand.mockResolvedValue(undefined);
+    sessionsInspectCommand.mockResolvedValue(undefined);
+    sessionsControlCommand.mockResolvedValue(undefined);
     sessionsCleanupCommand.mockResolvedValue(undefined);
     tasksListCommand.mockResolvedValue(undefined);
     tasksAuditCommand.mockResolvedValue(undefined);
@@ -233,6 +241,62 @@ describe("registerStatusHealthSessionsCommands", () => {
         fixMissing: true,
         activeKey: "agent:main:main",
         json: true,
+      }),
+      runtime,
+    );
+  });
+
+  it("runs sessions inspect subcommand with positional key and timeout", async () => {
+    await runCli(["sessions", "inspect", "agent:main:main", "--json", "--timeout", "2500"]);
+
+    expect(sessionsInspectCommand).toHaveBeenCalledWith(
+      expect.objectContaining({
+        key: "agent:main:main",
+        json: true,
+        timeoutMs: 2500,
+      }),
+      runtime,
+    );
+  });
+
+  it("runs sessions control subcommand with plan/worktree/team flags", async () => {
+    await runCli([
+      "sessions",
+      "control",
+      "agent:main:main",
+      "--exit-plan",
+      "--plan-status",
+      "completed",
+      "--plan-summary",
+      "done",
+      "--exit-worktree",
+      "--cleanup",
+      "remove",
+      "--force",
+      "--close-team",
+      "--team-id",
+      "team-1",
+      "--team-summary",
+      "closed",
+      "--no-cancel-active",
+      "--timeout",
+      "9000",
+    ]);
+
+    expect(sessionsControlCommand).toHaveBeenCalledWith(
+      expect.objectContaining({
+        key: "agent:main:main",
+        timeoutMs: 9000,
+        exitPlan: true,
+        planStatus: "completed",
+        planSummary: "done",
+        exitWorktree: true,
+        cleanup: "remove",
+        force: true,
+        closeTeam: true,
+        teamId: "team-1",
+        teamSummary: "closed",
+        cancelActive: false,
       }),
       runtime,
     );

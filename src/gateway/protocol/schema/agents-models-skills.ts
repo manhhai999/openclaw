@@ -415,6 +415,9 @@ export const ToolsEffectiveEntrySchema = Type.Object(
     source: Type.Union([Type.Literal("core"), Type.Literal("plugin"), Type.Literal("channel")]),
     pluginId: Type.Optional(NonEmptyString),
     channelId: Type.Optional(NonEmptyString),
+    searchHint: Type.Optional(NonEmptyString),
+    searchTags: Type.Optional(Type.Array(NonEmptyString)),
+    deferred: Type.Optional(Type.Boolean()),
   },
   { additionalProperties: false },
 );

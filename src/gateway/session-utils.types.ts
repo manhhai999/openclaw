@@ -19,6 +19,8 @@ export type GatewaySessionRow = {
   key: string;
   spawnedBy?: string;
   spawnedWorkspaceDir?: string;
+  worktreeMode?: SessionEntry["worktreeMode"];
+  worktreeArtifact?: SessionEntry["worktreeArtifact"];
   forkedFromParent?: boolean;
   spawnDepth?: number;
   subagentRole?: SessionEntry["subagentRole"];

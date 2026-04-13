@@ -281,11 +281,15 @@ export function extractPlanningOnlyPlanDetails(text: string): PlanningOnlyPlanDe
 }
 
 function countPlanOnlyToolMetas(toolMetas: PlanningOnlyAttempt["toolMetas"]): number {
-  return toolMetas.filter((entry) => entry.toolName === "update_plan").length;
+  return toolMetas.filter((entry) =>
+    ["update_plan", "EnterPlanMode", "ExitPlanMode"].includes(entry.toolName),
+  ).length;
 }
 
 function hasNonPlanToolActivity(toolMetas: PlanningOnlyAttempt["toolMetas"]): boolean {
-  return toolMetas.some((entry) => entry.toolName !== "update_plan");
+  return toolMetas.some(
+    (entry) => !["update_plan", "EnterPlanMode", "ExitPlanMode"].includes(entry.toolName),
+  );
 }
 
 export function resolvePlanningOnlyRetryLimit(

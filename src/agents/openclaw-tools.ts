@@ -17,6 +17,10 @@ import { createAgentsListTool } from "./tools/agents-list-tool.js";
 import { createCanvasTool } from "./tools/canvas-tool.js";
 import type { AnyAgentTool } from "./tools/common.js";
 import { createCronTool } from "./tools/cron-tool.js";
+import { createEnterPlanModeTool } from "./tools/enter-plan-mode-tool.js";
+import { createEnterWorktreeTool } from "./tools/enter-worktree-tool.js";
+import { createExitPlanModeTool } from "./tools/exit-plan-mode-tool.js";
+import { createExitWorktreeTool } from "./tools/exit-worktree-tool.js";
 import { createGatewayTool } from "./tools/gateway-tool.js";
 import { createImageGenerateTool } from "./tools/image-generate-tool.js";
 import { createImageTool } from "./tools/image-tool.js";
@@ -31,6 +35,12 @@ import { createSessionsSendTool } from "./tools/sessions-send-tool.js";
 import { createSessionsSpawnTool } from "./tools/sessions-spawn-tool.js";
 import { createSessionsYieldTool } from "./tools/sessions-yield-tool.js";
 import { createSubagentsTool } from "./tools/subagents-tool.js";
+import {
+  createTeamCloseTool,
+  createTeamCreateTool,
+  createTeamStatusTool,
+} from "./tools/team-tools.js";
+import { createToolSearchTool } from "./tools/tool-search-tool.js";
 import { createTtsTool } from "./tools/tts-tool.js";
 import { createUpdatePlanTool } from "./tools/update-plan-tool.js";
 import { createVideoGenerateTool } from "./tools/video-generate-tool.js";
@@ -227,7 +237,14 @@ export function createOpenClawTools(
     sandboxRoot: options?.sandboxRoot,
     workspaceDir,
   });
-  const tools: AnyAgentTool[] = [
+  const planToolEnabled = isUpdatePlanToolEnabledForOpenClawTools({
+    config: resolvedConfig,
+    agentSessionKey: options?.agentSessionKey,
+    agentId: options?.requesterAgentIdOverride,
+    modelProvider: options?.modelProvider,
+    modelId: options?.modelId,
+  });
+  const baseTools: AnyAgentTool[] = [
     createCanvasTool({ config: options?.config }),
     nodesTool,
     createCronTool({
@@ -247,14 +264,61 @@ export function createOpenClawTools(
       agentSessionKey: options?.agentSessionKey,
       requesterAgentIdOverride: options?.requesterAgentIdOverride,
     }),
-    ...(isUpdatePlanToolEnabledForOpenClawTools({
-      config: resolvedConfig,
-      agentSessionKey: options?.agentSessionKey,
-      agentId: options?.requesterAgentIdOverride,
-      modelProvider: options?.modelProvider,
-      modelId: options?.modelId,
-    })
-      ? [createUpdatePlanTool()]
+    ...(planToolEnabled
+      ? [
+          createUpdatePlanTool({
+            agentSessionKey: options?.agentSessionKey,
+            config: resolvedConfig,
+            callGateway: openClawToolsDeps.callGateway,
+          }),
+        ]
+      : []),
+    ...(planToolEnabled && options?.agentSessionKey
+      ? [
+          createEnterPlanModeTool({
+            agentSessionKey: options.agentSessionKey,
+            config: resolvedConfig,
+            callGateway: openClawToolsDeps.callGateway,
+          }),
+          createExitPlanModeTool({
+            agentSessionKey: options.agentSessionKey,
+            config: resolvedConfig,
+            callGateway: openClawToolsDeps.callGateway,
+          }),
+        ]
+      : []),
+    ...(options?.agentSessionKey
+      ? [
+          createEnterWorktreeTool({
+            agentSessionKey: options.agentSessionKey,
+            workspaceDir: spawnWorkspaceDir,
+            config: resolvedConfig,
+            callGateway: openClawToolsDeps.callGateway,
+          }),
+          createExitWorktreeTool({
+            agentSessionKey: options.agentSessionKey,
+            config: resolvedConfig,
+            callGateway: openClawToolsDeps.callGateway,
+          }),
+          createTeamCreateTool({
+            agentSessionKey: options.agentSessionKey,
+            workspaceDir: spawnWorkspaceDir,
+            agentChannel: options?.agentChannel,
+            agentAccountId: options?.agentAccountId,
+            agentTo: options?.agentTo,
+            agentThreadId: options?.agentThreadId,
+            agentGroupId: options?.agentGroupId,
+            agentGroupChannel: options?.agentGroupChannel,
+            agentGroupSpace: options?.agentGroupSpace,
+            requesterAgentIdOverride: options?.requesterAgentIdOverride,
+          }),
+          createTeamStatusTool({
+            agentSessionKey: options.agentSessionKey,
+          }),
+          createTeamCloseTool({
+            agentSessionKey: options.agentSessionKey,
+          }),
+        ]
       : []),
     createSessionsListTool({
       agentSessionKey: options?.agentSessionKey,
@@ -303,15 +367,25 @@ export function createOpenClawTools(
     ...collectPresentOpenClawTools([webSearchTool, webFetchTool, imageTool, pdfTool]),
   ];
 
+  const wrappedPluginTools = options?.disablePluginTools
+    ? []
+    : resolveOpenClawPluginToolsForOptions({
+        options,
+        resolvedConfig,
+        existingToolNames: new Set([...baseTools.map((tool) => tool.name), "tool_search"]),
+      });
+  let toolSearchTool: AnyAgentTool;
+  toolSearchTool = createToolSearchTool({
+    agentSessionKey: options?.agentSessionKey,
+    config: resolvedConfig,
+    callGateway: openClawToolsDeps.callGateway,
+    resolveAvailableTools: () => [...baseTools, toolSearchTool, ...wrappedPluginTools],
+  });
+  const tools = [...baseTools, toolSearchTool];
+
   if (options?.disablePluginTools) {
     return tools;
   }
-
-  const wrappedPluginTools = resolveOpenClawPluginToolsForOptions({
-    options,
-    resolvedConfig,
-    existingToolNames: new Set(tools.map((tool) => tool.name)),
-  });
 
   return [...tools, ...wrappedPluginTools];
 }

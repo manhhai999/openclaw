@@ -10,6 +10,9 @@ export type EffectiveToolInventoryEntry = {
   source: EffectiveToolSource;
   pluginId?: string;
   channelId?: string;
+  searchHint?: string;
+  searchTags?: string[];
+  deferred?: boolean;
 };
 
 export type EffectiveToolInventoryGroup = {

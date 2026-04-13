@@ -2,7 +2,11 @@ import type { Command } from "commander";
 import { flowsCancelCommand, flowsListCommand, flowsShowCommand } from "../../commands/flows.js";
 import { healthCommand } from "../../commands/health.js";
 import { sessionsCleanupCommand } from "../../commands/sessions-cleanup.js";
-import { sessionsCommand } from "../../commands/sessions.js";
+import {
+  sessionsCommand,
+  sessionsControlCommand,
+  sessionsInspectCommand,
+} from "../../commands/sessions.js";
 import { statusCommand } from "../../commands/status.js";
 import {
   tasksAuditCommand,
@@ -163,6 +167,86 @@ export function registerStatusHealthSessionsCommands(program: Command) {
       );
     });
   sessionsCmd.enablePositionalOptions();
+
+  sessionsCmd
+    .command("inspect <key>")
+    .description("Inspect live orchestration state for one session")
+    .option("--json", "Output JSON", false)
+    .option("--timeout <ms>", "Gateway timeout in milliseconds", "10000")
+    .action(async (key, opts, command) => {
+      const parentOpts = command.parent?.opts() as
+        | {
+            json?: boolean;
+            verbose?: boolean;
+          }
+        | undefined;
+      const timeoutMs = parseTimeoutMs(opts.timeout);
+      if (timeoutMs === null) {
+        return;
+      }
+      await runCommandWithRuntime(defaultRuntime, async () => {
+        setVerbose(Boolean(parentOpts?.verbose));
+        await sessionsInspectCommand(
+          {
+            key,
+            json: Boolean(opts.json || parentOpts?.json),
+            timeoutMs: timeoutMs ?? undefined,
+          },
+          defaultRuntime,
+        );
+      });
+    });
+
+  sessionsCmd
+    .command("control <key>")
+    .description("Control plan/worktree/team runtime for one session")
+    .option("--json", "Output JSON", false)
+    .option("--timeout <ms>", "Gateway timeout in milliseconds", "10000")
+    .option("--exit-plan", "Exit plan mode", false)
+    .option("--plan-status <status>", 'Plan exit status: "completed" or "cancelled"')
+    .option("--plan-summary <text>", "Short plan exit summary")
+    .option("--approved", "Alias for completed plan exit", false)
+    .option("--exit-worktree", "Exit the active session worktree", false)
+    .option("--cleanup <mode>", 'Worktree cleanup mode: "keep" or "remove"')
+    .option("--force", "Force worktree removal when dirty", false)
+    .option("--close-team", "Close the current managed team", false)
+    .option("--team-id <id>", "Specific team/flow id to close")
+    .option("--team-summary <text>", "Short team close summary")
+    .option("--no-cancel-active", "Do not cancel active workers when closing a team")
+    .action(async (key, opts, command) => {
+      const parentOpts = command.parent?.opts() as
+        | {
+            json?: boolean;
+            verbose?: boolean;
+          }
+        | undefined;
+      const timeoutMs = parseTimeoutMs(opts.timeout);
+      if (timeoutMs === null) {
+        return;
+      }
+      await runCommandWithRuntime(defaultRuntime, async () => {
+        setVerbose(Boolean(parentOpts?.verbose));
+        await sessionsControlCommand(
+          {
+            key,
+            json: Boolean(opts.json || parentOpts?.json),
+            timeoutMs: timeoutMs ?? undefined,
+            exitPlan: Boolean(opts.exitPlan),
+            planStatus: opts.planStatus as string | undefined,
+            planSummary: opts.planSummary as string | undefined,
+            approved: Boolean(opts.approved),
+            exitWorktree: Boolean(opts.exitWorktree),
+            cleanup: opts.cleanup as string | undefined,
+            force: Boolean(opts.force),
+            closeTeam: Boolean(opts.closeTeam),
+            teamId: opts.teamId as string | undefined,
+            teamSummary: opts.teamSummary as string | undefined,
+            cancelActive: opts.cancelActive as boolean | undefined,
+          },
+          defaultRuntime,
+        );
+      });
+    });
 
   sessionsCmd
     .command("cleanup")

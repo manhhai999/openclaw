@@ -44,6 +44,32 @@ vi.mock("../tools/update-plan-tool.js", () => ({
   createUpdatePlanTool: () => stubTool("update_plan"),
 }));
 
+vi.mock("../tools/tool-search-tool.js", () => ({
+  createToolSearchTool: () => stubTool("tool_search"),
+}));
+
+vi.mock("../tools/enter-plan-mode-tool.js", () => ({
+  createEnterPlanModeTool: () => stubTool("EnterPlanMode"),
+}));
+
+vi.mock("../tools/exit-plan-mode-tool.js", () => ({
+  createExitPlanModeTool: () => stubTool("ExitPlanMode"),
+}));
+
+vi.mock("../tools/enter-worktree-tool.js", () => ({
+  createEnterWorktreeTool: () => stubTool("EnterWorktree"),
+}));
+
+vi.mock("../tools/exit-worktree-tool.js", () => ({
+  createExitWorktreeTool: () => stubTool("ExitWorktree"),
+}));
+
+vi.mock("../tools/team-tools.js", () => ({
+  createTeamCreateTool: () => stubTool("team_create"),
+  createTeamStatusTool: () => stubTool("team_status"),
+  createTeamCloseTool: () => stubTool("team_close"),
+}));
+
 vi.mock("../../channels/plugins/index.js", () => ({
   getChannelPlugin: () => null,
   normalizeChannelId: (channel?: string) => normalizeOptionalLowercaseString(channel),

@@ -11,6 +11,7 @@ import {
   describeSessionsSpawnTool,
   SESSIONS_SPAWN_TOOL_DISPLAY_SUMMARY,
 } from "../tool-description-presets.js";
+import { resolveRuntimeWorkspaceDirForSession } from "../worktree-runtime.js";
 import type { AnyAgentTool } from "./common.js";
 import { jsonResult, readStringParam, ToolInputError } from "./common.js";
 import {
@@ -307,6 +308,11 @@ export function createSessionsSpawnTool(
         return jsonResult(result);
       }
 
+      const runtimeWorkspaceDir = resolveRuntimeWorkspaceDirForSession({
+        sessionKey: opts?.agentSessionKey,
+        fallbackWorkspaceDir: opts?.workspaceDir,
+      });
+
       const result = await spawnSubagentDirect(
         {
           task,
@@ -337,7 +343,7 @@ export function createSessionsSpawnTool(
           agentGroupChannel: opts?.agentGroupChannel,
           agentGroupSpace: opts?.agentGroupSpace,
           requesterAgentIdOverride: opts?.requesterAgentIdOverride,
-          workspaceDir: opts?.workspaceDir,
+          workspaceDir: runtimeWorkspaceDir,
         },
       );
 

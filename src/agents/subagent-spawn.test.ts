@@ -10,6 +10,7 @@ import { installAcceptedSubagentGatewayMock } from "./test-helpers/subagent-gate
 
 const hoisted = vi.hoisted(() => ({
   callGatewayMock: vi.fn(),
+  loadSessionEntryMock: vi.fn(),
   updateSessionStoreMock: vi.fn(),
   pruneLegacyStoreKeysMock: vi.fn(),
   registerSubagentRunMock: vi.fn(),
@@ -42,6 +43,7 @@ describe("spawnSubagentDirect seam flow", () => {
     ({ resetSubagentRegistryForTests, spawnSubagentDirect } = await loadSubagentSpawnModuleForTest({
       callGatewayMock: hoisted.callGatewayMock,
       loadConfig: () => hoisted.configOverride,
+      loadSessionEntry: (sessionKey) => hoisted.loadSessionEntryMock(sessionKey),
       updateSessionStoreMock: hoisted.updateSessionStoreMock,
       pruneLegacyStoreKeysMock: hoisted.pruneLegacyStoreKeysMock,
       registerSubagentRunMock: hoisted.registerSubagentRunMock,
@@ -57,12 +59,14 @@ describe("spawnSubagentDirect seam flow", () => {
   beforeEach(() => {
     resetSubagentRegistryForTests();
     hoisted.callGatewayMock.mockReset();
+    hoisted.loadSessionEntryMock.mockReset();
     hoisted.updateSessionStoreMock.mockReset();
     hoisted.pruneLegacyStoreKeysMock.mockReset();
     hoisted.registerSubagentRunMock.mockReset();
     hoisted.emitSessionLifecycleEventMock.mockReset();
     hoisted.configOverride = createConfigOverride();
     installAcceptedSubagentGatewayMock(hoisted.callGatewayMock);
+    hoisted.loadSessionEntryMock.mockReturnValue({ entry: undefined });
 
     hoisted.updateSessionStoreMock.mockImplementation(
       async (
@@ -245,6 +249,55 @@ describe("spawnSubagentDirect seam flow", () => {
         expect(call.scopes).toBeUndefined();
       }
     }
+  });
+
+  it("inherits parent session policy controls into the child session patch", async () => {
+    const calls: Array<{ method?: string; params?: Record<string, unknown> }> = [];
+    hoisted.loadSessionEntryMock.mockReturnValue({
+      entry: {
+        sendPolicy: "deny",
+        groupActivation: "always",
+        execHost: "gateway",
+        execSecurity: "allowlist",
+        execAsk: "on-miss",
+        execNode: "mac-mini",
+        responseUsage: "full",
+      },
+    });
+    hoisted.callGatewayMock.mockImplementation(
+      async (request: { method?: string; params?: Record<string, unknown> }) => {
+        calls.push(request);
+        if (request.method === "agent") {
+          return { runId: "run-policy", status: "accepted", acceptedAt: 1000 };
+        }
+        if (request.method?.startsWith("sessions.")) {
+          return { ok: true };
+        }
+        return {};
+      },
+    );
+    installSessionStoreCaptureMock(hoisted.updateSessionStoreMock);
+
+    const result = await spawnSubagentDirect(
+      {
+        task: "inherit policy",
+      },
+      {
+        agentSessionKey: "agent:main:main",
+      },
+    );
+
+    expect(result.status).toBe("accepted");
+    const initialPatchCall = calls.find((call) => call.method === "sessions.patch");
+    expect(initialPatchCall?.params).toMatchObject({
+      sendPolicy: "deny",
+      groupActivation: "always",
+      execHost: "gateway",
+      execSecurity: "allowlist",
+      execAsk: "on-miss",
+      execNode: "mac-mini",
+      responseUsage: "full",
+    });
   });
 
   it("forwards normalized thinking to the agent run", async () => {

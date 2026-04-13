@@ -1,10 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { listAgentIds } from "../../agents/agent-scope.js";
 import type { AgentInternalEvent } from "../../agents/internal-events.js";
-import {
-  normalizeSpawnedRunMetadata,
-  resolveIngressWorkspaceOverrideForSpawnedRun,
-} from "../../agents/spawned-context.js";
+import { normalizeSpawnedRunMetadata } from "../../agents/spawned-context.js";
 import { buildBareSessionResetPrompt } from "../../auto-reply/reply/session-reset-prompt.js";
 import { agentCommandFromIngress } from "../../commands/agent.js";
 import { loadConfig } from "../../config/config.js";
@@ -13,6 +10,7 @@ import {
   resolveAgentIdFromSessionKey,
   resolveExplicitAgentSessionKey,
   resolveAgentMainSessionKey,
+  resolveSessionPreferredWorkspaceDir,
   type SessionEntry,
   updateSessionStore,
 } from "../../config/sessions.js";
@@ -858,10 +856,7 @@ export const agentHandlers: GatewayRequestHandlers = {
         internalEvents: request.internalEvents,
         inputProvenance,
         // Internal-only: allow workspace override for spawned subagent runs.
-        workspaceDir: resolveIngressWorkspaceOverrideForSpawnedRun({
-          spawnedBy: spawnedByValue,
-          workspaceDir: sessionEntry?.spawnedWorkspaceDir,
-        }),
+        workspaceDir: resolveSessionPreferredWorkspaceDir(sessionEntry),
         senderIsOwner,
         allowModelOverride,
       },

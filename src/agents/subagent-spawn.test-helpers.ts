@@ -113,6 +113,7 @@ export function expectPersistedRuntimeModel(params: {
 export async function loadSubagentSpawnModuleForTest(params: {
   callGatewayMock: MockFn;
   loadConfig?: () => Record<string, unknown>;
+  loadSessionEntry?: (sessionKey: string) => { entry?: Record<string, unknown> };
   updateSessionStoreMock?: MockFn;
   pruneLegacyStoreKeysMock?: MockFn;
   registerSubagentRunMock?: MockFn;
@@ -165,6 +166,10 @@ export async function loadSubagentSpawnModuleForTest(params: {
     isAdminOnlyMethod: (method: string) =>
       method === "sessions.patch" || method === "sessions.delete",
     pruneLegacyStoreKeys: (...args: unknown[]) => params.pruneLegacyStoreKeysMock?.(...args),
+    loadSessionEntry: (sessionKey: string) =>
+      params.loadSessionEntry?.(sessionKey) ?? {
+        entry: undefined,
+      },
     resolveGatewaySessionStoreTarget: (targetParams: { key: string }) => ({
       agentId: "main",
       storePath: params.sessionStorePath ?? "/tmp/subagent-spawn-model-session.json",

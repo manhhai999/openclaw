@@ -535,6 +535,8 @@ export function createAgentEventHandler({
       origin: row?.origin,
       spawnedBy: row?.spawnedBy,
       spawnedWorkspaceDir: row?.spawnedWorkspaceDir,
+      worktreeMode: row?.worktreeMode,
+      worktreeArtifact: row?.worktreeArtifact,
       forkedFromParent: row?.forkedFromParent,
       spawnDepth: row?.spawnDepth,
       subagentRole: row?.subagentRole,

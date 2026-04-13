@@ -1,7 +1,7 @@
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import type { OpenClawConfig } from "../../../config/config.js";
 import { writeWorkspaceFile } from "../../../test-helpers/workspace.js";
 import { createHookEvent } from "../../hooks.js";
@@ -11,9 +11,19 @@ import {
   getRecentSessionContentWithResetFallback,
 } from "./transcript.js";
 
+const hoisted = vi.hoisted(() => ({
+  resolveTeamFlowMock: vi.fn(),
+  syncTeamFlowMock: vi.fn(),
+}));
+
 // Avoid calling the embedded Pi agent (global command lane); keep this unit test deterministic.
 vi.mock("../../llm-slug-generator.js", () => ({
   generateSlugViaLLM: vi.fn().mockResolvedValue("simple-math"),
+}));
+
+vi.mock("../../../agents/team-runtime.js", () => ({
+  resolveTeamFlow: (...args: unknown[]) => hoisted.resolveTeamFlowMock(...args),
+  syncTeamFlow: (...args: unknown[]) => hoisted.syncTeamFlowMock(...args),
 }));
 
 let handler: typeof import("./handler.js").default;
@@ -66,7 +76,7 @@ function createMockSessionContent(
 
 async function runNewWithPreviousSessionEntry(params: {
   tempDir: string;
-  previousSessionEntry: { sessionId: string; sessionFile?: string };
+  previousSessionEntry: Record<string, unknown> & { sessionId: string; sessionFile?: string };
   cfg?: OpenClawConfig;
   action?: "new" | "reset";
   sessionKey?: string;
@@ -186,6 +196,12 @@ function expectMemoryConversation(params: {
 }
 
 describe("session-memory hook", () => {
+  beforeEach(() => {
+    hoisted.resolveTeamFlowMock.mockReset();
+    hoisted.syncTeamFlowMock.mockReset();
+    hoisted.resolveTeamFlowMock.mockReturnValue(undefined);
+  });
+
   it("skips non-command events", async () => {
     const tempDir = await createCaseWorkspace("workspace");
 
@@ -525,6 +541,99 @@ describe("session-memory hook", () => {
       assistant: "Active transcript summary",
       absent: "Reset fallback message",
     });
+  });
+
+  it("captures plan, worktree, and team orchestration state in memory entries", async () => {
+    const tempDir = await createCaseWorkspace("workspace");
+    const sessionsDir = path.join(tempDir, "sessions");
+    await fs.mkdir(sessionsDir, { recursive: true });
+
+    const sessionFile = await writeWorkspaceFile({
+      dir: sessionsDir,
+      name: "orchestration-session.jsonl",
+      content: createMockSessionContent([
+        { role: "user", content: "Keep orchestration context" },
+        { role: "assistant", content: "Snapshotting state now" },
+      ]),
+    });
+
+    hoisted.resolveTeamFlowMock.mockReturnValue({
+      flowId: "team-123",
+      status: "running",
+      currentStep: "workers active 1/2",
+    });
+    hoisted.syncTeamFlowMock.mockReturnValue({
+      flow: {
+        flowId: "team-123",
+        status: "running",
+        currentStep: "workers active 1/2",
+      },
+      state: {
+        teamId: "team-123",
+        goal: "Ship orchestration",
+        summary: "Worker handoff in progress",
+        worktreeDir: "/repo/.openclaw-worktrees/team-123",
+        members: [
+          {
+            memberId: "member-1",
+            label: "worker-1",
+            task: "Implement inspect",
+            status: "running",
+            childSessionKey: "agent:main:subagent:worker-1",
+            agentId: "main",
+            mode: "session",
+          },
+        ],
+      },
+      counts: {
+        pending: 0,
+        accepted: 0,
+        running: 1,
+        done: 0,
+        failed: 0,
+        killed: 0,
+        timeout: 0,
+        error: 0,
+      },
+      activeCount: 1,
+    });
+
+    const { memoryContent } = await runNewWithPreviousSessionEntry({
+      tempDir,
+      previousSessionEntry: {
+        sessionId: "orch-123",
+        sessionFile,
+        planMode: "active",
+        planArtifact: {
+          status: "active",
+          goal: "Ship phase 3",
+          summary: "Gateway contract frozen",
+          steps: [{ step: "Implement sessions.inspect", status: "in_progress" }],
+        },
+        worktreeMode: "active",
+        worktreeArtifact: {
+          repoRoot: "/repo",
+          worktreeDir: "/repo/.openclaw-worktrees/phase-3",
+          branch: "feature/phase-3",
+          cleanupPolicy: "remove",
+          status: "active",
+          createdAt: Date.parse("2026-04-13T00:00:00.000Z"),
+        },
+      },
+      sessionKey: "agent:main:main",
+    });
+
+    expect(memoryContent).toContain("## Plan State");
+    expect(memoryContent).toContain("- **Mode**: active");
+    expect(memoryContent).toContain("- **Goal**: Ship phase 3");
+    expect(memoryContent).toContain("[in_progress] Implement sessions.inspect");
+    expect(memoryContent).toContain("## Worktree State");
+    expect(memoryContent).toContain("- **Worktree Dir**: /repo/.openclaw-worktrees/phase-3");
+    expect(memoryContent).toContain("- **Cleanup Policy**: remove");
+    expect(memoryContent).toContain("## Team State");
+    expect(memoryContent).toContain("- **Team ID**: team-123");
+    expect(memoryContent).toContain("- **Worker Counts**: running=1");
+    expect(memoryContent).toContain("[running] worker-1");
   });
 
   it("handles empty session files gracefully", async () => {

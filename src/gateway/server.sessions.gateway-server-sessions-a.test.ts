@@ -1845,6 +1845,20 @@ describe("gateway server sessions", () => {
           spawnDepth: 2,
           subagentRole: "orchestrator",
           subagentControlScope: "children",
+          planMode: "active",
+          planArtifact: {
+            status: "active",
+            goal: "Ship inspect/control",
+            summary: "work in progress",
+          },
+          worktreeMode: "active",
+          worktreeArtifact: {
+            repoRoot: "/tmp/repo",
+            worktreeDir: "/tmp/repo/.openclaw-worktrees/owned-child",
+            cleanupPolicy: "keep",
+            status: "active",
+            createdAt: 123,
+          },
           elevatedLevel: "on",
           ttsAuto: "always",
           providerOverride: "anthropic",
@@ -1906,6 +1920,20 @@ describe("gateway server sessions", () => {
         spawnDepth?: number;
         subagentRole?: string;
         subagentControlScope?: string;
+        planMode?: string;
+        planArtifact?: {
+          status?: string;
+          goal?: string;
+          summary?: string;
+        };
+        worktreeMode?: string;
+        worktreeArtifact?: {
+          repoRoot?: string;
+          worktreeDir?: string;
+          cleanupPolicy?: string;
+          status?: string;
+          createdAt?: number;
+        };
         elevatedLevel?: string;
         ttsAuto?: string;
         providerOverride?: string;
@@ -1961,6 +1989,20 @@ describe("gateway server sessions", () => {
     expect(reset.payload?.entry.spawnDepth).toBe(2);
     expect(reset.payload?.entry.subagentRole).toBe("orchestrator");
     expect(reset.payload?.entry.subagentControlScope).toBe("children");
+    expect(reset.payload?.entry.planMode).toBe("active");
+    expect(reset.payload?.entry.planArtifact).toEqual({
+      status: "active",
+      goal: "Ship inspect/control",
+      summary: "work in progress",
+    });
+    expect(reset.payload?.entry.worktreeMode).toBe("active");
+    expect(reset.payload?.entry.worktreeArtifact).toEqual({
+      repoRoot: "/tmp/repo",
+      worktreeDir: "/tmp/repo/.openclaw-worktrees/owned-child",
+      cleanupPolicy: "keep",
+      status: "active",
+      createdAt: 123,
+    });
     expect(reset.payload?.entry.elevatedLevel).toBe("on");
     expect(reset.payload?.entry.ttsAuto).toBe("always");
     expect(reset.payload?.entry.providerOverride).toBe("anthropic");
@@ -2016,6 +2058,20 @@ describe("gateway server sessions", () => {
         spawnDepth?: number;
         subagentRole?: string;
         subagentControlScope?: string;
+        planMode?: string;
+        planArtifact?: {
+          status?: string;
+          goal?: string;
+          summary?: string;
+        };
+        worktreeMode?: string;
+        worktreeArtifact?: {
+          repoRoot?: string;
+          worktreeDir?: string;
+          cleanupPolicy?: string;
+          status?: string;
+          createdAt?: number;
+        };
         elevatedLevel?: string;
         ttsAuto?: string;
         providerOverride?: string;
@@ -2069,6 +2125,20 @@ describe("gateway server sessions", () => {
     expect(store["agent:main:subagent:child"]?.spawnDepth).toBe(2);
     expect(store["agent:main:subagent:child"]?.subagentRole).toBe("orchestrator");
     expect(store["agent:main:subagent:child"]?.subagentControlScope).toBe("children");
+    expect(store["agent:main:subagent:child"]?.planMode).toBe("active");
+    expect(store["agent:main:subagent:child"]?.planArtifact).toEqual({
+      status: "active",
+      goal: "Ship inspect/control",
+      summary: "work in progress",
+    });
+    expect(store["agent:main:subagent:child"]?.worktreeMode).toBe("active");
+    expect(store["agent:main:subagent:child"]?.worktreeArtifact).toEqual({
+      repoRoot: "/tmp/repo",
+      worktreeDir: "/tmp/repo/.openclaw-worktrees/owned-child",
+      cleanupPolicy: "keep",
+      status: "active",
+      createdAt: 123,
+    });
     expect(store["agent:main:subagent:child"]?.elevatedLevel).toBe("on");
     expect(store["agent:main:subagent:child"]?.ttsAuto).toBe("always");
     expect(store["agent:main:subagent:child"]?.providerOverride).toBe("anthropic");

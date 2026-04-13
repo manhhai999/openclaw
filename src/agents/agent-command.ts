@@ -20,7 +20,11 @@ import {
   setRuntimeConfigSnapshot,
   type OpenClawConfig,
 } from "../config/config.js";
-import { resolveAgentIdFromSessionKey, type SessionEntry } from "../config/sessions.js";
+import {
+  resolveAgentIdFromSessionKey,
+  resolveSessionPreferredWorkspaceDir,
+  type SessionEntry,
+} from "../config/sessions.js";
 import { resolveSessionTranscriptFile } from "../config/sessions/transcript.js";
 import {
   clearAgentRunContext,
@@ -300,7 +304,9 @@ async function prepareAgentCommandExecution(
   });
   // Internal callers (for example subagent spawns) may pin workspace inheritance.
   const workspaceDirRaw =
-    normalizedSpawned.workspaceDir ?? resolveAgentWorkspaceDir(cfg, sessionAgentId);
+    normalizedSpawned.workspaceDir ??
+    resolveSessionPreferredWorkspaceDir(sessionEntryRaw) ??
+    resolveAgentWorkspaceDir(cfg, sessionAgentId);
   const agentDir = resolveAgentDir(cfg, sessionAgentId);
   const workspace = await ensureAgentWorkspace({
     dir: workspaceDirRaw,

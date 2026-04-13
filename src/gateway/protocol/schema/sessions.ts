@@ -94,6 +94,13 @@ export const SessionsCreateParamsSchema = Type.Object(
   { additionalProperties: false },
 );
 
+export const SessionsInspectParamsSchema = Type.Object(
+  {
+    key: NonEmptyString,
+  },
+  { additionalProperties: false },
+);
+
 export const SessionsSendParamsSchema = Type.Object(
   {
     key: NonEmptyString,
@@ -124,6 +131,105 @@ export const SessionsAbortParamsSchema = Type.Object(
   {
     key: NonEmptyString,
     runId: Type.Optional(NonEmptyString),
+  },
+  { additionalProperties: false },
+);
+
+const SessionPlanModeSchema = Type.Union([Type.Literal("active"), Type.Literal("inactive")]);
+
+const SessionPlanArtifactStatusSchema = Type.Union([
+  Type.Literal("active"),
+  Type.Literal("completed"),
+  Type.Literal("cancelled"),
+]);
+
+const SessionPlanStepStatusSchema = Type.Union([
+  Type.Literal("pending"),
+  Type.Literal("in_progress"),
+  Type.Literal("completed"),
+]);
+
+const SessionPlanArtifactStepSchema = Type.Object(
+  {
+    step: NonEmptyString,
+    status: SessionPlanStepStatusSchema,
+  },
+  { additionalProperties: false },
+);
+
+const SessionPlanArtifactSchema = Type.Object(
+  {
+    goal: Type.Optional(NonEmptyString),
+    notes: Type.Optional(NonEmptyString),
+    summary: Type.Optional(NonEmptyString),
+    lastExplanation: Type.Optional(NonEmptyString),
+    status: Type.Optional(SessionPlanArtifactStatusSchema),
+    enteredAt: Type.Optional(Type.Integer({ minimum: 0 })),
+    updatedAt: Type.Optional(Type.Integer({ minimum: 0 })),
+    approvedAt: Type.Optional(Type.Integer({ minimum: 0 })),
+    exitedAt: Type.Optional(Type.Integer({ minimum: 0 })),
+    steps: Type.Optional(Type.Array(SessionPlanArtifactStepSchema, { minItems: 1 })),
+  },
+  { additionalProperties: false },
+);
+
+const SessionWorktreeModeSchema = Type.Union([Type.Literal("active"), Type.Literal("inactive")]);
+
+const SessionWorktreeArtifactStatusSchema = Type.Union([
+  Type.Literal("active"),
+  Type.Literal("closed"),
+  Type.Literal("removed"),
+  Type.Literal("remove_failed"),
+]);
+
+const SessionWorktreeCleanupPolicySchema = Type.Union([
+  Type.Literal("keep"),
+  Type.Literal("remove"),
+]);
+
+const SessionWorktreeArtifactSchema = Type.Object(
+  {
+    repoRoot: Type.Optional(NonEmptyString),
+    worktreeDir: Type.Optional(NonEmptyString),
+    branch: Type.Optional(NonEmptyString),
+    baseRef: Type.Optional(NonEmptyString),
+    requestedName: Type.Optional(NonEmptyString),
+    cwdBefore: Type.Optional(NonEmptyString),
+    cleanupPolicy: Type.Optional(SessionWorktreeCleanupPolicySchema),
+    status: Type.Optional(SessionWorktreeArtifactStatusSchema),
+    createdAt: Type.Optional(Type.Integer({ minimum: 0 })),
+    updatedAt: Type.Optional(Type.Integer({ minimum: 0 })),
+    exitedAt: Type.Optional(Type.Integer({ minimum: 0 })),
+    lastError: Type.Optional(NonEmptyString),
+  },
+  { additionalProperties: false },
+);
+
+const SessionsControlPlanParamsSchema = Type.Object(
+  {
+    exit: Type.Optional(Type.Boolean()),
+    status: Type.Optional(Type.Union([Type.Literal("completed"), Type.Literal("cancelled")])),
+    summary: Type.Optional(Type.String()),
+    approved: Type.Optional(Type.Boolean()),
+  },
+  { additionalProperties: false },
+);
+
+const SessionsControlWorktreeParamsSchema = Type.Object(
+  {
+    exit: Type.Optional(Type.Boolean()),
+    cleanup: Type.Optional(Type.Union([Type.Literal("keep"), Type.Literal("remove")])),
+    force: Type.Optional(Type.Boolean()),
+  },
+  { additionalProperties: false },
+);
+
+const SessionsControlTeamParamsSchema = Type.Object(
+  {
+    close: Type.Optional(Type.Boolean()),
+    teamId: Type.Optional(NonEmptyString),
+    summary: Type.Optional(Type.String()),
+    cancelActive: Type.Optional(Type.Boolean()),
   },
   { additionalProperties: false },
 );
@@ -167,6 +273,20 @@ export const SessionsPatchParamsSchema = Type.Object(
     groupActivation: Type.Optional(
       Type.Union([Type.Literal("mention"), Type.Literal("always"), Type.Null()]),
     ),
+    planMode: Type.Optional(Type.Union([SessionPlanModeSchema, Type.Null()])),
+    planArtifact: Type.Optional(Type.Union([SessionPlanArtifactSchema, Type.Null()])),
+    worktreeMode: Type.Optional(Type.Union([SessionWorktreeModeSchema, Type.Null()])),
+    worktreeArtifact: Type.Optional(Type.Union([SessionWorktreeArtifactSchema, Type.Null()])),
+  },
+  { additionalProperties: false },
+);
+
+export const SessionsControlParamsSchema = Type.Object(
+  {
+    key: NonEmptyString,
+    plan: Type.Optional(SessionsControlPlanParamsSchema),
+    worktree: Type.Optional(SessionsControlWorktreeParamsSchema),
+    team: Type.Optional(SessionsControlTeamParamsSchema),
   },
   { additionalProperties: false },
 );
