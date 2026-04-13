@@ -504,7 +504,7 @@ describe("redactConfigSnapshot", () => {
             },
           },
         },
-      } as ConfigFileSnapshot["sourceConfig"],
+      } as unknown as ConfigFileSnapshot["sourceConfig"],
       resolved: {
         models: {
           providers: {
@@ -513,7 +513,7 @@ describe("redactConfigSnapshot", () => {
             },
           },
         },
-      } as ConfigFileSnapshot["resolved"],
+      } as unknown as ConfigFileSnapshot["resolved"],
       runtimeConfig: {
         models: {
           providers: {
@@ -522,7 +522,7 @@ describe("redactConfigSnapshot", () => {
             },
           },
         },
-      } as ConfigFileSnapshot["runtimeConfig"],
+      } as unknown as ConfigFileSnapshot["runtimeConfig"],
       config: {
         models: {
           providers: {
@@ -531,7 +531,7 @@ describe("redactConfigSnapshot", () => {
             },
           },
         },
-      } as ConfigFileSnapshot["config"],
+      } as unknown as ConfigFileSnapshot["config"],
     };
 
     const result = redactConfigSnapshot(snapshot, mainSchemaHints);
