@@ -69,7 +69,7 @@ function renderOverviewPlans(props: OverviewProps) {
     <div>
       ${renderPlans(props.plans)}
       <div class="muted" style="margin-top: 10px; font-size: 12px;">
-        Use the Plans tab for the full inspect and lifecycle control surface.
+        ${t("overview.plans.fullSurfaceHint")}
       </div>
     </div>
   `;
@@ -108,8 +108,8 @@ export function renderOverview(props: OverviewProps) {
             href="https://docs.openclaw.ai/web/control-ui#device-pairing-first-connection"
             target=${EXTERNAL_LINK_TARGET}
             rel=${buildExternalLinkRel()}
-            title="Device pairing docs (opens in new tab)"
-            >Docs: Device pairing</a
+            title="${t("overview.links.devicePairingTitle")}"
+            >${t("overview.links.devicePairingLabel")}</a
           >
         </div>
       </div>
@@ -141,8 +141,8 @@ export function renderOverview(props: OverviewProps) {
               href="https://docs.openclaw.ai/web/dashboard"
               target=${EXTERNAL_LINK_TARGET}
               rel=${buildExternalLinkRel()}
-              title="Control UI auth docs (opens in new tab)"
-              >Docs: Control UI auth</a
+              title="${t("overview.links.authTitle")}"
+              >${t("overview.links.authLabel")}</a
             >
           </div>
         </div>
@@ -157,8 +157,8 @@ export function renderOverview(props: OverviewProps) {
             href="https://docs.openclaw.ai/web/dashboard"
             target=${EXTERNAL_LINK_TARGET}
             rel=${buildExternalLinkRel()}
-            title="Control UI auth docs (opens in new tab)"
-            >Docs: Control UI auth</a
+            title="${t("overview.links.authTitle")}"
+            >${t("overview.links.authLabel")}</a
           >
         </div>
       </div>
@@ -190,8 +190,8 @@ export function renderOverview(props: OverviewProps) {
             href="https://docs.openclaw.ai/gateway/tailscale"
             target=${EXTERNAL_LINK_TARGET}
             rel=${buildExternalLinkRel()}
-            title="Tailscale Serve docs (opens in new tab)"
-            >Docs: Tailscale Serve</a
+            title="${t("overview.links.tailscaleTitle")}"
+            >${t("overview.links.tailscaleLabel")}</a
           >
           <span class="muted"> · </span>
           <a
@@ -199,8 +199,8 @@ export function renderOverview(props: OverviewProps) {
             href="https://docs.openclaw.ai/web/control-ui#insecure-http"
             target=${EXTERNAL_LINK_TARGET}
             rel=${buildExternalLinkRel()}
-            title="Insecure HTTP docs (opens in new tab)"
-            >Docs: Insecure HTTP</a
+            title="${t("overview.links.insecureHttpTitle")}"
+            >${t("overview.links.insecureHttpLabel")}</a
           >
         </div>
       </div>
@@ -218,10 +218,9 @@ export function renderOverview(props: OverviewProps) {
     }
     return html`
       <div class="muted" style="margin-top: 8px">
-        Auth token must be passed as a URL fragment:
-        <span class="mono">#token=&lt;token&gt;</span>. Query parameters (<span class="mono"
-          >?token=</span
-        >) may appear in server logs.
+        ${t("overview.queryTokenHint.prefix")}
+        <span class="mono">#token=&lt;token&gt;</span>. ${t("overview.queryTokenHint.middle")}
+        <span class="mono">?token=</span> ${t("overview.queryTokenHint.suffix")}
       </div>
     `;
   })();
