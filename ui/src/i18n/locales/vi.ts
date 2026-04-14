@@ -1087,6 +1087,8 @@ export const vi: TranslationMap = {
     noChanges: "Không có thay đổi",
     rawDisabled:
       "Chế độ thô đã bị tắt (ảnh chụp này không thể round-trip văn bản thô một cách an toàn).",
+    rawDerived:
+      "Chế độ thô đang dùng một ảnh chụp cấu hình đã chuẩn hóa. Comment, $include và placeholder env gốc có thể không được giữ nguyên khi lưu.",
     invalidConfig:
       "Cấu hình của bạn không hợp lệ. Một số cài đặt có thể không hoạt động như mong đợi.",
     dismissInvalidConfig: "Đừng nhắc lại nữa",

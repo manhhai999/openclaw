@@ -614,6 +614,8 @@ export function renderApp(state: AppViewState) {
     state.cronForm.deliveryMode === "webhook"
       ? rawDeliveryToSuggestions.filter((value) => isHttpUrl(value))
       : rawDeliveryToSuggestions;
+  const hasNativeRawConfig = typeof state.configSnapshot?.raw === "string";
+  const hasDerivedRawConfig = !hasNativeRawConfig && state.configValid === true;
   const commonConfigProps = {
     raw: state.configRaw,
     originalRaw: state.configRawOriginal,
@@ -650,7 +652,12 @@ export function renderApp(state: AppViewState) {
     gatewayUrl: state.settings.gatewayUrl,
     assistantName: state.assistantName,
     configPath: state.configSnapshot?.path ?? null,
-    rawAvailable: typeof state.configSnapshot?.raw === "string",
+    rawAvailable: hasNativeRawConfig || hasDerivedRawConfig,
+    rawModeSupport: hasNativeRawConfig
+      ? ("native" as const)
+      : hasDerivedRawConfig
+        ? ("derived" as const)
+        : ("disabled" as const),
   } satisfies Omit<
     ConfigProps,
     | "formMode"

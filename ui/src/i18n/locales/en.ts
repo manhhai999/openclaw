@@ -1082,6 +1082,8 @@ export const en: TranslationMap = {
     pendingChanges: "{count} unsaved changes",
     noChanges: "No changes",
     rawDisabled: "Raw mode disabled (snapshot cannot safely round-trip raw text).",
+    rawDerived:
+      "Raw mode is using a normalized config snapshot. Comments, $include, and original env placeholders may not be preserved on save.",
     invalidConfig: "Your configuration is invalid. Some settings may not work as expected.",
     dismissInvalidConfig: "Don't remind again",
     viewPendingChanges: "View {count} pending changes",

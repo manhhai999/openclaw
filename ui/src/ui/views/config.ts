@@ -48,6 +48,7 @@ export type ConfigProps = {
   uiHints: ConfigUiHints;
   formMode: "form" | "raw";
   rawAvailable?: boolean;
+  rawModeSupport?: "native" | "derived" | "disabled";
   showModeToggle?: boolean;
   formValue: Record<string, unknown> | null;
   originalValue: Record<string, unknown> | null;
@@ -712,6 +713,7 @@ export function renderConfig(props: ConfigProps) {
   };
   const formUnsafe = analysis.schema ? analysis.unsupportedPaths.length > 0 : false;
   const rawAvailable = props.rawAvailable ?? true;
+  const rawModeSupport = props.rawModeSupport ?? (rawAvailable ? "native" : "disabled");
   const formMode = showModeToggle && rawAvailable ? props.formMode : "form";
   const envSensitiveVisible = cvs.envRevealed;
   const requestUpdate = props.onRequestUpdate ?? (() => props.onRawChange(props.raw));
@@ -844,7 +846,9 @@ export function renderConfig(props: ConfigProps) {
           <div class="config-actions__right">
             ${!rawAvailable
               ? html` <span class="config-status muted">${t("settings.rawDisabled")}</span> `
-              : nothing}
+              : rawModeSupport === "derived"
+                ? html` <span class="config-status muted">${t("settings.rawDerived")}</span> `
+                : nothing}
             ${props.onOpenFile
               ? html`
                   <button
@@ -1155,7 +1159,11 @@ export function renderConfig(props: ConfigProps) {
                   `;
                 })()}
         </div>
-
+        ${formMode === "raw" && rawModeSupport === "derived"
+          ? html`
+              <div class="callout warn" style="margin-top: 12px;">${t("settings.rawDerived")}</div>
+            `
+          : nothing}
         ${props.issues.length > 0
           ? html`<div class="callout danger" style="margin-top: 12px;">
               <pre class="code-block">${JSON.stringify(props.issues, null, 2)}</pre>
