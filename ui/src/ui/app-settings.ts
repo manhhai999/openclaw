@@ -1,4 +1,5 @@
 import { roleScopesAllow } from "../../../src/shared/operator-scope-compat.js";
+import { t } from "../i18n/index.ts";
 import { refreshChat } from "./app-chat.ts";
 import {
   startLogsPolling,
@@ -627,7 +628,7 @@ function buildAttentionItems(host: SettingsAppHost) {
     items.push({
       severity: "error",
       icon: "x",
-      title: "Gateway Error",
+      title: t("dashboard.attentionItems.gatewayError"),
       description: host.lastError,
     });
   }
@@ -638,9 +639,8 @@ function buildAttentionItems(host: SettingsAppHost) {
     items.push({
       severity: "warning",
       icon: "key",
-      title: "Missing operator.read scope",
-      description:
-        "This connection does not have the operator.read scope. Some features may be unavailable.",
+      title: t("dashboard.attentionItems.missingOperatorReadScopeTitle"),
+      description: t("dashboard.attentionItems.missingOperatorReadScopeDescription"),
       href: "https://docs.openclaw.ai/web/dashboard",
       external: true,
     });
@@ -650,11 +650,16 @@ function buildAttentionItems(host: SettingsAppHost) {
   const missingDeps = skills.filter((s) => !s.disabled && hasMissingSkillDependencies(s.missing));
   if (missingDeps.length > 0) {
     const names = missingDeps.slice(0, 3).map((s) => s.name);
-    const more = missingDeps.length > 3 ? ` +${missingDeps.length - 3} more` : "";
+    const more =
+      missingDeps.length > 3
+        ? t("dashboard.attentionItems.moreCount", {
+            count: String(missingDeps.length - 3),
+          })
+        : "";
     items.push({
       severity: "warning",
       icon: "zap",
-      title: "Skills with missing dependencies",
+      title: t("dashboard.attentionItems.missingDependenciesTitle"),
       description: `${names.join(", ")}${more}`,
     });
   }
@@ -664,7 +669,9 @@ function buildAttentionItems(host: SettingsAppHost) {
     items.push({
       severity: "warning",
       icon: "shield",
-      title: `${blocked.length} skill${blocked.length > 1 ? "s" : ""} blocked`,
+      title: t("dashboard.attentionItems.blockedSkillsTitle", {
+        count: String(blocked.length),
+      }),
       description: blocked.map((s) => s.name).join(", "),
     });
   }
@@ -675,7 +682,9 @@ function buildAttentionItems(host: SettingsAppHost) {
     items.push({
       severity: "error",
       icon: "clock",
-      title: `${failedCron.length} cron job${failedCron.length > 1 ? "s" : ""} failed`,
+      title: t("dashboard.attentionItems.failedCronJobsTitle", {
+        count: String(failedCron.length),
+      }),
       description: failedCron.map((j) => j.name).join(", "),
     });
   }
@@ -688,7 +697,9 @@ function buildAttentionItems(host: SettingsAppHost) {
     items.push({
       severity: "warning",
       icon: "clock",
-      title: `${overdue.length} overdue job${overdue.length > 1 ? "s" : ""}`,
+      title: t("dashboard.attentionItems.overdueJobsTitle", {
+        count: String(overdue.length),
+      }),
       description: overdue.map((j) => j.name).join(", "),
     });
   }
