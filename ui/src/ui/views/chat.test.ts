@@ -4,7 +4,7 @@ import { render } from "lit";
 import { describe, expect, it, vi } from "vitest";
 import { i18n } from "../../i18n/index.ts";
 import { getSafeLocalStorage } from "../../local-storage.ts";
-import { renderChatSessionSelect, renderTopbarLanguageToggle } from "../app-render.helpers.ts";
+import { renderChatSessionSelect, renderTopbarLanguagePicker } from "../app-render.helpers.ts";
 import type { AppViewState } from "../app-view-state.ts";
 import {
   createModelCatalog,
@@ -574,26 +574,31 @@ describe("chat view", () => {
     await i18n.setLocale("en");
   });
 
-  it("switches the dashboard language from the topbar quick toggle", async () => {
+  it("switches the dashboard language from the topbar language picker", async () => {
     const container = document.createElement("div");
     const { state } = createChatHeaderState();
     await i18n.setLocale("en");
 
-    render(renderTopbarLanguageToggle(state), container);
+    render(renderTopbarLanguagePicker(state), container);
 
     const viButton = container.querySelector<HTMLButtonElement>('[data-locale="vi"]');
     expect(viButton).not.toBeNull();
     viButton?.click();
 
-    expect(state.settings.locale).toBe("vi");
     await vi.waitFor(() => {
+      expect(state.settings.locale).toBe("vi");
       expect(i18n.getLocale()).toBe("vi");
     });
 
-    render(renderTopbarLanguageToggle(state), container);
+    render(renderTopbarLanguagePicker(state), container);
 
-    const activeButton = container.querySelector<HTMLButtonElement>(".topbar-locale__btn--active");
+    const activeButton = container.querySelector<HTMLButtonElement>(
+      ".topbar-language-menu__option--active",
+    );
     expect(activeButton?.dataset.locale).toBe("vi");
+    expect(container.querySelector(".topbar-language-menu__current")?.textContent?.trim()).toBe(
+      "VI",
+    );
 
     await i18n.setLocale("en");
   });
