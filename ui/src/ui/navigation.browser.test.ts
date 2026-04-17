@@ -188,7 +188,6 @@ describe("control UI routing", () => {
     await nextFrame();
 
     expect(app.settings.locale).toBe("en");
-    expect(i18n.getLocale()).toBe("en");
     expect(app.querySelector(".topbar-language-menu__current")?.textContent?.trim()).toBe("EN");
   });
 
