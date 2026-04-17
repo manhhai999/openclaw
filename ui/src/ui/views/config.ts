@@ -14,9 +14,9 @@ import {
   schemaType,
   type JsonSchema,
 } from "./config-form.shared.ts";
-import { analyzeConfigSchema, renderConfigForm, SECTION_META } from "./config-form.ts";
+import { analyzeConfigSchema, renderConfigForm, resolveConfigSectionMeta } from "./config-form.ts";
 
-const BORDER_RADIUS_LABELS: Record<BorderRadiusStop, string> = {
+const BORDER_RADIUS_FALLBACKS: Record<BorderRadiusStop, string> = {
   0: "None",
   25: "Slight",
   50: "Default",
@@ -349,93 +349,113 @@ const sidebarIcons = {
 };
 
 // Categorised section definitions
-type SectionCategory = {
+type SectionCategoryDefinition = {
+  id: string;
+  sections: string[];
+};
+
+type VisibleSectionCategory = {
   id: string;
   label: string;
   sections: Array<{ key: string; label: string }>;
 };
 
-const SECTION_CATEGORIES: SectionCategory[] = [
+const SECTION_CATEGORIES: SectionCategoryDefinition[] = [
   {
     id: "core",
-    label: "Core",
-    sections: [
-      { key: "env", label: "Environment" },
-      { key: "auth", label: "Authentication" },
-      { key: "update", label: "Updates" },
-      { key: "meta", label: "Meta" },
-      { key: "logging", label: "Logging" },
-      { key: "diagnostics", label: "Diagnostics" },
-      { key: "cli", label: "Cli" },
-      { key: "secrets", label: "Secrets" },
-    ],
+    sections: ["env", "auth", "update", "meta", "logging", "diagnostics", "cli", "secrets"],
   },
   {
     id: "ai",
-    label: "AI & Agents",
-    sections: [
-      { key: "agents", label: "Agents" },
-      { key: "models", label: "Models" },
-      { key: "skills", label: "Skills" },
-      { key: "tools", label: "Tools" },
-      { key: "memory", label: "Memory" },
-      { key: "session", label: "Session" },
-    ],
+    sections: ["agents", "models", "skills", "tools", "memory", "session"],
   },
   {
     id: "communication",
-    label: "Communication",
-    sections: [
-      { key: "channels", label: "Channels" },
-      { key: "messages", label: "Messages" },
-      { key: "broadcast", label: "Broadcast" },
-      { key: "talk", label: "Talk" },
-      { key: "audio", label: "Audio" },
-    ],
+    sections: ["channels", "messages", "broadcast", "talk", "audio"],
   },
   {
     id: "automation",
-    label: "Automation",
-    sections: [
-      { key: "commands", label: "Commands" },
-      { key: "hooks", label: "Hooks" },
-      { key: "bindings", label: "Bindings" },
-      { key: "cron", label: "Cron" },
-      { key: "approvals", label: "Approvals" },
-      { key: "plugins", label: "Plugins" },
-    ],
+    sections: ["commands", "hooks", "bindings", "cron", "approvals", "plugins"],
   },
   {
     id: "infrastructure",
-    label: "Infrastructure",
     sections: [
-      { key: "gateway", label: "Gateway" },
-      { key: "web", label: "Web" },
-      { key: "browser", label: "Browser" },
-      { key: "nodeHost", label: "NodeHost" },
-      { key: "canvasHost", label: "CanvasHost" },
-      { key: "discovery", label: "Discovery" },
-      { key: "media", label: "Media" },
-      { key: "acp", label: "Acp" },
-      { key: "mcp", label: "Mcp" },
+      "gateway",
+      "web",
+      "browser",
+      "nodeHost",
+      "canvasHost",
+      "discovery",
+      "media",
+      "acp",
+      "mcp",
     ],
   },
   {
     id: "appearance",
-    label: t("tabs.appearance"),
-    sections: [
-      { key: "__appearance__", label: "Theme" },
-      { key: "ui", label: "UI" },
-      { key: "wizard", label: "Setup Wizard" },
-    ],
+    sections: ["__appearance__", "ui", "wizard"],
   },
 ];
 
 // Flat lookup: all categorised keys
-const CATEGORISED_KEYS = new Set(SECTION_CATEGORIES.flatMap((c) => c.sections.map((s) => s.key)));
+const CATEGORISED_KEYS = new Set(SECTION_CATEGORIES.flatMap((c) => c.sections));
 
 function getSectionIcon(key: string) {
   return sidebarIcons[key as keyof typeof sidebarIcons] ?? sidebarIcons.default;
+}
+
+function translateConfigText(
+  key: string,
+  fallback: string,
+  params?: Record<string, string>,
+): string {
+  const value = t(key, params);
+  return value === key ? fallback : value;
+}
+
+function resolveConfigCategoryLabel(id: string): string {
+  return translateConfigText(`configUi.categories.${id}`, humanize(id));
+}
+
+function getBorderRadiusLabel(stop: BorderRadiusStop): string {
+  return translateConfigText(
+    `configUi.appearance.borderRadius.${String(stop)}`,
+    BORDER_RADIUS_FALLBACKS[stop],
+  );
+}
+
+type ThemeOption = { id: ThemeName; label: string; description: string; icon: TemplateResult };
+
+function getThemeOptions(): ThemeOption[] {
+  return [
+    {
+      id: "claw",
+      label: translateConfigText("configUi.appearance.themeOptions.claw.label", "Claw"),
+      description: translateConfigText(
+        "configUi.appearance.themeOptions.claw.description",
+        "Chroma family",
+      ),
+      icon: icons.zap,
+    },
+    {
+      id: "knot",
+      label: translateConfigText("configUi.appearance.themeOptions.knot.label", "Knot"),
+      description: translateConfigText(
+        "configUi.appearance.themeOptions.knot.description",
+        "Black & red",
+      ),
+      icon: icons.link,
+    },
+    {
+      id: "dash",
+      label: translateConfigText("configUi.appearance.themeOptions.dash.label", "Dash"),
+      description: translateConfigText(
+        "configUi.appearance.themeOptions.dash.description",
+        "Chocolate blueprint",
+      ),
+      icon: icons.barChart,
+    },
+  ];
 }
 
 function scopeSchemaSections(
@@ -491,14 +511,7 @@ function resolveSectionMeta(
   label: string;
   description?: string;
 } {
-  const meta = SECTION_META[key];
-  if (meta) {
-    return meta;
-  }
-  return {
-    label: schema?.title ?? humanize(key),
-    description: schema?.description ?? "",
-  };
+  return resolveConfigSectionMeta(key, schema);
 }
 
 function computeDiff(
@@ -563,21 +576,19 @@ function renderDiffValue(path: string, value: unknown, _uiHints: ConfigUiHints):
   return truncateValue(value);
 }
 
-type ThemeOption = { id: ThemeName; label: string; description: string; icon: TemplateResult };
-const THEME_OPTIONS: ThemeOption[] = [
-  { id: "claw", label: "Claw", description: "Chroma family", icon: icons.zap },
-  { id: "knot", label: "Knot", description: "Black & red", icon: icons.link },
-  { id: "dash", label: "Dash", description: "Chocolate blueprint", icon: icons.barChart },
-];
-
 function renderAppearanceSection(props: ConfigProps) {
+  const themeOptions = getThemeOptions();
   return html`
     <div class="settings-appearance">
       <div class="settings-appearance__section">
-        <h3 class="settings-appearance__heading">Theme</h3>
-        <p class="settings-appearance__hint">Choose a theme family.</p>
+        <h3 class="settings-appearance__heading">
+          ${translateConfigText("configUi.appearance.themeHeading", "Theme")}
+        </h3>
+        <p class="settings-appearance__hint">
+          ${translateConfigText("configUi.appearance.themeHint", "Choose a theme family.")}
+        </p>
         <div class="settings-theme-grid">
-          ${THEME_OPTIONS.map(
+          ${themeOptions.map(
             (opt) => html`
               <button
                 class="settings-theme-card ${opt.id === props.theme
@@ -607,8 +618,15 @@ function renderAppearanceSection(props: ConfigProps) {
       </div>
 
       <div class="settings-appearance__section">
-        <h3 class="settings-appearance__heading">Roundness</h3>
-        <p class="settings-appearance__hint">Adjust corner radius across the UI.</p>
+        <h3 class="settings-appearance__heading">
+          ${translateConfigText("configUi.appearance.roundnessHeading", "Roundness")}
+        </h3>
+        <p class="settings-appearance__hint">
+          ${translateConfigText(
+            "configUi.appearance.roundnessHint",
+            "Adjust corner radius across the UI.",
+          )}
+        </p>
         <div class="settings-roundness">
           <div class="settings-roundness__options">
             ${BORDER_RADIUS_STOPS.map(
@@ -622,7 +640,7 @@ function renderAppearanceSection(props: ConfigProps) {
                     class="settings-roundness__swatch"
                     style="border-radius: ${Math.round(10 * (stop / 50))}px"
                   ></span>
-                  <span class="settings-roundness__label">${BORDER_RADIUS_LABELS[stop]}</span>
+                  <span class="settings-roundness__label">${getBorderRadiusLabel(stop)}</span>
                 </button>
               `,
             )}
@@ -631,14 +649,20 @@ function renderAppearanceSection(props: ConfigProps) {
       </div>
 
       <div class="settings-appearance__section">
-        <h3 class="settings-appearance__heading">Connection</h3>
+        <h3 class="settings-appearance__heading">
+          ${translateConfigText("configUi.appearance.connectionHeading", "Connection")}
+        </h3>
         <div class="settings-info-grid">
           <div class="settings-info-row">
-            <span class="settings-info-row__label">Gateway</span>
+            <span class="settings-info-row__label">
+              ${translateConfigText("configUi.appearance.gatewayLabel", "Gateway")}
+            </span>
             <span class="settings-info-row__value mono">${props.gatewayUrl || "-"}</span>
           </div>
           <div class="settings-info-row">
-            <span class="settings-info-row__label">Status</span>
+            <span class="settings-info-row__label">
+              ${translateConfigText("configUi.appearance.statusLabel", "Status")}
+            </span>
             <span class="settings-info-row__value">
               <span
                 class="settings-status-dot ${props.connected ? "settings-status-dot--ok" : ""}"
@@ -649,7 +673,9 @@ function renderAppearanceSection(props: ConfigProps) {
           ${props.assistantName
             ? html`
                 <div class="settings-info-row">
-                  <span class="settings-info-row__label">Assistant</span>
+                  <span class="settings-info-row__label">
+                    ${translateConfigText("configUi.appearance.assistantLabel", "Assistant")}
+                  </span>
                   <span class="settings-info-row__value">${props.assistantName}</span>
                 </div>
               `
@@ -721,19 +747,33 @@ export function renderConfig(props: ConfigProps) {
 
   const VIRTUAL_SECTIONS = new Set(["__appearance__"]);
   const visibleCategories = SECTION_CATEGORIES.map((cat) => ({
-    ...cat,
-    sections: cat.sections.filter(
-      (s) => (includeVirtualSections && VIRTUAL_SECTIONS.has(s.key)) || s.key in schemaProps,
-    ),
+    id: cat.id,
+    label: resolveConfigCategoryLabel(cat.id),
+    sections: cat.sections
+      .filter((sectionKey) => {
+        return (
+          (includeVirtualSections && VIRTUAL_SECTIONS.has(sectionKey)) || sectionKey in schemaProps
+        );
+      })
+      .map((sectionKey) => ({
+        key: sectionKey,
+        label: resolveConfigSectionMeta(sectionKey, schemaProps[sectionKey]).label,
+      })),
   })).filter((cat) => cat.sections.length > 0);
 
   // Catch any schema keys not in our categories
   const extraSections = Object.keys(schemaProps)
     .filter((k) => !CATEGORISED_KEYS.has(k))
-    .map((k) => ({ key: k, label: k.charAt(0).toUpperCase() + k.slice(1) }));
+    .map((k) => ({ key: k, label: humanize(k) }));
 
-  const otherCategory: SectionCategory | null =
-    extraSections.length > 0 ? { id: "other", label: "Other", sections: extraSections } : null;
+  const otherCategory: VisibleSectionCategory | null =
+    extraSections.length > 0
+      ? {
+          id: "other",
+          label: translateConfigText("configUi.categories.other", "Other"),
+          sections: extraSections,
+        }
+      : null;
 
   const isVirtualSection =
     includeVirtualSections &&
@@ -754,7 +794,10 @@ export function renderConfig(props: ConfigProps) {
   const effectiveSubsection = null;
 
   const topTabs = [
-    { key: null as string | null, label: props.navRootLabel ?? "Settings" },
+    {
+      key: null as string | null,
+      label: props.navRootLabel ?? translateConfigText("configUi.rootLabel", "Settings"),
+    },
     ...[...visibleCategories, ...(otherCategory ? [otherCategory] : [])].flatMap((cat) =>
       cat.sections.map((s) => ({ key: s.key, label: s.label })),
     ),
@@ -795,20 +838,28 @@ export function renderConfig(props: ConfigProps) {
                     <button
                       class="config-mode-toggle__btn ${formMode === "form" ? "active" : ""}"
                       ?disabled=${props.schemaLoading || !props.schema}
-                      title=${formUnsafe ? "Form view can't safely edit some fields" : ""}
+                      title=${formUnsafe
+                        ? translateConfigText(
+                            "configUi.formModeUnsafe",
+                            "Form view can't safely edit some fields",
+                          )
+                        : ""}
                       @click=${() => props.onFormModeChange("form")}
                     >
-                      Form
+                      ${translateConfigText("configUi.formMode", "Form")}
                     </button>
                     <button
                       class="config-mode-toggle__btn ${formMode === "raw" ? "active" : ""}"
                       ?disabled=${!rawAvailable}
                       title=${rawAvailable
-                        ? "Edit raw JSON/JSON5 config"
-                        : "Raw mode unavailable for this snapshot"}
+                        ? translateConfigText("configUi.rawModeTitle", "Edit raw JSON/JSON5 config")
+                        : translateConfigText(
+                            "configUi.rawModeUnavailable",
+                            "Raw mode unavailable for this snapshot",
+                          )}
                       @click=${() => props.onFormModeChange("raw")}
                     >
-                      Raw
+                      ${translateConfigText("configUi.rawMode", "Raw")}
                     </button>
                   </div>
                 `
@@ -817,17 +868,28 @@ export function renderConfig(props: ConfigProps) {
               ? html`
                   <span class="config-changes-badge"
                     >${formMode === "raw"
-                      ? "Unsaved changes"
-                      : `${diff.length} unsaved change${diff.length !== 1 ? "s" : ""}`}</span
+                      ? translateConfigText("configUi.unsavedChanges", "Unsaved changes")
+                      : translateConfigText(
+                          "configUi.pendingChanges",
+                          `${diff.length} pending changes`,
+                          { count: String(diff.length) },
+                        )}</span
                   >
                 `
-              : html` <span class="config-status muted">No changes</span> `}
+              : html`
+                  <span class="config-status muted">
+                    ${translateConfigText("configUi.noChanges", "No changes")}
+                  </span>
+                `}
           </div>
           <div class="config-actions__right">
             ${!rawAvailable
               ? html`
                   <span class="config-status muted"
-                    >Raw mode disabled (snapshot cannot safely round-trip raw text).</span
+                    >${translateConfigText(
+                      "configUi.rawModeDisabled",
+                      "Raw mode disabled (snapshot cannot safely round-trip raw text).",
+                    )}</span
                   >
                 `
               : nothing}
@@ -835,10 +897,18 @@ export function renderConfig(props: ConfigProps) {
               ? html`
                   <button
                     class="btn btn--sm"
-                    title=${props.configPath ? `Open ${props.configPath}` : "Open config file"}
+                    title=${props.configPath
+                      ? translateConfigText(
+                          "configUi.openFilePathTitle",
+                          `Open ${props.configPath}`,
+                          {
+                            path: props.configPath,
+                          },
+                        )
+                      : translateConfigText("configUi.openFileTitle", "Open config file")}
                     @click=${props.onOpenFile}
                   >
-                    ${icons.fileText} Open
+                    ${icons.fileText} ${translateConfigText("configUi.openFile", "Open")}
                   </button>
                 `
               : nothing}
@@ -875,8 +945,11 @@ export function renderConfig(props: ConfigProps) {
                     <input
                       type="text"
                       class="config-search__input"
-                      placeholder="Search settings..."
-                      aria-label="Search settings"
+                      placeholder=${translateConfigText(
+                        "configUi.searchPlaceholder",
+                        "Search settings...",
+                      )}
+                      aria-label=${translateConfigText("configUi.searchAria", "Search settings")}
                       .value=${props.searchQuery}
                       @input=${(e: Event) =>
                         props.onSearchChange((e.target as HTMLInputElement).value)}
@@ -885,7 +958,10 @@ export function renderConfig(props: ConfigProps) {
                       ? html`
                           <button
                             class="config-search__clear"
-                            aria-label="Clear search"
+                            aria-label=${translateConfigText(
+                              "configUi.clearSearch",
+                              "Clear search",
+                            )}
                             @click=${() => props.onSearchChange("")}
                           >
                             ×
@@ -939,7 +1015,10 @@ export function renderConfig(props: ConfigProps) {
                   <line x1="12" y1="17" x2="12.01" y2="17"></line>
                 </svg>
                 <span class="config-validity-warning__text"
-                  >Your configuration is invalid. Some settings may not work as expected.</span
+                  >${translateConfigText(
+                    "configUi.invalidConfig",
+                    "Your configuration is invalid. Some settings may not work as expected.",
+                  )}</span
                 >
                 <button
                   class="btn btn--sm"
@@ -948,7 +1027,7 @@ export function renderConfig(props: ConfigProps) {
                     requestUpdate();
                   }}
                 >
-                  Don't remind again
+                  ${translateConfigText("configUi.dismissInvalid", "Don't remind again")}
                 </button>
               </div>
             `
@@ -959,7 +1038,13 @@ export function renderConfig(props: ConfigProps) {
           ? html`
               <details class="config-diff">
                 <summary class="config-diff__summary">
-                  <span>View ${diff.length} pending change${diff.length !== 1 ? "s" : ""}</span>
+                  <span>
+                    ${translateConfigText(
+                      "configUi.viewPendingChanges",
+                      `View ${diff.length} pending changes`,
+                      { count: String(diff.length) },
+                    )}
+                  </span>
                   <svg
                     class="config-diff__chevron"
                     viewBox="0 0 24 24"
@@ -1011,7 +1096,9 @@ export function renderConfig(props: ConfigProps) {
                         class="config-env-peek-btn ${envSensitiveVisible
                           ? "config-env-peek-btn--active"
                           : ""}"
-                        title=${envSensitiveVisible ? "Hide env values" : "Reveal env values"}
+                        title=${envSensitiveVisible
+                          ? translateConfigText("configUi.hideEnvValues", "Hide env values")
+                          : translateConfigText("configUi.revealEnvValues", "Reveal env values")}
                         @click=${() => {
                           cvs.envRevealed = !cvs.envRevealed;
                           requestUpdate();
@@ -1030,7 +1117,7 @@ export function renderConfig(props: ConfigProps) {
                           <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
                           <circle cx="12" cy="12" r="3"></circle>
                         </svg>
-                        Peek
+                        ${translateConfigText("configUi.peek", "Peek")}
                       </button>
                     `
                   : nothing}
@@ -1050,7 +1137,9 @@ export function renderConfig(props: ConfigProps) {
                     ? html`
                         <div class="config-loading">
                           <div class="config-loading__spinner"></div>
-                          <span>Loading schema…</span>
+                          <span>
+                            ${translateConfigText("configUi.loadingSchema", "Loading schema…")}
+                          </span>
                         </div>
                       `
                     : renderConfigForm({

@@ -1,5 +1,6 @@
 import { render } from "lit";
 import { describe, expect, it } from "vitest";
+import { t } from "../../i18n/index.ts";
 import { renderAgentTools } from "./agents-panels-tools-skills.ts";
 
 function createBaseParams(overrides: Partial<Parameters<typeof renderAgentTools>[0]> = {}) {
@@ -140,6 +141,6 @@ describe("agents tools panel (browser)", () => {
     const text = container.textContent ?? "";
     expect(text).toContain("Available Right Now");
     expect(text).toContain("Message Actions");
-    expect(text).toContain("Channel: discord");
+    expect(text).toContain(t("agentTools.channelSource", { id: "discord" }));
   });
 });

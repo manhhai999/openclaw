@@ -188,6 +188,207 @@ export const vi: TranslationMap = {
     logs: "Nhật ký gateway trực tiếp.",
     dreams: "Mơ bộ nhớ, hợp nhất và phản chiếu.",
   },
+  configUi: {
+    rootLabel: "Cài đặt",
+    categories: {
+      core: "Cốt lõi",
+      ai: "AI & Tác nhân",
+      communication: "Liên lạc",
+      automation: "Tự động hóa",
+      infrastructure: "Hạ tầng",
+      appearance: "Giao diện",
+      other: "Khác",
+    },
+    sections: {
+      env: {
+        label: "Môi trường",
+        description: "Biến môi trường được truyền vào tiến trình gateway",
+      },
+      update: {
+        label: "Cập nhật",
+        description: "Cài đặt cập nhật tự động và kênh phát hành",
+      },
+      agents: {
+        label: "Tác nhân",
+        description: "Cấu hình tác nhân, mô hình và danh tính",
+      },
+      auth: {
+        label: "Xác thực",
+        description: "Khóa API và hồ sơ xác thực",
+      },
+      channels: {
+        label: "Kênh",
+        description: "Các kênh nhắn tin (Telegram, Discord, Slack, v.v.)",
+      },
+      messages: {
+        label: "Tin nhắn",
+        description: "Cài đặt xử lý và định tuyến tin nhắn",
+      },
+      commands: {
+        label: "Lệnh",
+        description: "Slash command tùy chỉnh",
+      },
+      hooks: {
+        label: "Hook",
+        description: "Webhook và hook sự kiện",
+      },
+      skills: {
+        label: "Kỹ năng",
+        description: "Gói kỹ năng và năng lực",
+      },
+      tools: {
+        label: "Công cụ",
+        description: "Cấu hình công cụ (trình duyệt, tìm kiếm, v.v.)",
+      },
+      gateway: {
+        label: "Gateway",
+        description: "Cài đặt máy chủ gateway (cổng, xác thực, binding)",
+      },
+      wizard: {
+        label: "Trình hướng dẫn thiết lập",
+        description: "Trạng thái và lịch sử trình hướng dẫn thiết lập",
+      },
+      meta: {
+        label: "Siêu dữ liệu",
+        description: "Siêu dữ liệu gateway và thông tin phiên bản",
+      },
+      logging: {
+        label: "Ghi log",
+        description: "Mức log và cấu hình đầu ra",
+      },
+      browser: {
+        label: "Trình duyệt",
+        description: "Cài đặt tự động hóa trình duyệt",
+      },
+      ui: {
+        label: "Giao diện người dùng",
+        description: "Tùy chọn giao diện người dùng",
+      },
+      models: {
+        label: "Mô hình",
+        description: "Cấu hình mô hình AI và nhà cung cấp",
+      },
+      bindings: {
+        label: "Liên kết",
+        description: "Phím tắt và ràng buộc",
+      },
+      broadcast: {
+        label: "Phát thông báo",
+        description: "Cài đặt phát và thông báo",
+      },
+      audio: {
+        label: "Âm thanh",
+        description: "Cài đặt đầu vào và đầu ra âm thanh",
+      },
+      session: {
+        label: "Phiên",
+        description: "Quản lý phiên và lưu trạng thái",
+      },
+      cron: {
+        label: "Cron",
+        description: "Tác vụ định kỳ và tự động hóa",
+      },
+      web: {
+        label: "Web",
+        description: "Cài đặt máy chủ web và API",
+      },
+      discovery: {
+        label: "Khám phá",
+        description: "Khám phá dịch vụ và mạng",
+      },
+      canvasHost: {
+        label: "Canvas Host",
+        description: "Hiển thị và dựng hình canvas",
+      },
+      talk: {
+        label: "Thoại",
+        description: "Cài đặt giọng nói và hội thoại",
+      },
+      plugins: {
+        label: "Plugin",
+        description: "Quản lý plugin và phần mở rộng",
+      },
+      diagnostics: {
+        label: "Chẩn đoán",
+        description: "Thiết bị đo, OpenTelemetry và cài đặt theo dõi bộ nhớ đệm",
+      },
+      cli: {
+        label: "CLI",
+        description: "Banner CLI và hành vi khởi động",
+      },
+      secrets: {
+        label: "Bí mật",
+        description: "Cấu hình nhà cung cấp secret",
+      },
+      acp: {
+        label: "ACP",
+        description: "Cài đặt runtime và truyền luồng của Agent Communication Protocol",
+      },
+      mcp: {
+        label: "MCP",
+        description: "Định nghĩa máy chủ Model Context Protocol",
+      },
+    },
+    searchPlaceholder: "Tìm kiếm cài đặt...",
+    searchAria: "Tìm kiếm cài đặt",
+    clearSearch: "Xóa tìm kiếm",
+    schemaUnavailable: "Schema không khả dụng.",
+    unsupportedSchema: "Schema không được hỗ trợ. Hãy dùng Raw.",
+    noSettingsMatch: 'Không có cài đặt nào khớp với "{query}"',
+    noSettingsInSection: "Không có cài đặt nào trong mục này",
+    formMode: "Biểu mẫu",
+    rawMode: "Raw",
+    formModeUnsafe: "Chế độ biểu mẫu không thể chỉnh sửa an toàn một số trường",
+    rawModeTitle: "Chỉnh sửa cấu hình JSON/JSON5 thô",
+    rawModeUnavailable: "Chế độ Raw không khả dụng cho ảnh chụp hiện tại",
+    unsavedChanges: "Có thay đổi chưa lưu",
+    pendingChanges: "{count} thay đổi chờ lưu",
+    noChanges: "Không có thay đổi",
+    rawModeDisabled:
+      "Chế độ Raw bị tắt (ảnh chụp hiện tại không thể đọc ghi lại văn bản thô một cách an toàn).",
+    openFile: "Mở",
+    openFileTitle: "Mở tệp cấu hình",
+    openFilePathTitle: "Mở {path}",
+    invalidConfig:
+      "Cấu hình của bạn không hợp lệ. Một số cài đặt có thể không hoạt động như mong đợi.",
+    dismissInvalid: "Không nhắc lại",
+    viewPendingChanges: "Xem {count} thay đổi chờ lưu",
+    revealEnvValues: "Hiện giá trị env",
+    hideEnvValues: "Ẩn giá trị env",
+    peek: "Xem nhanh",
+    loadingSchema: "Đang tải schema…",
+    appearance: {
+      themeHeading: "Chủ đề",
+      themeHint: "Chọn họ chủ đề.",
+      roundnessHeading: "Bo góc",
+      roundnessHint: "Điều chỉnh độ bo góc trên toàn bộ giao diện.",
+      connectionHeading: "Kết nối",
+      gatewayLabel: "Gateway",
+      statusLabel: "Trạng thái",
+      assistantLabel: "Trợ lý",
+      themeOptions: {
+        claw: {
+          label: "Claw",
+          description: "Họ màu Chroma",
+        },
+        knot: {
+          label: "Knot",
+          description: "Đen và đỏ",
+        },
+        dash: {
+          label: "Dash",
+          description: "Bản vẽ tông chocolate",
+        },
+      },
+      borderRadius: {
+        "0": "Không",
+        "25": "Ít",
+        "50": "Mặc định",
+        "75": "Tròn",
+        "100": "Tối đa",
+      },
+    },
+  },
   overview: {
     access: {
       title: "Truy cập Gateway",

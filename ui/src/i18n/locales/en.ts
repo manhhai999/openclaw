@@ -186,6 +186,205 @@ export const en: TranslationMap = {
     logs: "Live gateway logs.",
     dreams: "Memory dreaming, consolidation, and reflection.",
   },
+  configUi: {
+    rootLabel: "Settings",
+    categories: {
+      core: "Core",
+      ai: "AI & Agents",
+      communication: "Communications",
+      automation: "Automation",
+      infrastructure: "Infrastructure",
+      appearance: "Appearance",
+      other: "Other",
+    },
+    sections: {
+      env: {
+        label: "Environment",
+        description: "Environment variables passed to the gateway process",
+      },
+      update: {
+        label: "Updates",
+        description: "Auto-update settings and release channel",
+      },
+      agents: {
+        label: "Agents",
+        description: "Agent configurations, models, and identities",
+      },
+      auth: {
+        label: "Authentication",
+        description: "API keys and authentication profiles",
+      },
+      channels: {
+        label: "Channels",
+        description: "Messaging channels (Telegram, Discord, Slack, etc.)",
+      },
+      messages: {
+        label: "Messages",
+        description: "Message handling and routing settings",
+      },
+      commands: {
+        label: "Commands",
+        description: "Custom slash commands",
+      },
+      hooks: {
+        label: "Hooks",
+        description: "Webhooks and event hooks",
+      },
+      skills: {
+        label: "Skills",
+        description: "Skill packs and capabilities",
+      },
+      tools: {
+        label: "Tools",
+        description: "Tool configurations (browser, search, etc.)",
+      },
+      gateway: {
+        label: "Gateway",
+        description: "Gateway server settings (port, auth, binding)",
+      },
+      wizard: {
+        label: "Setup Wizard",
+        description: "Setup wizard state and history",
+      },
+      meta: {
+        label: "Metadata",
+        description: "Gateway metadata and version information",
+      },
+      logging: {
+        label: "Logging",
+        description: "Log levels and output configuration",
+      },
+      browser: {
+        label: "Browser",
+        description: "Browser automation settings",
+      },
+      ui: {
+        label: "UI",
+        description: "User interface preferences",
+      },
+      models: {
+        label: "Models",
+        description: "AI model configurations and providers",
+      },
+      bindings: {
+        label: "Bindings",
+        description: "Key bindings and shortcuts",
+      },
+      broadcast: {
+        label: "Broadcast",
+        description: "Broadcast and notification settings",
+      },
+      audio: {
+        label: "Audio",
+        description: "Audio input/output settings",
+      },
+      session: {
+        label: "Session",
+        description: "Session management and persistence",
+      },
+      cron: {
+        label: "Cron",
+        description: "Scheduled tasks and automation",
+      },
+      web: {
+        label: "Web",
+        description: "Web server and API settings",
+      },
+      discovery: {
+        label: "Discovery",
+        description: "Service discovery and networking",
+      },
+      canvasHost: {
+        label: "Canvas Host",
+        description: "Canvas rendering and display",
+      },
+      talk: {
+        label: "Talk",
+        description: "Voice and speech settings",
+      },
+      plugins: {
+        label: "Plugins",
+        description: "Plugin management and extensions",
+      },
+      diagnostics: {
+        label: "Diagnostics",
+        description: "Instrumentation, OpenTelemetry, and cache-trace settings",
+      },
+      cli: {
+        label: "CLI",
+        description: "CLI banner and startup behavior",
+      },
+      secrets: {
+        label: "Secrets",
+        description: "Secret provider configuration",
+      },
+      acp: {
+        label: "ACP",
+        description: "Agent Communication Protocol runtime and streaming settings",
+      },
+      mcp: {
+        label: "MCP",
+        description: "Model Context Protocol server definitions",
+      },
+    },
+    searchPlaceholder: "Search settings...",
+    searchAria: "Search settings",
+    clearSearch: "Clear search",
+    schemaUnavailable: "Schema unavailable.",
+    unsupportedSchema: "Unsupported schema. Use Raw.",
+    noSettingsMatch: 'No settings match "{query}"',
+    noSettingsInSection: "No settings in this section",
+    formMode: "Form",
+    rawMode: "Raw",
+    formModeUnsafe: "Form view can't safely edit some fields",
+    rawModeTitle: "Edit raw JSON/JSON5 config",
+    rawModeUnavailable: "Raw mode unavailable for this snapshot",
+    unsavedChanges: "Unsaved changes",
+    pendingChanges: "{count} pending changes",
+    noChanges: "No changes",
+    rawModeDisabled: "Raw mode disabled (snapshot cannot safely round-trip raw text).",
+    openFile: "Open",
+    openFileTitle: "Open config file",
+    openFilePathTitle: "Open {path}",
+    invalidConfig: "Your configuration is invalid. Some settings may not work as expected.",
+    dismissInvalid: "Don't remind again",
+    viewPendingChanges: "View {count} pending changes",
+    revealEnvValues: "Reveal env values",
+    hideEnvValues: "Hide env values",
+    peek: "Peek",
+    loadingSchema: "Loading schema…",
+    appearance: {
+      themeHeading: "Theme",
+      themeHint: "Choose a theme family.",
+      roundnessHeading: "Roundness",
+      roundnessHint: "Adjust corner radius across the UI.",
+      connectionHeading: "Connection",
+      gatewayLabel: "Gateway",
+      statusLabel: "Status",
+      assistantLabel: "Assistant",
+      themeOptions: {
+        claw: {
+          label: "Claw",
+          description: "Chroma family",
+        },
+        knot: {
+          label: "Knot",
+          description: "Black & red",
+        },
+        dash: {
+          label: "Dash",
+          description: "Chocolate blueprint",
+        },
+      },
+      borderRadius: {
+        0: "None",
+        25: "Slight",
+        50: "Default",
+        75: "Round",
+        100: "Full",
+      },
+    },
+  },
   overview: {
     access: {
       title: "Gateway Access",
