@@ -618,7 +618,15 @@ export function renderApp(state: AppViewState) {
     gatewayUrl: state.settings.gatewayUrl,
     assistantName: state.assistantName,
     configPath: state.configSnapshot?.path ?? null,
-    rawAvailable: typeof state.configSnapshot?.raw === "string",
+    rawAvailable:
+      typeof state.configSnapshot?.raw === "string" ||
+      (typeof state.configSnapshot?.raw !== "string" && state.configValid === true),
+    rawModeSupport:
+      typeof state.configSnapshot?.raw === "string"
+        ? ("native" as const)
+        : state.configValid === true
+          ? ("derived" as const)
+          : ("disabled" as const),
   } satisfies Omit<
     ConfigProps,
     | "formMode"

@@ -3,6 +3,7 @@ import { t } from "../../i18n/index.ts";
 import { icons } from "../icons.ts";
 import { normalizeLowercaseStringOrEmpty } from "../string-coerce.ts";
 import type { ConfigUiHints } from "../types.ts";
+import { translateConfigMetadataText } from "./config-form.metadata.ts";
 import { matchesNodeSearch, parseConfigSearchQuery, renderNode } from "./config-form.node.ts";
 import { hintForPath, humanize, schemaType, type JsonSchema } from "./config-form.shared.ts";
 
@@ -428,15 +429,19 @@ export function resolveConfigSectionMeta(
   description: string;
 } {
   const meta = SECTION_META_KEYS[key];
+  const fallbackLabel =
+    translateConfigMetadataText(schema?.title ?? humanize(key)) ?? schema?.title ?? humanize(key);
+  const fallbackDescription =
+    translateConfigMetadataText(schema?.description ?? "") ?? schema?.description ?? "";
   if (meta) {
     return {
-      label: translateConfigText(meta.labelKey, schema?.title ?? humanize(key)),
-      description: translateConfigText(meta.descriptionKey, schema?.description ?? ""),
+      label: translateConfigText(meta.labelKey, fallbackLabel),
+      description: translateConfigText(meta.descriptionKey, fallbackDescription),
     };
   }
   return {
-    label: schema?.title ?? humanize(key),
-    description: schema?.description ?? "",
+    label: fallbackLabel,
+    description: fallbackDescription,
   };
 }
 
@@ -607,8 +612,10 @@ export function renderConfigForm(props: ConfigFormProps) {
         ? (() => {
             const { sectionKey, subsectionKey, schema: node } = subsectionContext;
             const hint = hintForPath([sectionKey, subsectionKey], props.uiHints);
-            const label = hint?.label ?? node.title ?? humanize(subsectionKey);
-            const description = hint?.help ?? node.description ?? "";
+            const rawLabel = hint?.label ?? node.title ?? humanize(subsectionKey);
+            const rawDescription = hint?.help ?? node.description ?? "";
+            const label = translateConfigMetadataText(rawLabel) ?? rawLabel;
+            const description = translateConfigMetadataText(rawDescription) ?? rawDescription;
             const sectionValue = value[sectionKey];
             const scopedValue =
               sectionValue && typeof sectionValue === "object"

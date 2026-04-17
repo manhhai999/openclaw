@@ -39,6 +39,7 @@ export type ConfigProps = {
   uiHints: ConfigUiHints;
   formMode: "form" | "raw";
   rawAvailable?: boolean;
+  rawModeSupport?: "native" | "derived" | "disabled";
   showModeToggle?: boolean;
   formValue: Record<string, unknown> | null;
   originalValue: Record<string, unknown> | null;
@@ -571,7 +572,7 @@ function truncateValue(value: unknown, maxLen = 40): string {
 
 function renderDiffValue(path: string, value: unknown, _uiHints: ConfigUiHints): string {
   if (isSensitiveConfigPath(path) && value != null && truncateValue(value).trim() !== "") {
-    return REDACTED_PLACEHOLDER;
+    return translateConfigText("configUi.redactedPlaceholder", REDACTED_PLACEHOLDER);
   }
   return truncateValue(value);
 }
@@ -738,6 +739,7 @@ export function renderConfig(props: ConfigProps) {
   };
   const formUnsafe = analysis.schema ? analysis.unsupportedPaths.length > 0 : false;
   const rawAvailable = props.rawAvailable ?? true;
+  const rawModeSupport = props.rawModeSupport ?? (rawAvailable ? "native" : "disabled");
   const formMode = showModeToggle && rawAvailable ? props.formMode : "form";
   const envSensitiveVisible = cvs.envRevealed;
   const requestUpdate = props.onRequestUpdate ?? (() => props.onRawChange(props.raw));
@@ -892,6 +894,15 @@ export function renderConfig(props: ConfigProps) {
                     )}</span
                   >
                 `
+              : rawModeSupport === "derived"
+                ? html`
+                    <span class="config-status muted">
+                      ${translateConfigText(
+                        "configUi.rawModeDerived",
+                        "Raw mode is using a derived snapshot; formatting comments may not be preserved.",
+                      )}
+                    </span>
+                  `
               : nothing}
             ${props.onOpenFile
               ? html`
@@ -916,13 +927,19 @@ export function renderConfig(props: ConfigProps) {
               ${props.loading ? t("common.loading") : t("common.reload")}
             </button>
             <button class="btn btn--sm primary" ?disabled=${!canSave} @click=${props.onSave}>
-              ${props.saving ? "Saving…" : "Save"}
+              ${props.saving
+                ? t("common.saving")
+                : translateConfigText("configUi.save", "Save")}
             </button>
             <button class="btn btn--sm" ?disabled=${!canApply} @click=${props.onApply}>
-              ${props.applying ? "Applying…" : "Apply"}
+              ${props.applying
+                ? translateConfigText("configUi.applying", "Applying…")
+                : translateConfigText("configUi.apply", "Apply")}
             </button>
             <button class="btn btn--sm" ?disabled=${!canUpdate} @click=${props.onUpdate}>
-              ${props.updating ? "Updating…" : "Update"}
+              ${props.updating
+                ? translateConfigText("configUi.updating", "Updating…")
+                : translateConfigText("configUi.update", "Update")}
             </button>
           </div>
         </div>
@@ -1173,26 +1190,68 @@ export function renderConfig(props: ConfigProps) {
                     ${formUnsafe
                       ? html`
                           <div class="callout info" style="margin-bottom: 12px">
-                            Your config contains fields the form editor can't safely represent. Use
-                            Raw mode to edit those entries.
+                            ${translateConfigText(
+                              "configUi.rawUnsafeNotice",
+                              "Your config contains fields the form editor can't safely represent. Use Raw mode to edit those entries.",
+                            )}
+                          </div>
+                        `
+                      : nothing}
+                    ${rawModeSupport === "derived"
+                      ? html`
+                          <div class="callout warn" style="margin-bottom: 12px">
+                            ${translateConfigText(
+                              "configUi.rawModeDerived",
+                              "Raw mode is using a derived snapshot; formatting comments may not be preserved.",
+                            )}
                           </div>
                         `
                       : nothing}
                     <div class="field config-raw-field">
                       <span style="display:flex;align-items:center;gap:8px;">
-                        Raw config (JSON/JSON5)
+                        ${translateConfigText("configUi.rawTitle", "Raw config (JSON/JSON5)")}
                         ${sensitiveCount > 0
                           ? html`
                               <span class="pill pill--sm"
-                                >${sensitiveCount} secret${sensitiveCount === 1 ? "" : "s"}
-                                ${blurred ? "redacted" : "visible"}</span
+                                >${sensitiveCount === 1
+                                  ? blurred
+                                    ? translateConfigText(
+                                        "configUi.secretsRedactedSingle",
+                                        "1 secret redacted",
+                                        { count: "1" },
+                                      )
+                                    : translateConfigText(
+                                        "configUi.secretsVisibleSingle",
+                                        "1 secret visible",
+                                        { count: "1" },
+                                      )
+                                  : blurred
+                                    ? translateConfigText(
+                                        "configUi.secretsRedactedPlural",
+                                        `${sensitiveCount} secrets redacted`,
+                                        { count: String(sensitiveCount) },
+                                      )
+                                    : translateConfigText(
+                                        "configUi.secretsVisiblePlural",
+                                        `${sensitiveCount} secrets visible`,
+                                        { count: String(sensitiveCount) },
+                                      )}</span
                               >
                               <button
                                 class="btn btn--icon config-raw-toggle ${blurred ? "" : "active"}"
                                 title=${blurred
-                                  ? "Reveal sensitive values"
-                                  : "Hide sensitive values"}
-                                aria-label="Toggle raw config redaction"
+                                  ? translateConfigText(
+                                      "configUi.revealSensitiveValues",
+                                      "Reveal sensitive values",
+                                    )
+                                  : translateConfigText(
+                                      "configUi.hideSensitiveValues",
+                                      "Hide sensitive values",
+                                    )}
+                                aria-label=${translateConfigText(
+                                  "configUi.toggleRawRedaction",
+                                  "Toggle raw config redaction",
+                                )}
                                 aria-pressed=${!blurred}
                                 @click=${() => {
                                   cvs.rawRevealed = !cvs.rawRevealed;
@@ -1207,13 +1266,19 @@ export function renderConfig(props: ConfigProps) {
                       ${blurred
                         ? html`
                             <div class="callout info" style="margin-top: 12px">
-                              ${sensitiveCount} sensitive value${sensitiveCount === 1 ? "" : "s"}
-                              hidden. Use the reveal button above to edit the raw config.
+                              ${translateConfigText(
+                                "configUi.rawHiddenNotice",
+                                `${sensitiveCount} sensitive values hidden. Use the reveal button above to edit the raw config.`,
+                                { count: String(sensitiveCount) },
+                              )}
                             </div>
                           `
                         : html`
                             <textarea
-                              placeholder="Raw config (JSON/JSON5)"
+                              placeholder=${translateConfigText(
+                                "configUi.rawPlaceholder",
+                                "Raw config (JSON/JSON5)",
+                              )}
                               .value=${props.raw}
                               @input=${(e: Event) => {
                                 props.onRawChange((e.target as HTMLTextAreaElement).value);

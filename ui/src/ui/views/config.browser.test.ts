@@ -247,6 +247,27 @@ describe("config view", () => {
     expect(onFormModeChange).not.toHaveBeenCalled();
   });
 
+  it("keeps Raw mode available for derived snapshots and shows a warning", () => {
+    const { container } = renderConfigView({
+      formMode: "raw",
+      rawAvailable: true,
+      rawModeSupport: "derived",
+      raw: '{\n  "gateway": { "mode": "local" }\n}\n',
+      originalRaw: "{\n}\n",
+      formValue: { gateway: { mode: "local" } },
+      originalValue: {},
+    });
+
+    const rawButton = Array.from(container.querySelectorAll("button")).find(
+      (btn) => btn.textContent?.trim() === "Raw",
+    );
+    expect(rawButton?.disabled).toBe(false);
+    expect(normalizedText(container)).toContain(
+      "Raw mode is using a derived snapshot; formatting comments may not be preserved.",
+    );
+    expect(container.querySelector(".config-raw-field")).not.toBeNull();
+  });
+
   it("switches sections from the sidebar", () => {
     const container = document.createElement("div");
     const onSectionChange = vi.fn();

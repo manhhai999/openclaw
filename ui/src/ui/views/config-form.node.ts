@@ -1,4 +1,5 @@
 import { html, nothing, type TemplateResult } from "lit";
+import { t } from "../../i18n/index.ts";
 import { formatUnknownText } from "../format.ts";
 import { icons as sharedIcons } from "../icons.ts";
 import {
@@ -6,6 +7,7 @@ import {
   normalizeOptionalLowercaseString,
 } from "../string-coerce.ts";
 import type { ConfigUiHints } from "../types.ts";
+import { translateConfigMetadataText } from "./config-form.metadata.ts";
 import {
   defaultValue,
   hasSensitiveConfigData,
@@ -128,6 +130,8 @@ const icons = {
 type FieldMeta = {
   label: string;
   help?: string;
+  sourceLabel: string;
+  sourceHelp?: string;
   tags: string[];
 };
 
@@ -196,14 +200,20 @@ function renderSensitiveToggleButton(params: {
       style="width:28px;height:28px;padding:0;"
       title=${state.canReveal
         ? state.isRevealed
-          ? "Hide value"
-          : "Reveal value"
-        : "Disable stream mode to reveal value"}
+          ? translateConfigUiText("configUi.hideValue", "Hide value")
+          : translateConfigUiText("configUi.revealValue", "Reveal value")
+        : translateConfigUiText(
+            "configUi.disableStreamToRevealValue",
+            "Disable stream mode to reveal value",
+          )}
       aria-label=${state.canReveal
         ? state.isRevealed
-          ? "Hide value"
-          : "Reveal value"
-        : "Disable stream mode to reveal value"}
+          ? translateConfigUiText("configUi.hideValue", "Hide value")
+          : translateConfigUiText("configUi.revealValue", "Reveal value")
+        : translateConfigUiText(
+            "configUi.disableStreamToRevealValue",
+            "Disable stream mode to reveal value",
+          )}
       aria-pressed=${state.isRevealed}
       ?disabled=${params.disabled || !state.canReveal}
       @click=${() => params.onToggleSensitivePath?.(params.path)}
@@ -259,19 +269,34 @@ function normalizeTags(raw: unknown): string[] {
   return tags;
 }
 
+function translateConfigUiText(
+  key: string,
+  fallback: string,
+  params?: Record<string, string>,
+): string {
+  const value = t(key, params);
+  return value === key ? fallback : value;
+}
+
+function redactedPlaceholderText(): string {
+  return translateConfigUiText("configUi.redactedPlaceholder", REDACTED_PLACEHOLDER);
+}
+
 function resolveFieldMeta(
   path: Array<string | number>,
   schema: JsonSchema,
   hints: ConfigUiHints,
 ): FieldMeta {
   const hint = hintForPath(path, hints);
-  const label = hint?.label ?? schema.title ?? humanize(String(path.at(-1)));
-  const help = hint?.help ?? schema.description;
+  const sourceLabel = hint?.label ?? schema.title ?? humanize(String(path.at(-1)));
+  const sourceHelp = hint?.help ?? schema.description;
   const schemaTags = normalizeTags(schema["x-tags"] ?? schema.tags);
   const hintTags = normalizeTags(hint?.tags);
   return {
-    label,
-    help,
+    label: translateConfigMetadataText(sourceLabel) ?? sourceLabel,
+    help: translateConfigMetadataText(sourceHelp),
+    sourceLabel,
+    sourceHelp,
     tags: hintTags.length > 0 ? hintTags : schemaTags,
   };
 }
@@ -306,7 +331,7 @@ function matchesNodeSelf(params: {
   if (!hasSearchCriteria(criteria)) {
     return true;
   }
-  const { label, help, tags } = resolveFieldMeta(path, schema, hints);
+  const { label, help, sourceLabel, sourceHelp, tags } = resolveFieldMeta(path, schema, hints);
   if (!matchesTags(criteria.tags, tags)) {
     return false;
   }
@@ -326,8 +351,12 @@ function matchesNodeSelf(params: {
   return matchesText(criteria.text, [
     label,
     help,
+    sourceLabel,
+    sourceHelp,
     schema.title,
     schema.description,
+    translateConfigMetadataText(schema.title),
+    translateConfigMetadataText(schema.description),
     pathLabel,
     enumText,
   ]);
@@ -453,7 +482,12 @@ export function renderNode(params: {
   if (unsupported.has(key)) {
     return html`<div class="cfg-field cfg-field--error">
       <div class="cfg-field__label">${label}</div>
-      <div class="cfg-field__error">Unsupported schema node. Use Raw mode.</div>
+      <div class="cfg-field__error">
+        ${translateConfigUiText(
+          "configUi.unsupportedNode",
+          "Unsupported schema node. Use Raw mode.",
+        )}
+      </div>
     </div>`;
   }
   if (
@@ -644,7 +678,13 @@ export function renderNode(params: {
   return html`
     <div class="cfg-field cfg-field--error">
       <div class="cfg-field__label">${label}</div>
-      <div class="cfg-field__error">Unsupported type: ${type}. Use Raw mode.</div>
+      <div class="cfg-field__error">
+        ${translateConfigUiText(
+          "configUi.unsupportedType",
+          `Unsupported type: ${type}. Use Raw mode.`,
+          { type: String(type ?? "unknown") },
+        )}
+      </div>
     </div>
   `;
 }
@@ -683,11 +723,26 @@ function renderTextInput(params: {
   const placeholder = effectiveRedacted
     ? isStructuredSecretRef
       ? rawAvailable
-        ? "Structured value (SecretRef) - use Raw mode to edit"
-        : "Structured value (SecretRef) - edit the config file directly"
-      : REDACTED_PLACEHOLDER
-    : (hint?.placeholder ??
-      (schema.default !== undefined ? `Default: ${formatUnknownText(schema.default)}` : ""));
+        ? translateConfigUiText(
+            "configUi.structuredSecretRefUseRaw",
+            "Structured value (SecretRef) - use Raw mode to edit",
+          )
+        : translateConfigUiText(
+            "configUi.structuredSecretRefEditFile",
+            "Structured value (SecretRef) - edit the config file directly",
+          )
+      : redactedPlaceholderText()
+    : (translateConfigMetadataText(hint?.placeholder) ??
+      hint?.placeholder ??
+      (schema.default !== undefined
+        ? translateConfigUiText(
+            "configUi.defaultValue",
+            `Default: ${formatUnknownText(schema.default)}`,
+            {
+              value: formatUnknownText(schema.default),
+            },
+          )
+        : ""));
   const displayValue = effectiveRedacted
     ? ""
     : isStructuredValue
@@ -753,7 +808,7 @@ function renderTextInput(params: {
               <button
                 type="button"
                 class="cfg-input__reset"
-                title="Reset to default"
+                title=${translateConfigUiText("configUi.resetToDefault", "Reset to default")}
                 ?disabled=${disabled || effectiveRedacted}
                 @click=${() => onPatch(path, schema.default)}
               >
@@ -852,7 +907,9 @@ function renderSelect(params: {
           onPatch(path, val === unset ? undefined : options[Number(val)]);
         }}
       >
-        <option value=${unset}>Select...</option>
+        <option value=${unset}>
+          ${translateConfigUiText("configUi.selectOption", "Select...")}
+        </option>
         ${options.map((opt, idx) => html` <option value=${String(idx)}>${String(opt)}</option> `)}
       </select>
     </div>
@@ -891,7 +948,9 @@ function renderJsonTextarea(params: {
       <div class="cfg-input-wrap">
         <textarea
           class="cfg-textarea${sensitiveState.isRedacted ? " cfg-textarea--redacted" : ""}"
-          placeholder=${sensitiveState.isRedacted ? REDACTED_PLACEHOLDER : "JSON value"}
+          placeholder=${sensitiveState.isRedacted
+            ? redactedPlaceholderText()
+            : translateConfigUiText("configUi.jsonValue", "JSON value")}
           rows="3"
           .value=${displayValue}
           ?disabled=${disabled}
@@ -1091,7 +1150,12 @@ function renderArray(params: {
     return html`
       <div class="cfg-field cfg-field--error">
         <div class="cfg-field__label">${label}</div>
-        <div class="cfg-field__error">Unsupported array schema. Use Raw mode.</div>
+        <div class="cfg-field__error">
+          ${translateConfigUiText(
+            "configUi.unsupportedArraySchema",
+            "Unsupported array schema. Use Raw mode.",
+          )}
+        </div>
       </div>
     `;
   }
@@ -1105,7 +1169,13 @@ function renderArray(params: {
           ${showLabel ? html`<span class="cfg-array__label">${label}</span>` : nothing}
           ${renderTags(tags)}
         </div>
-        <span class="cfg-array__count">${arr.length} item${arr.length !== 1 ? "s" : ""}</span>
+        <span class="cfg-array__count">
+          ${arr.length === 1
+            ? translateConfigUiText("configUi.arrayCountSingle", "1 item", { count: "1" })
+            : translateConfigUiText("configUi.arrayCountPlural", `${arr.length} items`, {
+                count: String(arr.length),
+              })}
+        </span>
         <button
           type="button"
           class="cfg-array__add"
@@ -1116,12 +1186,19 @@ function renderArray(params: {
           }}
         >
           <span class="cfg-array__add-icon">${icons.plus}</span>
-          Add
+          ${translateConfigUiText("configUi.addItem", "Add")}
         </button>
       </div>
       ${help ? html`<div class="cfg-array__help">${help}</div>` : nothing}
       ${arr.length === 0
-        ? html` <div class="cfg-array__empty">No items yet. Click "Add" to create one.</div> `
+        ? html`
+            <div class="cfg-array__empty">
+              ${translateConfigUiText(
+                "configUi.emptyArray",
+                'No items yet. Click "Add" to create one.',
+              )}
+            </div>
+          `
         : html`
             <div class="cfg-array__items">
               ${arr.map(
@@ -1132,7 +1209,7 @@ function renderArray(params: {
                       <button
                         type="button"
                         class="cfg-array__item-remove"
-                        title="Remove item"
+                        title=${translateConfigUiText("configUi.removeItem", "Remove item")}
                         ?disabled=${disabled}
                         @click=${() => {
                           const next = [...arr];
@@ -1217,7 +1294,9 @@ function renderMapField(params: {
   return html`
     <div class="cfg-map">
       <div class="cfg-map__header">
-        <span class="cfg-map__label">Custom entries</span>
+        <span class="cfg-map__label">
+          ${translateConfigUiText("configUi.customEntries", "Custom entries")}
+        </span>
         <button
           type="button"
           class="cfg-map__add"
@@ -1235,12 +1314,16 @@ function renderMapField(params: {
           }}
         >
           <span class="cfg-map__add-icon">${icons.plus}</span>
-          Add Entry
+          ${translateConfigUiText("configUi.addEntry", "Add Entry")}
         </button>
       </div>
 
       ${visibleEntries.length === 0
-        ? html` <div class="cfg-map__empty">No custom entries.</div> `
+        ? html`
+            <div class="cfg-map__empty">
+              ${translateConfigUiText("configUi.noCustomEntries", "No custom entries.")}
+            </div>
+          `
         : html`
             <div class="cfg-map__items">
               ${visibleEntries.map(([key, entryValue]) => {
@@ -1260,7 +1343,7 @@ function renderMapField(params: {
                         <input
                           type="text"
                           class="cfg-input cfg-input--sm"
-                          placeholder="Key"
+                          placeholder=${translateConfigUiText("configUi.keyPlaceholder", "Key")}
                           .value=${key}
                           ?disabled=${disabled}
                           @change=${(e: Event) => {
@@ -1281,7 +1364,7 @@ function renderMapField(params: {
                       <button
                         type="button"
                         class="cfg-map__item-remove"
-                        title="Remove entry"
+                        title=${translateConfigUiText("configUi.removeEntry", "Remove entry")}
                         ?disabled=${disabled}
                         @click=${() => {
                           const next = { ...value };
@@ -1301,8 +1384,8 @@ function renderMapField(params: {
                                   ? " cfg-textarea--redacted"
                                   : ""}"
                                 placeholder=${sensitiveState.isRedacted
-                                  ? REDACTED_PLACEHOLDER
-                                  : "JSON value"}
+                                  ? redactedPlaceholderText()
+                                  : translateConfigUiText("configUi.jsonValue", "JSON value")}
                                 rows="2"
                                 .value=${sensitiveState.isRedacted ? "" : fallback}
                                 ?disabled=${disabled}
