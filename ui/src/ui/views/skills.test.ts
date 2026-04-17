@@ -1,7 +1,8 @@
 /* @vitest-environment jsdom */
 
 import { render } from "lit";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { i18n, t } from "../../i18n/index.ts";
 import type { SkillStatusEntry, SkillStatusReport } from "../types.ts";
 import { renderSkills, type SkillsProps } from "./skills.ts";
 
@@ -91,6 +92,10 @@ function createProps(overrides: Partial<SkillsProps> = {}): SkillsProps {
 }
 
 describe("renderSkills", () => {
+  beforeEach(async () => {
+    await i18n.setLocale("en");
+  });
+
   afterEach(() => {
     vi.restoreAllMocks();
     while (dialogRestores.length > 0) {
@@ -235,9 +240,9 @@ describe("renderSkills", () => {
     const text = normalizeText(container);
     expect(text).toContain("rate limited");
     expect(text).toContain("Installed github");
-    expect(text).toContain("By OpenClaw (@openclaw)");
-    expect(text).toContain("Latest: v1.2.3");
-    expect(text).toContain("Platforms: macos, linux");
+    expect(text).toContain(`${t("skillsPage.clawHub.by")} OpenClaw (@openclaw)`);
+    expect(text).toContain(t("skillsPage.clawHub.latest", { version: "1.2.3" }));
+    expect(text).toContain(t("skillsPage.clawHub.platforms", { platforms: "macos, linux" }));
     expect(text).toContain("Added search support");
 
     container

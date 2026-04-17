@@ -739,7 +739,6 @@ export function renderConfig(props: ConfigProps) {
   };
   const formUnsafe = analysis.schema ? analysis.unsupportedPaths.length > 0 : false;
   const rawAvailable = props.rawAvailable ?? true;
-  const rawModeSupport = props.rawModeSupport ?? (rawAvailable ? "native" : "disabled");
   const formMode = showModeToggle && rawAvailable ? props.formMode : "form";
   const envSensitiveVisible = cvs.envRevealed;
   const requestUpdate = props.onRequestUpdate ?? (() => props.onRawChange(props.raw));
@@ -894,15 +893,6 @@ export function renderConfig(props: ConfigProps) {
                     )}</span
                   >
                 `
-              : rawModeSupport === "derived"
-                ? html`
-                    <span class="config-status muted">
-                      ${translateConfigText(
-                        "configUi.rawModeDerived",
-                        "Raw mode is using a derived snapshot; formatting comments may not be preserved.",
-                      )}
-                    </span>
-                  `
               : nothing}
             ${props.onOpenFile
               ? html`
@@ -927,9 +917,7 @@ export function renderConfig(props: ConfigProps) {
               ${props.loading ? t("common.loading") : t("common.reload")}
             </button>
             <button class="btn btn--sm primary" ?disabled=${!canSave} @click=${props.onSave}>
-              ${props.saving
-                ? t("common.saving")
-                : translateConfigText("configUi.save", "Save")}
+              ${props.saving ? t("common.saving") : translateConfigText("configUi.save", "Save")}
             </button>
             <button class="btn btn--sm" ?disabled=${!canApply} @click=${props.onApply}>
               ${props.applying
@@ -1193,16 +1181,6 @@ export function renderConfig(props: ConfigProps) {
                             ${translateConfigText(
                               "configUi.rawUnsafeNotice",
                               "Your config contains fields the form editor can't safely represent. Use Raw mode to edit those entries.",
-                            )}
-                          </div>
-                        `
-                      : nothing}
-                    ${rawModeSupport === "derived"
-                      ? html`
-                          <div class="callout warn" style="margin-bottom: 12px">
-                            ${translateConfigText(
-                              "configUi.rawModeDerived",
-                              "Raw mode is using a derived snapshot; formatting comments may not be preserved.",
                             )}
                           </div>
                         `

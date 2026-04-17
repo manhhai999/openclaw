@@ -247,7 +247,7 @@ describe("config view", () => {
     expect(onFormModeChange).not.toHaveBeenCalled();
   });
 
-  it("keeps Raw mode available for derived snapshots and shows a warning", () => {
+  it("keeps Raw mode available for derived snapshots without showing a warning", () => {
     const { container } = renderConfigView({
       formMode: "raw",
       rawAvailable: true,
@@ -262,7 +262,7 @@ describe("config view", () => {
       (btn) => btn.textContent?.trim() === "Raw",
     );
     expect(rawButton?.disabled).toBe(false);
-    expect(normalizedText(container)).toContain(
+    expect(normalizedText(container)).not.toContain(
       "Raw mode is using a derived snapshot; formatting comments may not be preserved.",
     );
     expect(container.querySelector(".config-raw-field")).not.toBeNull();
