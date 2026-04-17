@@ -342,6 +342,46 @@ describe("sessions inspect/control handlers", () => {
     );
   });
 
+  it("does not persist plan/worktree mutations when team close throws", async () => {
+    const respond = vi.fn() as unknown as RespondFn;
+    const broadcastToConnIds = vi.fn();
+    hoisted.closeTeamFlowMock.mockRejectedValue(new Error("failed to close child session"));
+
+    await sessionsHandlers["sessions.control"]({
+      req: { id: "req-team-fail" } as never,
+      params: {
+        key: "main",
+        plan: { exit: true, status: "completed", summary: "done" },
+        worktree: { exit: true, cleanup: "remove", force: true },
+        team: { close: true, teamId: "team-1", summary: "closed", cancelActive: true },
+      },
+      respond,
+      context: {
+        loadGatewayModelCatalog: vi.fn(async () => []),
+        broadcastToConnIds,
+        getSessionEventSubscriberConnIds: () => new Set<string>(["conn-1"]),
+      } as unknown as GatewayRequestContext,
+      client: null,
+      isWebchatConnect: () => false,
+    });
+
+    expect(hoisted.closeTeamFlowMock).toHaveBeenCalledTimes(1);
+    expect(hoisted.applySessionsPatchToStoreMock).not.toHaveBeenCalled();
+    expect(hoisted.removeSessionWorktreeMock).not.toHaveBeenCalled();
+    expect(currentEntry.planMode).toBe("active");
+    expect((currentEntry.planArtifact as { status?: string } | undefined)?.status).toBe("active");
+    expect(currentEntry.worktreeMode).toBe("active");
+    expect((currentEntry.worktreeArtifact as { status?: string } | undefined)?.status).toBe(
+      "active",
+    );
+    expect(broadcastToConnIds).not.toHaveBeenCalled();
+    expect(respond).toHaveBeenCalledWith(
+      false,
+      undefined,
+      expect.objectContaining({ message: "failed to close child session" }),
+    );
+  });
+
   it("persists inactive worktree state before destructive removal", async () => {
     const respond = vi.fn() as unknown as RespondFn;
     let sawInactivePatchBeforeRemoval = false;

@@ -1549,6 +1549,29 @@ export const sessionsHandlers: GatewayRequestHandlers = {
     let latestEntry = loaded.entry;
     const actions: Record<string, unknown> = {};
 
+    if (wantsTeamClose && teamFlow) {
+      let closed: TeamFlowView;
+      try {
+        closed = await closeTeamFlow({
+          flow: teamFlow,
+          ownerSessionKey: loaded.canonicalKey,
+          summary: normalizeOptionalString(p.team?.summary) ?? undefined,
+          cancelActive: p.team?.cancelActive !== false,
+        });
+      } catch (error) {
+        respond(
+          false,
+          undefined,
+          errorShape(
+            ErrorCodes.INVALID_REQUEST,
+            error instanceof Error ? error.message : String(error),
+          ),
+        );
+        return;
+      }
+      actions.team = formatTeamFlowForGateway(closed);
+    }
+
     if (wantsPlanExit) {
       const now = Date.now();
       const planSummary = normalizeOptionalString(p.plan?.summary);
@@ -1687,29 +1710,6 @@ export const sessionsHandlers: GatewayRequestHandlers = {
           artifact: latestEntry.worktreeArtifact ?? null,
         };
       }
-    }
-
-    if (wantsTeamClose && teamFlow) {
-      let closed: TeamFlowView;
-      try {
-        closed = await closeTeamFlow({
-          flow: teamFlow,
-          ownerSessionKey: loaded.canonicalKey,
-          summary: normalizeOptionalString(p.team?.summary) ?? undefined,
-          cancelActive: p.team?.cancelActive !== false,
-        });
-      } catch (error) {
-        respond(
-          false,
-          undefined,
-          errorShape(
-            ErrorCodes.INVALID_REQUEST,
-            error instanceof Error ? error.message : String(error),
-          ),
-        );
-        return;
-      }
-      actions.team = formatTeamFlowForGateway(closed);
     }
 
     respond(
