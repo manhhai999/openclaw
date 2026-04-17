@@ -641,6 +641,7 @@ export const fr: TranslationMap = {
   },
   languages: {
     en: "Anglais",
+    vi: "Tiếng Việt (vietnamien)",
     zhCN: "简体中文 (chinois simplifié)",
     zhTW: "繁體中文 (chinois traditionnel)",
     ptBR: "Português (portugais brésilien)",

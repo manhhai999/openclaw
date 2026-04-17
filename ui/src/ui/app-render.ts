@@ -13,6 +13,7 @@ import {
   renderChatMobileToggle,
   renderChatSessionSelect,
   renderTab,
+  renderTopbarLanguageToggle,
   resolveAssistantAttachmentAuthToken,
   renderSidebarConnectionStatus,
   renderTopbarThemeModeToggle,
@@ -894,7 +895,7 @@ export function renderApp(state: AppViewState) {
             </button>
             <div class="topbar-status">
               ${isChat ? renderChatMobileToggle(state) : nothing}
-              ${renderTopbarThemeModeToggle(state)}
+              ${renderTopbarLanguageToggle(state)} ${renderTopbarThemeModeToggle(state)}
             </div>
           </div>
         </div>

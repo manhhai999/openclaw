@@ -4,7 +4,7 @@ import { render } from "lit";
 import { describe, expect, it, vi } from "vitest";
 import { i18n } from "../../i18n/index.ts";
 import { getSafeLocalStorage } from "../../local-storage.ts";
-import { renderChatSessionSelect } from "../app-render.helpers.ts";
+import { renderChatSessionSelect, renderTopbarLanguageToggle } from "../app-render.helpers.ts";
 import type { AppViewState } from "../app-view-state.ts";
 import {
   createModelCatalog,
@@ -548,7 +548,7 @@ describe("chat view", () => {
     const props = createOverviewProps({
       settings: {
         ...createOverviewProps().settings,
-        locale: "zh-CN",
+        locale: "vi",
       },
     });
 
@@ -560,16 +560,40 @@ describe("chat view", () => {
 
     let select = container.querySelector<HTMLSelectElement>("select");
     expect(i18n.getLocale()).toBe("en");
-    expect(select?.value).toBe("zh-CN");
-    expect(select?.selectedOptions[0]?.textContent?.trim()).toBe("简体中文 (Simplified Chinese)");
+    expect(select?.value).toBe("vi");
+    expect(select?.selectedOptions[0]?.textContent?.trim()).toBe("Tiếng Việt (Vietnamese)");
 
-    await i18n.setLocale("zh-CN");
+    await i18n.setLocale("vi");
     render(renderOverview(props), container);
     await Promise.resolve();
 
     select = container.querySelector<HTMLSelectElement>("select");
-    expect(select?.value).toBe("zh-CN");
-    expect(select?.selectedOptions[0]?.textContent?.trim()).toBe("简体中文 (简体中文)");
+    expect(select?.value).toBe("vi");
+    expect(select?.selectedOptions[0]?.textContent?.trim()).toBe("Tiếng Việt");
+
+    await i18n.setLocale("en");
+  });
+
+  it("switches the dashboard language from the topbar quick toggle", async () => {
+    const container = document.createElement("div");
+    const { state } = createChatHeaderState();
+    await i18n.setLocale("en");
+
+    render(renderTopbarLanguageToggle(state), container);
+
+    const viButton = container.querySelector<HTMLButtonElement>('[data-locale="vi"]');
+    expect(viButton).not.toBeNull();
+    viButton?.click();
+
+    expect(state.settings.locale).toBe("vi");
+    await vi.waitFor(() => {
+      expect(i18n.getLocale()).toBe("vi");
+    });
+
+    render(renderTopbarLanguageToggle(state), container);
+
+    const activeButton = container.querySelector<HTMLButtonElement>(".topbar-locale__btn--active");
+    expect(activeButton?.dataset.locale).toBe("vi");
 
     await i18n.setLocale("en");
   });

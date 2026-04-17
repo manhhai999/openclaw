@@ -22,6 +22,7 @@ describe("ui i18n locale registry", () => {
   it("lists supported locales", () => {
     expect(SUPPORTED_LOCALES).toEqual([
       "en",
+      "vi",
       "zh-CN",
       "zh-TW",
       "pt-BR",
@@ -39,6 +40,7 @@ describe("ui i18n locale registry", () => {
   });
 
   it("resolves browser locale fallbacks", () => {
+    expect(resolveNavigatorLocale("vi-VN")).toBe("vi");
     expect(resolveNavigatorLocale("de-DE")).toBe("de");
     expect(resolveNavigatorLocale("es-ES")).toBe("es");
     expect(resolveNavigatorLocale("es-MX")).toBe("es");
@@ -55,11 +57,13 @@ describe("ui i18n locale registry", () => {
   });
 
   it("loads lazy locale translations from the registry", async () => {
+    const vi = await loadLazyLocaleTranslation("vi");
     const de = await loadLazyLocaleTranslation("de");
     const es = await loadLazyLocaleTranslation("es");
     const ptBR = await loadLazyLocaleTranslation("pt-BR");
     const zhCN = await loadLazyLocaleTranslation("zh-CN");
 
+    expect(getNestedTranslation(vi, "common", "health")).toBe("Tình trạng");
     expect(getNestedTranslation(de, "common", "health")).toBe("Status");
     expect(getNestedTranslation(es, "common", "health")).toBe("Estado");
     expect(getNestedTranslation(es, "languages", "de")).toBe("Deutsch (Alemán)");

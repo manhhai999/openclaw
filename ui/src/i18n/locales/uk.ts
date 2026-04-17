@@ -639,6 +639,7 @@ export const uk: TranslationMap = {
   },
   languages: {
     en: "Англійська",
+    vi: "Вʼєтнамська (Vietnamese)",
     zhCN: "简体中文 (спрощена китайська)",
     zhTW: "繁體中文 (традиційна китайська)",
     ptBR: "Português (бразильська португальська)",
