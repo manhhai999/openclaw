@@ -30,7 +30,7 @@ jobs:
     permissions:
       contents: read
       pull-requests: write
-    runs-on: ubuntu-24.04
+    runs-on: ${{ github.repository_owner == 'openclaw' && 'blacksmith-16vcpu-ubuntu-2404' || 'ubuntu-24.04' }}
     steps:
       - uses: actions/create-github-app-token@v3
         id: app-token
@@ -439,7 +439,11 @@ jobs:
     permissions:
       contents: read
       pull-requests: write
+<<<<<<< HEAD
     runs-on: ubuntu-24.04
+=======
+    runs-on: ${{ github.repository_owner == 'openclaw' && 'blacksmith-16vcpu-ubuntu-2404' || 'ubuntu-24.04' }}
+>>>>>>> 2abb833b70 (ci: fall back labeler runners on forks)
     steps:
       - uses: actions/create-github-app-token@v3
         id: app-token
@@ -737,7 +741,11 @@ jobs:
   label-issues:
     permissions:
       issues: write
+<<<<<<< HEAD
     runs-on: ubuntu-24.04
+=======
+    runs-on: ${{ github.repository_owner == 'openclaw' && 'blacksmith-16vcpu-ubuntu-2404' || 'ubuntu-24.04' }}
+>>>>>>> 2abb833b70 (ci: fall back labeler runners on forks)
     steps:
       - uses: actions/create-github-app-token@v3
         id: app-token
