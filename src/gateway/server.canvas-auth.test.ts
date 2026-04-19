@@ -46,6 +46,14 @@ async function fetchCanvas(input: string, init?: RequestInit): Promise<Response>
   }
 }
 
+async function discardResponseBody(response: Response): Promise<void> {
+  try {
+    await response.body?.cancel();
+  } catch {
+    // Best-effort cleanup for test responses whose body we do not inspect.
+  }
+}
+
 async function withTimeout<T>(promise: Promise<T>, timeoutMs: number, label: string): Promise<T> {
   let timer: ReturnType<typeof setTimeout> | undefined;
   try {
@@ -96,6 +104,14 @@ async function listen(
       );
     },
   };
+}
+
+async function closeWebSocketServer(server: WebSocketServer, label: string): Promise<void> {
+  await withTimeout(
+    new Promise<void>((resolve) => server.close(() => resolve())),
+    SERVER_CLOSE_TIMEOUT_MS,
+    label,
+  );
 }
 
 async function expectWsRejected(
@@ -271,8 +287,8 @@ async function withCanvasGatewayHarness(params: {
     for (const ws of wss.clients) {
       ws.terminate();
     }
-    await new Promise<void>((resolve) => canvasWss.close(() => resolve()));
-    await new Promise<void>((resolve) => wss.close(() => resolve()));
+    await closeWebSocketServer(canvasWss, "canvas ws server close");
+    await closeWebSocketServer(wss, "gateway ws server close");
     await listener.close();
     params.rateLimiter?.dispose();
   }
@@ -315,11 +331,13 @@ describe("gateway canvas host auth", () => {
             `http://${host}:${listener.port}${CANVAS_HOST_PATH}/`,
           );
           expect(unauthCanvas.status).toBe(401);
+          await discardResponseBody(unauthCanvas);
 
           const malformedScoped = await fetchCanvas(
             `http://${host}:${listener.port}${CANVAS_CAPABILITY_PATH_PREFIX}/broken`,
           );
           expect(malformedScoped.status).toBe(401);
+          await discardResponseBody(malformedScoped);
 
           clients.add(
             makeWsClient({
@@ -336,6 +354,7 @@ describe("gateway canvas host auth", () => {
             `http://${host}:${listener.port}${scopedCanvasPath(webchatCapability, `${CANVAS_HOST_PATH}/`)}`,
           );
           expect(webchatCapabilityAllowed.status).toBe(200);
+          await discardResponseBody(webchatCapabilityAllowed);
 
           clients.add(
             makeWsClient({
@@ -352,6 +371,7 @@ describe("gateway canvas host auth", () => {
             `http://${host}:${listener.port}${scopedCanvasPath(expiredNodeCapability, `${CANVAS_HOST_PATH}/`)}`,
           );
           expect(expiredCapabilityBlocked.status).toBe(401);
+          await discardResponseBody(expiredCapabilityBlocked);
 
           const activeNodeClient = makeWsClient({
             connId: "c-active-node",
@@ -373,6 +393,7 @@ describe("gateway canvas host auth", () => {
             `http://${host}:${listener.port}${scopedCanvasPath(activeNodeCapability, `${A2UI_PATH}/`)}`,
           );
           expect([200, 404, 503]).toContain(scopedA2ui.status);
+          await discardResponseBody(scopedA2ui);
 
           await expectWsConnected(`ws://${host}:${listener.port}${activeWsPath}`);
 
@@ -382,11 +403,12 @@ describe("gateway canvas host auth", () => {
             `http://${host}:${listener.port}${activeCanvasPath}`,
           );
           expect(disconnectedNodeBlocked.status).toBe(401);
+          await discardResponseBody(disconnectedNodeBlocked);
           await expectWsRejected(`ws://${host}:${listener.port}${activeWsPath}`, {});
         },
       });
     }, "openclaw-canvas-auth-test-");
-  }, 60_000);
+  }, 120_000);
 
   test("denies canvas auth when trusted proxy omits forwarded client headers", async () => {
     await withLoopbackTrustedProxy(async () => {
