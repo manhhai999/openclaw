@@ -161,19 +161,6 @@ describe("plugin approval method registration", () => {
   });
 });
 
-describe("sessions inspect/control method registration", () => {
-  it("lists sessions inspect/control methods for hello-ok method advertising", () => {
-    const methods = listGatewayMethods();
-    expect(methods).toContain("sessions.inspect");
-    expect(methods).toContain("sessions.control");
-  });
-
-  it("classifies sessions inspect/control methods", () => {
-    expect(isGatewayMethodClassified("sessions.inspect")).toBe(true);
-    expect(isGatewayMethodClassified("sessions.control")).toBe(true);
-  });
-});
-
 describe("core gateway method classification", () => {
   it("treats node-role methods as classified even without operator scopes", () => {
     expect(isGatewayMethodClassified("node.pending.drain")).toBe(true);

@@ -52,10 +52,8 @@ export function renderLoginGate(state: AppViewState) {
               <button
                 type="button"
                 class="btn btn--icon ${state.loginShowGatewayToken ? "active" : ""}"
-                title=${state.loginShowGatewayToken
-                  ? t("overview.access.hideToken")
-                  : t("overview.access.showToken")}
-                aria-label=${t("overview.access.toggleTokenVisibility")}
+                title=${state.loginShowGatewayToken ? "Hide token" : "Show token"}
+                aria-label="Toggle token visibility"
                 aria-pressed=${state.loginShowGatewayToken}
                 @click=${() => {
                   state.loginShowGatewayToken = !state.loginShowGatewayToken;
@@ -87,10 +85,8 @@ export function renderLoginGate(state: AppViewState) {
               <button
                 type="button"
                 class="btn btn--icon ${state.loginShowGatewayPassword ? "active" : ""}"
-                title=${state.loginShowGatewayPassword
-                  ? t("overview.access.hidePassword")
-                  : t("overview.access.showPassword")}
-                aria-label=${t("overview.access.togglePasswordVisibility")}
+                title=${state.loginShowGatewayPassword ? "Hide password" : "Show password"}
+                aria-label="Toggle password visibility"
                 aria-pressed=${state.loginShowGatewayPassword}
                 @click=${() => {
                   state.loginShowGatewayPassword = !state.loginShowGatewayPassword;

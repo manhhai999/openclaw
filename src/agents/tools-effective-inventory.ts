@@ -19,6 +19,7 @@ import type {
   ResolveEffectiveToolInventoryParams,
 } from "./tools-effective-inventory.types.js";
 import type { AnyAgentTool } from "./tools/common.js";
+
 function resolveEffectiveToolLabel(tool: AnyAgentTool): string {
   const rawLabel = normalizeOptionalString(tool.label) ?? "";
   if (
@@ -39,18 +40,6 @@ function summarizeToolDescription(tool: AnyAgentTool): string {
     rawDescription: resolveRawToolDescription(tool),
     displaySummary: tool.displaySummary,
   });
-}
-
-function resolveSearchHint(tool: AnyAgentTool): string | undefined {
-  return normalizeOptionalString(tool.searchHint) ?? undefined;
-}
-
-function resolveSearchTags(tool: AnyAgentTool): string[] | undefined {
-  if (!Array.isArray(tool.searchTags)) {
-    return undefined;
-  }
-  const tags = tool.searchTags.map((entry) => normalizeOptionalString(entry) ?? "").filter(Boolean);
-  return tags.length > 0 ? [...new Set(tags)] : undefined;
 }
 
 function resolveEffectiveToolSource(tool: AnyAgentTool): {
@@ -173,9 +162,6 @@ export function resolveEffectiveToolInventory(
           label: resolveEffectiveToolLabel(tool),
           description: summarizeToolDescription(tool),
           rawDescription: resolveRawToolDescription(tool) || summarizeToolDescription(tool),
-          ...(resolveSearchHint(tool) ? { searchHint: resolveSearchHint(tool) } : {}),
-          ...(resolveSearchTags(tool) ? { searchTags: resolveSearchTags(tool) } : {}),
-          ...(tool.deferred === true ? { deferred: true } : {}),
           ...source,
         } satisfies EffectiveToolInventoryEntry;
       })

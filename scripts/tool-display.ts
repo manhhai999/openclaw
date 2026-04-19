@@ -73,11 +73,7 @@ function ensureCoreToolCoverage() {
     }
     collectToolNamesFromFile(path.join(repoRoot, "src/agents/tools", entry), toolNames);
   }
-  const missing = [...toolNames]
-    .filter(
-      (name) => !TOOL_DISPLAY_CONFIG.tools[name] && !TOOL_DISPLAY_CONFIG.tools[name.toLowerCase()],
-    )
-    .toSorted();
+  const missing = [...toolNames].filter((name) => !TOOL_DISPLAY_CONFIG.tools[name]).toSorted();
   if (missing.length > 0) {
     console.error(
       `tool-display metadata missing for runtime tools: ${missing.join(", ")}\nupdate: src/agents/tool-display-config.ts`,

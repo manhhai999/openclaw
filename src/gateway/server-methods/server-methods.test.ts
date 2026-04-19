@@ -339,7 +339,7 @@ describe("timestampOptsFromConfig", () => {
     {
       name: "falls back gracefully with empty config",
       cfg: {} as any,
-      expected: Intl.DateTimeFormat().resolvedOptions().timeZone,
+      expected: Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
     },
   ])("$name", ({ cfg, expected }) => {
     expect(timestampOptsFromConfig(cfg).timezone).toBe(expected);
@@ -1295,12 +1295,7 @@ describe("exec approval handlers", () => {
     );
     expect(respondTwo).toHaveBeenCalledWith(
       true,
-      expect.objectContaining({
-        id: "approval-two",
-        decision: null,
-        status: "expired",
-        expiredReason: "timeout",
-      }),
+      expect.objectContaining({ id: "approval-two", decision: null }),
       undefined,
     );
   });
@@ -1358,12 +1353,7 @@ describe("exec approval handlers", () => {
     expect(expireSpy).toHaveBeenCalledWith("approval-no-approver", "no-approval-route");
     expect(respond).toHaveBeenCalledWith(
       true,
-      expect.objectContaining({
-        id: "approval-no-approver",
-        decision: null,
-        status: "expired",
-        expiredReason: "no-approval-route",
-      }),
+      expect.objectContaining({ id: "approval-no-approver", decision: null }),
       undefined,
     );
   });

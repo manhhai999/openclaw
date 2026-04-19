@@ -145,7 +145,5 @@ export function renderChannelAccountCount(
   if (count < 2) {
     return nothing;
   }
-  return html`
-    <div class="account-count">${t("channels.accountsCount", { count: String(count) })}</div>
-  `;
+  return html`<div class="account-count">Accounts (${count})</div>`;
 }

@@ -215,18 +215,10 @@ import {
   SessionsCompactionListParamsSchema,
   type SessionsCompactionRestoreParams,
   SessionsCompactionRestoreParamsSchema,
-  type SessionsControlParams,
-  type SessionsControlResult,
-  SessionsControlParamsSchema,
-  SessionsControlResultSchema,
   type SessionsCreateParams,
   SessionsCreateParamsSchema,
   type SessionsDeleteParams,
   SessionsDeleteParamsSchema,
-  type SessionsInspectParams,
-  type SessionsInspectResult,
-  SessionsInspectParamsSchema,
-  SessionsInspectResultSchema,
   type SessionsListParams,
   SessionsListParamsSchema,
   type SessionsMessagesSubscribeParams,
@@ -267,21 +259,6 @@ import {
   type ToolsCatalogParams,
   ToolsCatalogParamsSchema,
   type ToolsCatalogResult,
-  type PlansListParams,
-  PlansListParamsSchema,
-  type PlansGetParams,
-  PlansGetParamsSchema,
-  type PlansUpdateStatusParams,
-  PlansUpdateStatusParamsSchema,
-  type PlanRecord,
-  PlanRecordSchema,
-  type PlanRegistrySummary,
-  PlanRegistrySummarySchema,
-  type PlansListResult,
-  PlansListResultSchema,
-  type PlansGetResult,
-  PlansGetResultSchema,
-  PlansUpdateStatusResultSchema,
   type ToolsEffectiveParams,
   ToolsEffectiveParamsSchema,
   type ToolsEffectiveResult,
@@ -396,12 +373,6 @@ export const validateSessionsPreviewParams = ajv.compile<SessionsPreviewParams>(
 export const validateSessionsResolveParams = ajv.compile<SessionsResolveParams>(
   SessionsResolveParamsSchema,
 );
-export const validateSessionsInspectParams = ajv.compile<SessionsInspectParams>(
-  SessionsInspectParamsSchema,
-);
-export const validateSessionsInspectResult = ajv.compile<SessionsInspectResult>(
-  SessionsInspectResultSchema,
-);
 export const validateSessionsCreateParams = ajv.compile<SessionsCreateParams>(
   SessionsCreateParamsSchema,
 );
@@ -415,12 +386,6 @@ export const validateSessionsAbortParams =
   ajv.compile<SessionsAbortParams>(SessionsAbortParamsSchema);
 export const validateSessionsPatchParams =
   ajv.compile<SessionsPatchParams>(SessionsPatchParamsSchema);
-export const validateSessionsControlParams = ajv.compile<SessionsControlParams>(
-  SessionsControlParamsSchema,
-);
-export const validateSessionsControlResult = ajv.compile<SessionsControlResult>(
-  SessionsControlResultSchema,
-);
 export const validateSessionsResetParams =
   ajv.compile<SessionsResetParams>(SessionsResetParamsSchema);
 export const validateSessionsDeleteParams = ajv.compile<SessionsDeleteParams>(
@@ -472,11 +437,6 @@ export const validateChannelsLogoutParams = ajv.compile<ChannelsLogoutParams>(
 export const validateModelsListParams = ajv.compile<ModelsListParams>(ModelsListParamsSchema);
 export const validateSkillsStatusParams = ajv.compile<SkillsStatusParams>(SkillsStatusParamsSchema);
 export const validateToolsCatalogParams = ajv.compile<ToolsCatalogParams>(ToolsCatalogParamsSchema);
-export const validatePlansListParams = ajv.compile<PlansListParams>(PlansListParamsSchema);
-export const validatePlansGetParams = ajv.compile<PlansGetParams>(PlansGetParamsSchema);
-export const validatePlansUpdateStatusParams = ajv.compile<PlansUpdateStatusParams>(
-  PlansUpdateStatusParamsSchema,
-);
 export const validateToolsEffectiveParams = ajv.compile<ToolsEffectiveParams>(
   ToolsEffectiveParamsSchema,
 );
@@ -622,8 +582,6 @@ export {
   SessionsListParamsSchema,
   SessionsPreviewParamsSchema,
   SessionsResolveParamsSchema,
-  SessionsInspectParamsSchema,
-  SessionsInspectResultSchema,
   SessionsCompactionListParamsSchema,
   SessionsCompactionGetParamsSchema,
   SessionsCompactionBranchParamsSchema,
@@ -632,8 +590,6 @@ export {
   SessionsSendParamsSchema,
   SessionsAbortParamsSchema,
   SessionsPatchParamsSchema,
-  SessionsControlParamsSchema,
-  SessionsControlResultSchema,
   SessionsResetParamsSchema,
   SessionsDeleteParamsSchema,
   SessionsCompactParamsSchema,
@@ -684,14 +640,6 @@ export {
   ModelsListParamsSchema,
   SkillsStatusParamsSchema,
   ToolsCatalogParamsSchema,
-  PlansListParamsSchema,
-  PlansGetParamsSchema,
-  PlansUpdateStatusParamsSchema,
-  PlanRecordSchema,
-  PlanRegistrySummarySchema,
-  PlansListResultSchema,
-  PlansGetResultSchema,
-  PlansUpdateStatusResultSchema,
   ToolsEffectiveParamsSchema,
   SkillsInstallParamsSchema,
   SkillsSearchParamsSchema,
@@ -797,12 +745,6 @@ export type {
   SkillsStatusParams,
   ToolsCatalogParams,
   ToolsCatalogResult,
-  PlansListParams,
-  PlansGetParams,
-  PlanRecord,
-  PlanRegistrySummary,
-  PlansListResult,
-  PlansGetResult,
   ToolsEffectiveParams,
   ToolsEffectiveResult,
   SkillsBinsParams,
@@ -826,11 +768,7 @@ export type {
   SessionsListParams,
   SessionsPreviewParams,
   SessionsResolveParams,
-  SessionsInspectParams,
-  SessionsInspectResult,
   SessionsPatchParams,
-  SessionsControlParams,
-  SessionsControlResult,
   SessionsPatchResult,
   SessionsResetParams,
   SessionsDeleteParams,

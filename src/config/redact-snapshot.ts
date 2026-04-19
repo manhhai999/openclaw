@@ -379,13 +379,6 @@ function redactRawText(raw: string, config: unknown, hints?: ConfigUiHints): str
   });
 }
 
-function resolveRawSnapshotSource(snapshot: ConfigFileSnapshot): unknown {
-  if (snapshot.parsed && typeof snapshot.parsed === "object") {
-    return snapshot.parsed;
-  }
-  return snapshot.config;
-}
-
 let suppressRestoreWarnings = false;
 
 function withRestoreWarningsSuppressed<T>(fn: () => T): T {
@@ -430,12 +423,16 @@ export function redactConfigSnapshot(
     // properly redacted all sensitive data. Handing out a partially or, worse,
     // unredacted config string would be bad.
     // Therefore, the only safe route is to reject handling out broken configs.
+    const redactedConfig = {} as ConfigFileSnapshot["config"];
+    const redactedResolved = {} as ConfigFileSnapshot["resolved"];
     return {
       ...snapshot,
-      config: {},
+      sourceConfig: redactedResolved,
+      runtimeConfig: redactedConfig,
+      config: redactedConfig,
       raw: null,
       parsed: null,
-      resolved: {},
+      resolved: redactedResolved,
     };
   }
   // else: snapshot.config must be valid and populated, as that is what
@@ -443,16 +440,15 @@ export function redactConfigSnapshot(
 
   const redactedConfig = redactObject(snapshot.config, uiHints);
   const redactedParsed = snapshot.parsed ? redactObject(snapshot.parsed, uiHints) : snapshot.parsed;
-  const rawSnapshotSource = resolveRawSnapshotSource(snapshot);
-  let redactedRaw = snapshot.raw ? redactRawText(snapshot.raw, rawSnapshotSource, uiHints) : null;
+  let redactedRaw = snapshot.raw ? redactRawText(snapshot.raw, snapshot.config, uiHints) : null;
   if (
     redactedRaw &&
     shouldFallbackToStructuredRawRedaction({
       redactedRaw,
-      originalConfig: rawSnapshotSource,
+      originalConfig: snapshot.config,
       restoreParsed: (parsed) =>
         withRestoreWarningsSuppressed(() =>
-          restoreRedactedValues(parsed, rawSnapshotSource, uiHints),
+          restoreRedactedValues(parsed, snapshot.config, uiHints),
         ),
     })
   ) {
@@ -463,6 +459,8 @@ export function redactConfigSnapshot(
 
   return {
     ...snapshot,
+    sourceConfig: redactedResolved,
+    runtimeConfig: redactedConfig,
     config: redactedConfig,
     raw: redactedRaw,
     parsed: redactedParsed,

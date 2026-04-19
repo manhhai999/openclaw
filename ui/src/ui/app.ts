@@ -92,9 +92,8 @@ import type {
   HealthSummary,
   LogEntry,
   LogLevel,
+  ModelAuthStatusResult,
   ModelCatalogEntry,
-  PlanRecord,
-  PlansListResult,
   PresenceEntry,
   ChannelsStatusSnapshot,
   SessionCompactionCheckpoint,
@@ -240,6 +239,8 @@ export class OpenClawApp extends LitElement {
   @state() dreamingModeSaving = false;
   @state() dreamDiaryLoading = false;
   @state() dreamDiaryActionLoading = false;
+  @state() dreamDiaryActionMessage: { kind: "success" | "error"; text: string } | null = null;
+  @state() dreamDiaryActionArchivePath: string | null = null;
   @state() dreamDiaryError: string | null = null;
   @state() dreamDiaryPath: string | null = null;
   @state() dreamDiaryContent: string | null = null;
@@ -322,16 +323,6 @@ export class OpenClawApp extends LitElement {
   @state() sessionsLoading = false;
   @state() sessionsResult: SessionsListResult | null = null;
   @state() sessionsError: string | null = null;
-  @state() plansLoading = false;
-  @state() plansError: string | null = null;
-  @state() plansResult: PlansListResult | null = null;
-  @state() plansSelectedId: string | null = null;
-  @state() plansStatusFilter: import("./controllers/plans.ts").PlanStatusFilter = "all";
-  @state() planDetailLoading = false;
-  @state() planDetailError: string | null = null;
-  @state() planDetail: PlanRecord | null = null;
-  @state() planStatusUpdating = false;
-  @state() planStatusError: string | null = null;
   @state() sessionsFilterActive = "";
   @state() sessionsFilterLimit = "120";
   @state() sessionsIncludeGlobal = true;
@@ -475,6 +466,10 @@ export class OpenClawApp extends LitElement {
   @state() healthLoading = false;
   @state() healthResult: HealthSummary | null = null;
   @state() healthError: string | null = null;
+
+  @state() modelAuthStatusLoading = false;
+  @state() modelAuthStatusResult: ModelAuthStatusResult | null = null;
+  @state() modelAuthStatusError: string | null = null;
 
   @state() debugLoading = false;
   @state() debugStatus: StatusSummary | null = null;
@@ -661,22 +656,14 @@ export class OpenClawApp extends LitElement {
     this.requestUpdate();
   }
 
-  setTextScale(value: number) {
-    applySettingsInternal(this as unknown as Parameters<typeof applySettingsInternal>[0], {
-      ...this.settings,
-      textScale: value,
-    });
-    this.requestUpdate();
-  }
-
   buildThemeOrder(active: ThemeName): ThemeName[] {
     const all = [...VALID_THEME_NAMES];
     const rest = all.filter((id) => id !== active);
     return [active, ...rest];
   }
 
-  async loadOverview() {
-    await loadOverviewInternal(this as unknown as Parameters<typeof loadOverviewInternal>[0]);
+  async loadOverview(opts?: { refresh?: boolean }) {
+    await loadOverviewInternal(this as unknown as Parameters<typeof loadOverviewInternal>[0], opts);
   }
 
   async loadCron() {

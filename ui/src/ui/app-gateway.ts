@@ -97,6 +97,10 @@ type GatewayHost = {
   updateAvailable: UpdateAvailable | null;
 };
 
+type GatewayHostWithDeferredSessionMessageReload = GatewayHost & {
+  pendingSessionMessageReloadSessionKey?: string | null;
+};
+
 type SessionDefaultsSnapshot = {
   defaultAgentId?: string;
   mainKey?: string;
@@ -177,6 +181,27 @@ function applySessionDefaults(host: GatewayHost, defaults?: SessionDefaultsSnaps
   if (!defaults?.mainSessionKey) {
     return;
   }
+
+  // Detect if user has already selected a specific session (not an alias like "main").
+  // If normalization doesn't change the value, it's a user-selected session.
+  const normalizedSessionKey = normalizeSessionKeyForDefaults(host.sessionKey, defaults);
+  const isUserSelectedSession = normalizedSessionKey === host.sessionKey;
+
+  if (isUserSelectedSession) {
+    // User has selected a specific session; preserve their choice
+    // Only normalize lastActiveSessionKey, don't override current sessionKey
+    const resolvedLastActiveSessionKey = normalizeSessionKeyForDefaults(
+      host.settings.lastActiveSessionKey,
+      defaults,
+    );
+    if (resolvedLastActiveSessionKey !== host.settings.lastActiveSessionKey) {
+      applySettings(host as unknown as Parameters<typeof applySettings>[0], {
+        ...host.settings,
+        lastActiveSessionKey: resolvedLastActiveSessionKey,
+      });
+    }
+    return; // Keep user's session selection
+  }
   const resolvedSessionKey = normalizeSessionKeyForDefaults(host.sessionKey, defaults);
   const resolvedSettingsSessionKey = normalizeSessionKeyForDefaults(
     host.settings.sessionKey,
@@ -203,54 +228,6 @@ function applySessionDefaults(host: GatewayHost, defaults?: SessionDefaultsSnaps
   }
 }
 
-function queueExecApproval(host: GatewayHost, entry: ExecApprovalRequest) {
-  host.execApprovalQueue = addExecApproval(host.execApprovalQueue, entry);
-  const delay = Math.max(0, entry.expiresAtMs - Date.now() + 500);
-  globalThis.setTimeout(() => {
-    host.execApprovalQueue = removeExecApproval(host.execApprovalQueue, entry.id);
-  }, delay);
-}
-
-async function rehydratePendingExecApprovals(host: GatewayHost, client: GatewayBrowserClient) {
-  try {
-    const approvals = await client.request<unknown[]>("exec.approval.list", {});
-    if (host.client !== client) {
-      return;
-    }
-    for (const approval of Array.isArray(approvals) ? approvals : []) {
-      const entry = parseExecApprovalRequested(approval);
-      if (entry) {
-        queueExecApproval(host, entry);
-      }
-    }
-  } catch (err) {
-    if (host.client !== client) {
-      return;
-    }
-    console.error("[gateway] exec approval rehydrate failed:", err);
-  }
-}
-
-async function rehydratePendingPluginApprovals(host: GatewayHost, client: GatewayBrowserClient) {
-  try {
-    const approvals = await client.request<unknown[]>("plugin.approval.list", {});
-    if (host.client !== client) {
-      return;
-    }
-    for (const approval of Array.isArray(approvals) ? approvals : []) {
-      const entry = parsePluginApprovalRequested(approval);
-      if (entry) {
-        queueExecApproval(host, entry);
-      }
-    }
-  } catch (err) {
-    if (host.client !== client) {
-      return;
-    }
-    console.error("[gateway] plugin approval rehydrate failed:", err);
-  }
-}
-
 export function connectGateway(host: GatewayHost, options?: ConnectGatewayOptions) {
   const shutdownHost = host as GatewayHostWithShutdownMessage;
   const reconnectReason = options?.reason ?? "initial";
@@ -268,9 +245,7 @@ export function connectGateway(host: GatewayHost, options?: ConnectGatewayOption
     );
     shutdownHost.resumeChatQueueAfterReconnect = true;
   } else {
-    // On a fresh hello we prefer the gateway's current pending approval set.
-    // This avoids leaving stale local entries behind after reconnects.
-    host.execApprovalQueue = [];
+    host.execApprovalQueue = pruneExecApprovalQueue(host.execApprovalQueue);
   }
   host.execApprovalError = null;
 
@@ -291,7 +266,6 @@ export function connectGateway(host: GatewayHost, options?: ConnectGatewayOption
       if (host.client !== client) {
         return;
       }
-      const interruptedRunId = host.chatRunId;
       shutdownHost.pendingShutdownMessage = null;
       host.connected = true;
       host.lastError = null;
@@ -305,24 +279,13 @@ export function connectGateway(host: GatewayHost, options?: ConnectGatewayOption
       (host as unknown as { chatStreamStartedAt: number | null }).chatStreamStartedAt = null;
       (host as GatewayHostWithSideResults).chatSideResultTerminalRuns?.clear();
       resetToolStream(host as unknown as Parameters<typeof resetToolStream>[0]);
-      if (interruptedRunId) {
-        clearPendingQueueItemsForRun(
-          host as unknown as Parameters<typeof clearPendingQueueItemsForRun>[0],
-          interruptedRunId,
-        );
-      }
-      if (shutdownHost.resumeChatQueueAfterReconnect || interruptedRunId) {
+      if (shutdownHost.resumeChatQueueAfterReconnect) {
         // The interrupted run will never emit its terminal event now that the
-        // old client is gone, so resume any deferred commands after hello for
-        // both seq-gap reconnects and ordinary socket reconnects.
+        // old client is gone, so resume any deferred commands after hello.
         shutdownHost.resumeChatQueueAfterReconnect = false;
         void flushChatQueueForEvent(
           host as unknown as Parameters<typeof flushChatQueueForEvent>[0],
         );
-      }
-      if (reconnectReason !== "seq-gap") {
-        void rehydratePendingExecApprovals(host, client);
-        void rehydratePendingPluginApprovals(host, client);
       }
       void subscribeSessions(host as unknown as SessionsState);
       void loadAssistantIdentity(host as unknown as AssistantIdentityState);
@@ -450,9 +413,49 @@ function handleChatGatewayEvent(host: GatewayHost, payload: ChatEventPayload | u
   }
   const state = handleChatEvent(host as unknown as ChatState, payload);
   const historyReloaded = handleTerminalChatEvent(host, payload, state);
+  const deferredReloadHost = host as GatewayHostWithDeferredSessionMessageReload;
+  const deferredSessionKey = deferredReloadHost.pendingSessionMessageReloadSessionKey?.trim();
+  const payloadSessionKey = payload?.sessionKey?.trim();
+  const shouldReplayDeferredSessionMessageReload = Boolean(
+    deferredSessionKey &&
+    payloadSessionKey &&
+    deferredSessionKey === payloadSessionKey &&
+    isTerminalChatState(state) &&
+    payloadSessionKey === host.sessionKey &&
+    !host.chatRunId,
+  );
+  if (deferredSessionKey && payloadSessionKey && deferredSessionKey === payloadSessionKey) {
+    deferredReloadHost.pendingSessionMessageReloadSessionKey = null;
+  }
   if (state === "final" && !historyReloaded && shouldReloadHistoryForFinalEvent(payload)) {
     void loadChatHistory(host as unknown as ChatState);
+    return;
   }
+  if (shouldReplayDeferredSessionMessageReload && !historyReloaded) {
+    void loadChatHistory(host as unknown as ChatState);
+  }
+}
+
+function handleSessionMessageGatewayEvent(
+  host: GatewayHost,
+  payload: { sessionKey?: string } | undefined,
+) {
+  const deferredReloadHost = host as GatewayHostWithDeferredSessionMessageReload;
+  const sessionKey = payload?.sessionKey?.trim();
+  if (!sessionKey || sessionKey !== host.sessionKey) {
+    return;
+  }
+  // Skip history reload while a chat run is active. The chat event handler
+  // manages streaming state and appends the final assistant message. Reloading
+  // history mid-run races with the optimistic user-message update and resets
+  // chatStream, which delays the user message card from appearing until the
+  // first LLM delta arrives.
+  if (host.chatRunId) {
+    deferredReloadHost.pendingSessionMessageReloadSessionKey = sessionKey;
+    return;
+  }
+  deferredReloadHost.pendingSessionMessageReloadSessionKey = null;
+  void loadChatHistory(host as unknown as ChatState);
 }
 
 function handleGatewayEventUnsafe(host: GatewayHost, evt: GatewayEventFrame) {
@@ -488,6 +491,11 @@ function handleGatewayEventUnsafe(host: GatewayHost, evt: GatewayEventFrame) {
     const sideResultHost = host as GatewayHostWithSideResults;
     sideResultHost.chatSideResult = sideResult;
     sideResultHost.chatSideResultTerminalRuns?.add(sideResult.runId);
+    return;
+  }
+
+  if (evt.event === "session.message") {
+    handleSessionMessageGatewayEvent(host, evt.payload as { sessionKey?: string } | undefined);
     return;
   }
 
@@ -533,8 +541,12 @@ function handleGatewayEventUnsafe(host: GatewayHost, evt: GatewayEventFrame) {
   if (evt.event === "exec.approval.requested") {
     const entry = parseExecApprovalRequested(evt.payload);
     if (entry) {
-      queueExecApproval(host, entry);
+      host.execApprovalQueue = addExecApproval(host.execApprovalQueue, entry);
       host.execApprovalError = null;
+      const delay = Math.max(0, entry.expiresAtMs - Date.now() + 500);
+      window.setTimeout(() => {
+        host.execApprovalQueue = removeExecApproval(host.execApprovalQueue, entry.id);
+      }, delay);
     }
     return;
   }
@@ -550,8 +562,12 @@ function handleGatewayEventUnsafe(host: GatewayHost, evt: GatewayEventFrame) {
   if (evt.event === "plugin.approval.requested") {
     const entry = parsePluginApprovalRequested(evt.payload);
     if (entry) {
-      queueExecApproval(host, entry);
+      host.execApprovalQueue = addExecApproval(host.execApprovalQueue, entry);
       host.execApprovalError = null;
+      const delay = Math.max(0, entry.expiresAtMs - Date.now() + 500);
+      window.setTimeout(() => {
+        host.execApprovalQueue = removeExecApproval(host.execApprovalQueue, entry.id);
+      }, delay);
     }
     return;
   }

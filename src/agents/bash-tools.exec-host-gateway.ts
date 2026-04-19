@@ -36,7 +36,6 @@ import {
   sendExecApprovalFollowupResult,
   shouldResolveExecApprovalUnavailableInline,
 } from "./bash-tools.exec-host-shared.js";
-import { formatJenniBridgeExecOutput } from "./bash-tools.exec-jenni-result.js";
 import {
   DEFAULT_NOTIFY_TAIL_CHARS,
   createApprovalSlug,
@@ -402,10 +401,9 @@ export async function processGatewayAllowlist(
       const output = normalizeNotifyOutput(
         tail(outcome.aggregated || "", DEFAULT_NOTIFY_TAIL_CHARS),
       );
-      const renderedOutput = formatJenniBridgeExecOutput(output) ?? output;
       const exitLabel = outcome.timedOut ? "timeout" : `code ${outcome.exitCode ?? "?"}`;
-      const summary = renderedOutput
-        ? `Exec finished (gateway id=${approvalId}, session=${run.session.id}, ${exitLabel})\n${renderedOutput}`
+      const summary = output
+        ? `Exec finished (gateway id=${approvalId}, session=${run.session.id}, ${exitLabel})\n${output}`
         : `Exec finished (gateway id=${approvalId}, session=${run.session.id}, ${exitLabel})`;
       await sendExecApprovalFollowupResult(followupTarget, summary);
     })();

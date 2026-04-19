@@ -155,7 +155,7 @@ export function renderAgentOverview(params: {
                 onModelChange(agent.id, (e.target as HTMLSelectElement).value || null)}
             >
               ${isDefault
-                ? html` <option value="">${t("dashboard.agent.notSet")}</option> `
+                ? html`<option value="">${t("dashboard.agent.notSet")}</option>`
                 : html`
                     <option value="">
                       ${defaultPrimary

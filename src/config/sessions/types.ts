@@ -108,51 +108,6 @@ export type SessionPluginDebugEntry = {
   lines: string[];
 };
 
-export type SessionPlanMode = "active" | "inactive";
-
-export type SessionPlanStepStatus = "pending" | "in_progress" | "completed";
-
-export type SessionPlanStep = {
-  step: string;
-  status: SessionPlanStepStatus;
-};
-
-export type SessionPlanArtifactStatus = "active" | "completed" | "cancelled";
-
-export type SessionPlanArtifact = {
-  goal?: string;
-  notes?: string;
-  summary?: string;
-  lastExplanation?: string;
-  status?: SessionPlanArtifactStatus;
-  enteredAt?: number;
-  updatedAt?: number;
-  approvedAt?: number;
-  exitedAt?: number;
-  steps?: SessionPlanStep[];
-};
-
-export type SessionWorktreeMode = "active" | "inactive";
-
-export type SessionWorktreeArtifactStatus = "active" | "closed" | "removed" | "remove_failed";
-
-export type SessionWorktreeCleanupPolicy = "keep" | "remove";
-
-export type SessionWorktreeArtifact = {
-  repoRoot: string;
-  worktreeDir: string;
-  branch?: string;
-  baseRef?: string;
-  requestedName?: string;
-  cwdBefore?: string;
-  cleanupPolicy?: SessionWorktreeCleanupPolicy;
-  status?: SessionWorktreeArtifactStatus;
-  createdAt: number;
-  updatedAt?: number;
-  exitedAt?: number;
-  lastError?: string;
-};
-
 export type SessionEntry = {
   /**
    * Last delivered heartbeat payload (used to suppress duplicate heartbeat notifications).
@@ -186,14 +141,6 @@ export type SessionEntry = {
   subagentRole?: "orchestrator" | "leaf";
   /** Explicit control scope assigned at spawn time for subagent control decisions. */
   subagentControlScope?: "children" | "none";
-  /** Current plan-mode state for structured execution flows. */
-  planMode?: SessionPlanMode;
-  /** Persisted structured plan artifact for the session. */
-  planArtifact?: SessionPlanArtifact;
-  /** Current session-scoped worktree runtime state. */
-  worktreeMode?: SessionWorktreeMode;
-  /** Persisted worktree artifact for session worktree lifecycle. */
-  worktreeArtifact?: SessionWorktreeArtifact;
   systemSent?: boolean;
   abortedLastRun?: boolean;
   /** Stable first-run start time for subagent sessions, persisted after completion. */
@@ -216,6 +163,7 @@ export type SessionEntry = {
   thinkingLevel?: string;
   fastMode?: boolean;
   verboseLevel?: string;
+  traceLevel?: string;
   reasoningLevel?: string;
   elevatedLevel?: string;
   ttsAuto?: TtsAutoMode;
@@ -310,14 +258,39 @@ export type SessionEntry = {
   acp?: SessionAcpMeta;
 };
 
-export function resolveSessionPluginDebugLines(
+function isSessionPluginTraceLine(line: string): boolean {
+  const trimmed = line.trim();
+  return trimmed.startsWith("🔎 ") || /(?:^|\s)(?:Debug|Trace):/.test(trimmed);
+}
+
+export function resolveSessionPluginStatusLines(
   entry: Pick<SessionEntry, "pluginDebugEntries"> | undefined,
 ): string[] {
   return Array.isArray(entry?.pluginDebugEntries)
     ? entry.pluginDebugEntries.flatMap((pluginEntry) =>
         Array.isArray(pluginEntry?.lines)
           ? pluginEntry.lines.filter(
-              (line): line is string => typeof line === "string" && line.trim().length > 0,
+              (line): line is string =>
+                typeof line === "string" &&
+                line.trim().length > 0 &&
+                !isSessionPluginTraceLine(line),
+            )
+          : [],
+      )
+    : [];
+}
+
+export function resolveSessionPluginTraceLines(
+  entry: Pick<SessionEntry, "pluginDebugEntries"> | undefined,
+): string[] {
+  return Array.isArray(entry?.pluginDebugEntries)
+    ? entry.pluginDebugEntries.flatMap((pluginEntry) =>
+        Array.isArray(pluginEntry?.lines)
+          ? pluginEntry.lines.filter(
+              (line): line is string =>
+                typeof line === "string" &&
+                line.trim().length > 0 &&
+                isSessionPluginTraceLine(line),
             )
           : [],
       )
@@ -453,19 +426,6 @@ export function isSessionTotalTokensFresh(
   entry?: Pick<SessionEntry, "totalTokens" | "totalTokensFresh"> | null,
 ): boolean {
   return resolveFreshSessionTotalTokens(entry) !== undefined;
-}
-
-export function resolveSessionWorktreeDir(
-  entry?: Pick<SessionEntry, "worktreeMode" | "worktreeArtifact"> | null,
-): string | undefined {
-  const worktreeDir = normalizeOptionalString(entry?.worktreeArtifact?.worktreeDir);
-  return entry?.worktreeMode === "active" && worktreeDir ? worktreeDir : undefined;
-}
-
-export function resolveSessionPreferredWorkspaceDir(
-  entry?: Pick<SessionEntry, "spawnedWorkspaceDir" | "worktreeMode" | "worktreeArtifact"> | null,
-): string | undefined {
-  return resolveSessionWorktreeDir(entry) ?? normalizeOptionalString(entry?.spawnedWorkspaceDir);
 }
 
 export type GroupKeyResolution = {

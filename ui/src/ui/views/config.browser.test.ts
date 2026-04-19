@@ -45,8 +45,6 @@ describe("config view", () => {
     setThemeMode: vi.fn(),
     borderRadius: 50,
     setBorderRadius: vi.fn(),
-    textScale: 110,
-    setTextScale: vi.fn(),
     gatewayUrl: "",
     assistantName: "OpenClaw",
   });
@@ -247,6 +245,27 @@ describe("config view", () => {
 
     rawButton?.click();
     expect(onFormModeChange).not.toHaveBeenCalled();
+  });
+
+  it("keeps Raw mode available for derived snapshots without showing a warning", () => {
+    const { container } = renderConfigView({
+      formMode: "raw",
+      rawAvailable: true,
+      rawModeSupport: "derived",
+      raw: '{\n  "gateway": { "mode": "local" }\n}\n',
+      originalRaw: "{\n}\n",
+      formValue: { gateway: { mode: "local" } },
+      originalValue: {},
+    });
+
+    const rawButton = Array.from(container.querySelectorAll("button")).find(
+      (btn) => btn.textContent?.trim() === "Raw",
+    );
+    expect(rawButton?.disabled).toBe(false);
+    expect(normalizedText(container)).not.toContain(
+      "Raw mode is using a derived snapshot; formatting comments may not be preserved.",
+    );
+    expect(container.querySelector(".config-raw-field")).not.toBeNull();
   });
 
   it("switches sections from the sidebar", () => {

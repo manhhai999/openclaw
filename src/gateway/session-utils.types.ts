@@ -19,8 +19,6 @@ export type GatewaySessionRow = {
   key: string;
   spawnedBy?: string;
   spawnedWorkspaceDir?: string;
-  worktreeMode?: SessionEntry["worktreeMode"];
-  worktreeArtifact?: SessionEntry["worktreeArtifact"];
   forkedFromParent?: boolean;
   spawnDepth?: number;
   subagentRole?: SessionEntry["subagentRole"];
@@ -43,6 +41,7 @@ export type GatewaySessionRow = {
   thinkingLevel?: string;
   fastMode?: boolean;
   verboseLevel?: string;
+  traceLevel?: string;
   reasoningLevel?: string;
   elevatedLevel?: string;
   sendPolicy?: "allow" | "deny";

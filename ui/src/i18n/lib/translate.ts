@@ -1,12 +1,11 @@
 import { getSafeLocalStorage } from "../../local-storage.ts";
 import { en } from "../locales/en.ts";
-import { vi } from "../locales/vi.ts";
 import {
-  DEFAULT_APP_LOCALE,
   DEFAULT_LOCALE,
   SUPPORTED_LOCALES,
   isSupportedLocale,
   loadLazyLocaleTranslation,
+  resolveNavigatorLocale,
 } from "./registry.ts";
 import type { Locale, TranslationMap } from "./types.ts";
 
@@ -15,11 +14,8 @@ type Subscriber = (locale: Locale) => void;
 export { SUPPORTED_LOCALES, isSupportedLocale };
 
 class I18nManager {
-  private locale: Locale = DEFAULT_APP_LOCALE;
-  private translations: Partial<Record<Locale, TranslationMap>> = {
-    [DEFAULT_LOCALE]: en,
-    [DEFAULT_APP_LOCALE]: vi,
-  };
+  private locale: Locale = DEFAULT_LOCALE;
+  private translations: Partial<Record<Locale, TranslationMap>> = { [DEFAULT_LOCALE]: en };
   private subscribers: Set<Subscriber> = new Set();
 
   constructor() {
@@ -55,18 +51,19 @@ class I18nManager {
     if (isSupportedLocale(saved)) {
       return saved;
     }
-    return DEFAULT_APP_LOCALE;
+    const language =
+      typeof globalThis.navigator?.language === "string" ? globalThis.navigator.language : null;
+    return resolveNavigatorLocale(language ?? "");
   }
 
   private loadLocale() {
     const initialLocale = this.resolveInitialLocale();
-    if (initialLocale === DEFAULT_LOCALE || initialLocale === DEFAULT_APP_LOCALE) {
-      this.locale = initialLocale;
+    if (initialLocale === DEFAULT_LOCALE) {
+      this.locale = DEFAULT_LOCALE;
       return;
     }
-
-    // Use the standard setter so persisted lazy locales load their translations
-    // during startup instead of falling back to the eagerly loaded defaults.
+    // Use the normal locale setter so startup locale loading follows the same
+    // translation-loading + notify path as manual locale changes.
     void this.setLocale(initialLocale);
   }
 

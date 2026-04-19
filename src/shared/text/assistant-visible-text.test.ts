@@ -234,16 +234,78 @@ describe("stripAssistantInternalScaffolding", () => {
     it("strips lone closing tool-call tags", () => {
       expectVisibleText("prefix </tool_call> suffix", "prefix  suffix");
       expectVisibleText("prefix </function_calls> suffix", "prefix  suffix");
+      expectVisibleText("prefix </function> suffix", "prefix  suffix");
+    });
+
+    it("strips standalone <function> blocks with nested <parameter> XML (#67093)", () => {
+      expectVisibleText(
+        'prefix\n<function name="sessions_spawn"><parameter name="sessionKey">agent:main</parameter><parameter name="timeout">0</parameter></function>\nsuffix',
+        "prefix\n\nsuffix",
+      );
+    });
+
+    it("strips Gemma-style <function> with newlines between parameters (#67093)", () => {
+      expectVisibleText(
+        [
+          "Let me check that.",
+          '<function name="read">',
+          '<parameter name="file_path">/home/user/test.md</parameter>',
+          "</function>",
+          "After the call.",
+        ].join("\n"),
+        "Let me check that.\n\nAfter the call.",
+      );
+    });
+
+    it("strips inline standalone <function> blocks after sentence lead-ins", () => {
+      expectVisibleText(
+        'Let me check that. <function name="read"><parameter name="file_path">/tmp/test.md</parameter></function> Done.',
+        "Let me check that.  Done.",
+      );
+    });
+
+    it("strips standalone <function> blocks with apostrophes in XML payloads (#67093)", () => {
+      expectVisibleText(
+        [
+          "prefix",
+          '<function name="spawn">',
+          '<parameter name="message">what\'s up</parameter>',
+          "</function>",
+          "suffix",
+        ].join("\n"),
+        "prefix\n\nsuffix",
+      );
+    });
+
+    it("preserves dangling <function> blocks instead of hiding the tail", () => {
+      expectVisibleText(
+        'prefix\n<function name="spawn">\n<parameter name="key">value</parameter>',
+        'prefix\n<function name="spawn">\n<parameter name="key">value</parameter>',
+      );
     });
 
     it("preserves XML-style explanations after lone <tool_call> tags", () => {
       expectVisibleText("Use <tool_call><arg> literally.", "Use <tool_call><arg> literally.");
     });
 
+    it("preserves lone <function> mentions in normal prose", () => {
+      expectVisibleText(
+        "Use <function> declarations in your WASM text format.",
+        "Use <function> declarations in your WASM text format.",
+      );
+    });
+
     it("preserves literal XML-style paired tool_call examples in prose", () => {
       expectVisibleText(
         "prefix <tool_call><arg>secret</arg></tool_call> suffix",
         "prefix <tool_call><arg>secret</arg></tool_call> suffix",
+      );
+    });
+
+    it("preserves inline bare <function> XML examples in prose", () => {
+      expectVisibleText(
+        'Use <function name="read"><parameter name="path">/tmp</parameter></function> in docs.',
+        'Use <function name="read"><parameter name="path">/tmp</parameter></function> in docs.',
       );
     });
 
@@ -439,34 +501,6 @@ describe("sanitizeAssistantVisibleText", () => {
     ].join("\n");
 
     expect(sanitizeAssistantVisibleText(input)).toBe("Visible answer");
-  });
-
-  it("strips leaked leading prompt context blocks from assistant-visible text", () => {
-    const input = [
-      "<relevant-memories>",
-      "Internal memory context",
-      "</relevant-memories>",
-      "em kiem tra xu ly loi giup anh",
-      "",
-      "System (untrusted): [2026-04-09 15:57:55 GMT+9] Exec failed",
-      "Read HEARTBEAT.md if it exists (workspace context). Follow it strictly. Do not infer or repeat old tasks from prior chats. If nothing needs attention, reply HEARTBEAT_OK.",
-      "When reading HEARTBEAT.md, use workspace file /home/manhhai/.openclaw/workspace/HEARTBEAT.md (exact case). Do not read docs/heartbeat.md.",
-      "Current time: Thursday, April 9th, 2026 - 15:58 (Asia/Seoul) / 2026-04-09 06:58 UTC",
-      "",
-      "Da ro, em se kiem tra loi nay.",
-    ].join("\n");
-
-    expect(sanitizeAssistantVisibleText(input)).toBe("Da ro, em se kiem tra loi nay.");
-  });
-
-  it("keeps explanatory prose that merely references heartbeat prompts", () => {
-    const input = [
-      "These leaked lines included:",
-      "Read HEARTBEAT.md if it exists (workspace context). Follow it strictly.",
-      "Current time: example only",
-    ].join("\n");
-
-    expect(sanitizeAssistantVisibleText(input)).toBe(input);
   });
 });
 

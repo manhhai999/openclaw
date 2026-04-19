@@ -17,10 +17,10 @@ import { doctorHandlers } from "./server-methods/doctor.js";
 import { execApprovalsHandlers } from "./server-methods/exec-approvals.js";
 import { healthHandlers } from "./server-methods/health.js";
 import { logsHandlers } from "./server-methods/logs.js";
+import { modelsAuthStatusHandlers } from "./server-methods/models-auth-status.js";
 import { modelsHandlers } from "./server-methods/models.js";
 import { nodePendingHandlers } from "./server-methods/nodes-pending.js";
 import { nodeHandlers } from "./server-methods/nodes.js";
-import { plansHandlers } from "./server-methods/plans.js";
 import { pushHandlers } from "./server-methods/push.js";
 import { sendHandlers } from "./server-methods/send.js";
 import { sessionsHandlers } from "./server-methods/sessions.js";
@@ -81,6 +81,7 @@ export const coreGatewayHandlers: GatewayRequestHandlers = {
   ...execApprovalsHandlers,
   ...webHandlers,
   ...modelsHandlers,
+  ...modelsAuthStatusHandlers,
   ...configHandlers,
   ...wizardHandlers,
   ...talkHandlers,
@@ -88,7 +89,6 @@ export const coreGatewayHandlers: GatewayRequestHandlers = {
   ...toolsEffectiveHandlers,
   ...ttsHandlers,
   ...skillsHandlers,
-  ...plansHandlers,
   ...sessionsHandlers,
   ...systemHandlers,
   ...updateHandlers,
@@ -116,6 +116,7 @@ export async function handleGatewayRequest(
       undefined,
       errorShape(ErrorCodes.UNAVAILABLE, `${req.method} unavailable during gateway startup`, {
         retryable: true,
+        retryAfterMs: 500,
         details: { method: req.method },
       }),
     );

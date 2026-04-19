@@ -189,14 +189,6 @@ export function buildBuiltinChatCommands(): ChatCommandDefinition[] {
       category: "status",
     }),
     defineChatCommand({
-      key: "plans",
-      nativeName: "plans",
-      description: "List, inspect, or change orchestration plans.",
-      textAlias: "/plans",
-      category: "status",
-      acceptsArgs: true,
-    }),
-    defineChatCommand({
       key: "allowlist",
       description: "List/add/remove allowlist entries.",
       textAlias: "/allowlist",
@@ -680,6 +672,22 @@ export function buildBuiltinChatCommands(): ChatCommandDefinition[] {
       argsMenu: "auto",
     }),
     defineChatCommand({
+      key: "trace",
+      nativeName: "trace",
+      description: "Toggle plugin trace lines.",
+      textAlias: "/trace",
+      category: "options",
+      args: [
+        {
+          name: "mode",
+          description: "on, off, or raw",
+          type: "string",
+          choices: ["on", "off", "raw"],
+        },
+      ],
+      argsMenu: "auto",
+    }),
+    defineChatCommand({
       key: "fast",
       nativeName: "fast",
       description: "Toggle fast mode.",
@@ -816,21 +824,6 @@ export function buildBuiltinChatCommands(): ChatCommandDefinition[] {
       ],
       argsParsing: "none",
       formatArgs: COMMAND_ARG_FORMATTERS.queue,
-    }),
-    defineChatCommand({
-      key: "jenni",
-      description: "Run fixed Jenni Admin jobs.",
-      textAlias: "/jenni",
-      scope: "text",
-      category: "tools",
-      args: [
-        {
-          name: "job",
-          description: "inspect or benchmark",
-          type: "string",
-          choices: ["inspect", "benchmark"],
-        },
-      ],
     }),
     defineChatCommand({
       key: "bash",

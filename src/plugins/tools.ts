@@ -13,17 +13,9 @@ import {
 } from "./runtime/load-context.js";
 import type { OpenClawPluginToolContext } from "./types.js";
 
-export type PluginToolActivationMode = "always" | "optional" | "deferred";
-export type PluginToolOperatorVisibility = "normal" | "advanced" | "internal";
-
-export type PluginToolMeta = {
+type PluginToolMeta = {
   pluginId: string;
   optional: boolean;
-  activationMode?: PluginToolActivationMode;
-  bindableToSubagent?: boolean;
-  operatorVisibility?: PluginToolOperatorVisibility;
-  policyHints?: string[];
-  category?: string;
 };
 
 const pluginToolMeta = new WeakMap<AnyAgentTool, PluginToolMeta>();
@@ -183,10 +175,6 @@ export function resolvePluginTools(params: {
       pluginToolMeta.set(tool, {
         pluginId: entry.pluginId,
         optional: entry.optional,
-        activationMode: entry.optional ? "optional" : "always",
-        bindableToSubagent: params.allowGatewaySubagentBinding === true,
-        operatorVisibility: "normal",
-        policyHints: entry.optional ? ["plugin_optional"] : undefined,
       });
       tools.push(tool);
     }

@@ -1,10 +1,7 @@
 import { randomUUID } from "node:crypto";
 import type { ExecApprovalForwarder } from "../../infra/exec-approval-forwarder.js";
 import type { ExecApprovalDecision } from "../../infra/exec-approvals.js";
-import type {
-  PluginApprovalRequest,
-  PluginApprovalRequestPayload,
-} from "../../infra/plugin-approvals.js";
+import type { PluginApprovalRequestPayload } from "../../infra/plugin-approvals.js";
 import {
   DEFAULT_PLUGIN_APPROVAL_TIMEOUT_MS,
   MAX_PLUGIN_APPROVAL_TIMEOUT_MS,
@@ -113,15 +110,12 @@ export function createPluginApprovalHandlers(
         return;
       }
 
-      const requestEvent: PluginApprovalRequest = {
+      const requestEvent = {
         id: record.id,
         request: record.request,
         createdAtMs: record.createdAtMs,
         expiresAtMs: record.expiresAtMs,
-        routeStatus: "pending-route",
-        recoverability: "reconnect-recoverable",
       };
-      let routeStatus: "pending-route" | "delivered" | "delivery-failed" = "pending-route";
 
       await handlePendingApprovalRequest({
         manager,
@@ -133,25 +127,15 @@ export function createPluginApprovalHandlers(
         requestEventName: "plugin.approval.requested",
         requestEvent,
         twoPhase,
-        deliverRequest: async () => {
+        deliverRequest: () => {
           if (!opts?.forwarder?.handlePluginApprovalRequested) {
-            routeStatus = "pending-route";
-            requestEvent.routeStatus = routeStatus;
             return false;
           }
-          try {
-            const delivered = await opts.forwarder.handlePluginApprovalRequested(requestEvent);
-            routeStatus = delivered ? "delivered" : "pending-route";
-            requestEvent.routeStatus = routeStatus;
-            return delivered;
-          } catch (err) {
-            routeStatus = "delivery-failed";
-            requestEvent.routeStatus = routeStatus;
+          return opts.forwarder.handlePluginApprovalRequested(requestEvent).catch((err) => {
             context.logGateway?.error?.(`plugin approvals: forward request failed: ${String(err)}`);
             return false;
-          }
+          });
         },
-        routeStatusOnPending: () => routeStatus,
       });
     },
 

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import "../test-helpers/load-styles.ts";
+import { i18n } from "../i18n/index.ts";
 import { mountApp as mountTestApp, registerAppMountHooks } from "./test-helpers/app-mount.ts";
 
 registerAppMountHooks();
@@ -165,8 +166,29 @@ describe("control UI routing", () => {
     expect(app.querySelector(".topnav-shell")).not.toBeNull();
     expect(app.querySelector(".topnav-shell__content")).not.toBeNull();
     expect(app.querySelector(".topnav-shell__actions")).not.toBeNull();
-    expect(app.querySelector(".topbar-locale")).not.toBeNull();
+    expect(app.querySelector(".topbar-language-menu")).not.toBeNull();
     expect(app.querySelector(".topnav-shell .brand-title")).toBeNull();
+  });
+
+  it("lets the topbar language picker switch locale", async () => {
+    const app = mountApp("/chat");
+    await app.updateComplete;
+
+    await i18n.setLocale("vi");
+    app.applySettings({ ...app.settings, locale: "vi" });
+    await app.updateComplete;
+
+    const englishButton = app.querySelector<HTMLButtonElement>(
+      '.topbar-language-menu__option[data-locale="en"]',
+    );
+    expect(englishButton).not.toBeNull();
+
+    englishButton?.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
+    await app.updateComplete;
+    await nextFrame();
+
+    expect(app.settings.locale).toBe("en");
+    expect(app.querySelector(".topbar-language-menu__current")?.textContent?.trim()).toBe("EN");
   });
 
   it("renders the refreshed sidebar shell structure", async () => {
@@ -240,7 +262,7 @@ describe("control UI routing", () => {
     expect(header.querySelector(".nav-collapse-toggle")).not.toBeNull();
   });
 
-  it("resets to the main session when opening chat from sidebar navigation", async () => {
+  it("preserves the active session when opening chat from sidebar navigation", async () => {
     const app = mountApp("/sessions?session=agent:main:subagent:task-123");
     await app.updateComplete;
 
@@ -250,9 +272,9 @@ describe("control UI routing", () => {
 
     await app.updateComplete;
     expect(app.tab).toBe("chat");
-    expect(app.sessionKey).toBe("main");
+    expect(app.sessionKey).toBe("agent:main:subagent:task-123");
     expect(window.location.pathname).toBe("/chat");
-    expect(window.location.search).toBe("?session=main");
+    expect(window.location.search).toBe("?session=agent%3Amain%3Asubagent%3Atask-123");
   });
 
   it("keeps chat and nav usable on narrow viewports", async () => {

@@ -12,7 +12,6 @@ import {
   resolveExecApprovalAllowedDecisions,
   resolveExecApprovals,
   type ExecAsk,
-  type ExecApprovalExpiredReason,
   type ExecApprovalDecision,
   type ExecSecurity,
 } from "../infra/exec-approvals.js";
@@ -231,7 +230,6 @@ export function resolveExecApprovalUnavailableState(params: {
   turnSourceChannel?: string;
   turnSourceAccountId?: string;
   preResolvedDecision: string | null | undefined;
-  expiredReason?: ExecApprovalExpiredReason;
 }): {
   initiatingSurface: ExecApprovalInitiatingSurfaceState;
   sentApproverDms: boolean;
@@ -245,8 +243,7 @@ export function resolveExecApprovalUnavailableState(params: {
   // Avoid claiming approver DMs were sent from config-only guesses here.
   const sentApproverDms = false;
   const unavailableReason =
-    params.expiredReason === "no-approval-route" ||
-    (params.expiredReason === undefined && params.preResolvedDecision === null)
+    params.preResolvedDecision === null
       ? "no-approval-route"
       : initiatingSurface.kind === "disabled"
         ? "initiating-platform-disabled"
@@ -286,7 +283,6 @@ export async function createAndRegisterDefaultExecApprovalRequest(params: {
       turnSourceChannel: params.turnSourceChannel,
       turnSourceAccountId: params.turnSourceAccountId,
       preResolvedDecision,
-      expiredReason: registration.expiredReason,
     });
 
   return {

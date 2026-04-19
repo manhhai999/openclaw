@@ -514,6 +514,8 @@ export async function performGatewaySessionReset(params: {
   })();
   const { entry, legacyKey, canonicalKey } = loadSessionEntry(params.key);
   const hadExistingEntry = Boolean(entry);
+  const agentId = normalizeAgentId(target.agentId ?? resolveDefaultAgentId(cfg));
+  const workspaceDir = resolveAgentWorkspaceDir(cfg, agentId);
   const hookEvent = createInternalHookEvent(
     "command",
     params.reason,
@@ -523,6 +525,7 @@ export async function performGatewaySessionReset(params: {
       previousSessionEntry: entry,
       commandSource: params.commandSource,
       cfg,
+      workspaceDir,
     },
   );
   await triggerInternalHook(hookEvent);
@@ -587,6 +590,7 @@ export async function performGatewaySessionReset(params: {
       thinkingLevel: currentEntry?.thinkingLevel,
       fastMode: currentEntry?.fastMode,
       verboseLevel: currentEntry?.verboseLevel,
+      traceLevel: currentEntry?.traceLevel,
       reasoningLevel: currentEntry?.reasoningLevel,
       elevatedLevel: currentEntry?.elevatedLevel,
       ttsAuto: currentEntry?.ttsAuto,
@@ -613,10 +617,6 @@ export async function performGatewaySessionReset(params: {
       queueDrop: currentEntry?.queueDrop,
       spawnedBy: currentEntry?.spawnedBy,
       spawnedWorkspaceDir: currentEntry?.spawnedWorkspaceDir,
-      planMode: currentEntry?.planMode,
-      planArtifact: currentEntry?.planArtifact,
-      worktreeMode: currentEntry?.worktreeMode,
-      worktreeArtifact: currentEntry?.worktreeArtifact,
       parentSessionKey: currentEntry?.parentSessionKey,
       forkedFromParent: currentEntry?.forkedFromParent,
       spawnDepth: currentEntry?.spawnDepth,

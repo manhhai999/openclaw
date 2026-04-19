@@ -24,34 +24,6 @@ describe("extractTextCached", () => {
     expect(extractTextCached(message)).toBe("plain text");
   });
 
-  it("strips relevant-memories scaffolding from persisted user messages", () => {
-    const message = {
-      role: "user",
-      content: [
-        {
-          type: "text",
-          text: [
-            "<relevant-memories>",
-            "The following OpenViking memories may be relevant:",
-            "- [] User basic info: Mạnh Hải, prefers Vietnamese interaction",
-            "- [] Behavior policy: Soft long-term policy for Jenni",
-            "- [] Communication tone: Natural, warm, and slightly teasing",
-            "</relevant-memories>",
-            "",
-            "Sender (untrusted metadata):",
-            "```json",
-            '{ "label": "openclaw-control-ui", "id": "openclaw-control-ui" }',
-            "```",
-            "",
-            "[Thu 2026-04-10 04:52 GMT+9] mới nhắc thì không hiển thị nhưng F5 cái lại bị",
-          ].join("\n"),
-        },
-      ],
-    };
-    expect(extractText(message)).toBe("mới nhắc thì không hiển thị nhưng F5 cái lại bị");
-    expect(extractTextCached(message)).toBe("mới nhắc thì không hiển thị nhưng F5 cái lại bị");
-  });
-
   it("strips assistant relevant-memories scaffolding", () => {
     const message = {
       role: "assistant",
@@ -69,32 +41,6 @@ describe("extractTextCached", () => {
     };
     expect(extractText(message)).toBe("Final user answer");
     expect(extractTextCached(message)).toBe("Final user answer");
-  });
-
-  it("strips leaked prompt context from assistant messages", () => {
-    const message = {
-      role: "assistant",
-      content: [
-        {
-          type: "text",
-          text: [
-            "<relevant-memories>",
-            "Internal memory context",
-            "</relevant-memories>",
-            "em kiem tra xu ly loi giup anh",
-            "",
-            "System (untrusted): [2026-04-09 15:57:55 GMT+9] Exec failed",
-            "Read HEARTBEAT.md if it exists (workspace context). Follow it strictly. Do not infer or repeat old tasks from prior chats. If nothing needs attention, reply HEARTBEAT_OK.",
-            "When reading HEARTBEAT.md, use workspace file /home/manhhai/.openclaw/workspace/HEARTBEAT.md (exact case). Do not read docs/heartbeat.md.",
-            "Current time: Thursday, April 9th, 2026 - 15:58 (Asia/Seoul) / 2026-04-09 06:58 UTC",
-            "",
-            "Da ro, em se kiem tra loi nay.",
-          ].join("\n"),
-        },
-      ],
-    };
-    expect(extractText(message)).toBe("Da ro, em se kiem tra loi nay.");
-    expect(extractTextCached(message)).toBe("Da ro, em se kiem tra loi nay.");
   });
 
   it("prefers final_answer assistant text over commentary text", () => {

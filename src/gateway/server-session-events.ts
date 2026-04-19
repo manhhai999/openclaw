@@ -41,8 +41,6 @@ function buildGatewaySessionSnapshot(params: {
     origin: sessionRow.origin,
     spawnedBy: sessionRow.spawnedBy,
     spawnedWorkspaceDir: sessionRow.spawnedWorkspaceDir,
-    worktreeMode: sessionRow.worktreeMode,
-    worktreeArtifact: sessionRow.worktreeArtifact,
     forkedFromParent: sessionRow.forkedFromParent,
     spawnDepth: sessionRow.spawnDepth,
     subagentRole: sessionRow.subagentRole,

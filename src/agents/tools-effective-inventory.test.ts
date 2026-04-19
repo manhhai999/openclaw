@@ -286,33 +286,3 @@ describe("resolveEffectiveToolInventory", () => {
     );
   });
 });
-
-it("includes optional search metadata and deferred flags when present", async () => {
-  const { resolveEffectiveToolInventory } = await loadHarness({
-    tools: [
-      mockTool({
-        name: "tool_search",
-        label: "Tool Search",
-        description: "Search tools",
-      }),
-    ].map((tool) => ({
-      ...tool,
-      searchHint: "Find tools by intent",
-      searchTags: ["search", "discover"],
-      deferred: true,
-    })) as AnyAgentTool[],
-  });
-
-  const result = resolveEffectiveToolInventory({ cfg: {} });
-
-  expect(result.groups[0]?.tools[0]).toEqual({
-    id: "tool_search",
-    label: "Tool Search",
-    description: "Search tools",
-    rawDescription: "Search tools",
-    source: "core",
-    searchHint: "Find tools by intent",
-    searchTags: ["search", "discover"],
-    deferred: true,
-  });
-});

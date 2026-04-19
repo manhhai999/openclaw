@@ -1,8 +1,7 @@
 export {
   renderConfigForm,
+  resolveConfigSectionMeta,
   type ConfigFormProps,
-  SECTION_META,
-  getSectionMetaCopy,
 } from "./config-form.render.ts";
 export { analyzeConfigSchema, type ConfigSchemaAnalysis } from "./config-form.analyze.ts";
 export { renderNode } from "./config-form.node.ts";

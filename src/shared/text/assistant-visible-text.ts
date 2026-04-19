@@ -9,30 +9,28 @@ import {
 
 const MEMORY_TAG_RE = /<\s*(\/?)\s*relevant[-_]memories\b[^<>]*>/gi;
 const MEMORY_TAG_QUICK_RE = /<\s*\/?\s*relevant[-_]memories\b/i;
-const LEAKED_HEARTBEAT_PROMPT_RE =
-  /Read HEARTBEAT\.md if it exists \(workspace context\)\. Follow it strictly\./i;
-const LEAKED_HEARTBEAT_HINT_RE =
-  /When reading HEARTBEAT\.md, use workspace file .+?\. Do not read docs\/heartbeat\.md\./i;
-const LEAKED_CURRENT_TIME_RE = /^Current time:\s+/im;
-const LEAKED_SYSTEM_EVENT_RE = /^System(?: \(untrusted\))?:\s+/i;
 
 /**
  * Strip XML-style tool call tags that models sometimes emit as plain text.
  * This stateful pass hides content from an opening tag through the matching
  * closing tag, or to end-of-string if the stream was truncated mid-tag.
  */
-const TOOL_CALL_QUICK_RE = /<\s*\/?\s*(?:tool_call|tool_result|function_calls?|tool_calls)\b/i;
+const TOOL_CALL_QUICK_RE =
+  /<\s*\/?\s*(?:tool_call|tool_result|function_calls?|function|tool_calls)\b/i;
 const TOOL_CALL_TAG_NAMES = new Set([
   "tool_call",
   "tool_result",
   "function_call",
   "function_calls",
+  "function",
   "tool_calls",
 ]);
 const TOOL_CALL_JSON_PAYLOAD_START_RE =
   /^(?:\s+[A-Za-z_:][-A-Za-z0-9_:.]*\s*=\s*(?:"[^"]*"|'[^']*'|[^\s"'=<>`]+))*\s*(?:\r?\n\s*)?[[{]/;
 const TOOL_CALL_XML_PAYLOAD_START_RE =
   /^\s*(?:\r?\n\s*)?<(?:function|invoke|parameters?|arguments?)\b/i;
+
+type ToolCallPayloadKind = "json" | "xml" | null;
 
 function endsInsideQuotedString(text: string, start: number, end: number): boolean {
   let quoteChar: "'" | '"' | null = null;
@@ -114,9 +112,36 @@ function findTagCloseIndex(text: string, start: number): number {
   return -1;
 }
 
-function looksLikeToolCallPayloadStart(text: string, start: number): boolean {
+function detectToolCallPayloadKind(text: string, start: number): ToolCallPayloadKind {
   const rest = text.slice(start);
-  return TOOL_CALL_JSON_PAYLOAD_START_RE.test(rest) || TOOL_CALL_XML_PAYLOAD_START_RE.test(rest);
+  if (TOOL_CALL_JSON_PAYLOAD_START_RE.test(rest)) {
+    return "json";
+  }
+  if (TOOL_CALL_XML_PAYLOAD_START_RE.test(rest)) {
+    return "xml";
+  }
+  return null;
+}
+
+function isLikelyStandaloneFunctionToolCall(
+  text: string,
+  tagStart: number,
+  tag: ParsedToolCallTag,
+): boolean {
+  if (tag.tagName !== "function" || tag.isClose || tag.isSelfClosing || tag.isTruncated) {
+    return false;
+  }
+
+  if (!/\bname\s*=/.test(text.slice(tag.contentStart, tag.end))) {
+    return false;
+  }
+
+  let idx = tagStart - 1;
+  while (idx >= 0 && (text[idx] === " " || text[idx] === "\t")) {
+    idx -= 1;
+  }
+
+  return idx < 0 || text[idx] === "\n" || text[idx] === "\r" || /[.!?:]/.test(text[idx]);
 }
 
 function parseToolCallTagAt(text: string, start: number): ParsedToolCallTag | null {
@@ -180,7 +205,9 @@ export function stripToolCallXmlTags(text: string): string {
   let result = "";
   let lastIndex = 0;
   let inToolCallBlock = false;
-  let toolCallContentStart = 0;
+  let toolCallBlockContentStart = 0;
+  let toolCallBlockNeedsQuoteBalance = false;
+  let toolCallBlockStart = 0;
   let toolCallBlockTagName: string | null = null;
   const visibleTagBalance = new Map<string, number>();
 
@@ -222,13 +249,19 @@ export function stripToolCallXmlTags(text: string): string {
         continue;
       }
       const payloadStart = tag.isTruncated ? tag.contentStart : tag.end;
-      const hasToolCallPayloadStart =
-        tag.tagName === "tool_call"
-          ? looksLikeToolCallPayloadStart(text, payloadStart)
-          : TOOL_CALL_JSON_PAYLOAD_START_RE.test(text.slice(payloadStart));
-      if (!tag.isClose && hasToolCallPayloadStart) {
+      const payloadKind =
+        tag.tagName === "tool_call" || tag.tagName === "function"
+          ? detectToolCallPayloadKind(text, payloadStart)
+          : TOOL_CALL_JSON_PAYLOAD_START_RE.test(text.slice(payloadStart))
+            ? "json"
+            : null;
+      const shouldStripStandaloneFunction =
+        tag.tagName !== "function" || isLikelyStandaloneFunctionToolCall(text, idx, tag);
+      if (!tag.isClose && payloadKind && shouldStripStandaloneFunction) {
         inToolCallBlock = true;
-        toolCallContentStart = tag.end;
+        toolCallBlockContentStart = tag.end;
+        toolCallBlockNeedsQuoteBalance = payloadKind === "json";
+        toolCallBlockStart = idx;
         toolCallBlockTagName = tag.tagName;
         if (tag.isTruncated) {
           lastIndex = text.length;
@@ -248,9 +281,11 @@ export function stripToolCallXmlTags(text: string): string {
       tag.isClose &&
       (tag.tagName === toolCallBlockTagName ||
         (toolCallBlockTagName === "tool_result" && tag.tagName === "tool_call")) &&
-      !endsInsideQuotedString(text, toolCallContentStart, idx)
+      (!toolCallBlockNeedsQuoteBalance ||
+        !endsInsideQuotedString(text, toolCallBlockContentStart, idx))
     ) {
       inToolCallBlock = false;
+      toolCallBlockNeedsQuoteBalance = false;
       toolCallBlockTagName = null;
     }
 
@@ -260,6 +295,8 @@ export function stripToolCallXmlTags(text: string): string {
 
   if (!inToolCallBlock) {
     result += text.slice(lastIndex);
+  } else if (toolCallBlockTagName === "function") {
+    result += text.slice(toolCallBlockStart);
   }
 
   return result;
@@ -482,39 +519,6 @@ function stripRelevantMemoriesTags(text: string): string {
   return result;
 }
 
-function stripLeadingLeakedPromptContext(text: string): string {
-  if (!text) {
-    return text;
-  }
-
-  const trimmedStart = text.trimStart();
-  if (!trimmedStart) {
-    return text;
-  }
-
-  const startsWithLeakMarker =
-    MEMORY_TAG_QUICK_RE.test(trimmedStart) ||
-    LEAKED_HEARTBEAT_PROMPT_RE.test(trimmedStart) ||
-    LEAKED_SYSTEM_EVENT_RE.test(trimmedStart);
-  if (!startsWithLeakMarker) {
-    return text;
-  }
-
-  const heartbeatIndex = trimmedStart.search(LEAKED_HEARTBEAT_PROMPT_RE);
-  const heartbeatHintIndex = trimmedStart.search(LEAKED_HEARTBEAT_HINT_RE);
-  const currentTimeMatch = trimmedStart.match(LEAKED_CURRENT_TIME_RE);
-  const currentTimeIndex = currentTimeMatch?.index ?? -1;
-
-  if (currentTimeIndex === -1 || (heartbeatIndex === -1 && heartbeatHintIndex === -1)) {
-    return text;
-  }
-
-  const lineEndSearchStart = currentTimeIndex + currentTimeMatch![0].length;
-  const nextLineBreak = trimmedStart.indexOf("\n", lineEndSearchStart);
-  const blockEnd = nextLineBreak === -1 ? trimmedStart.length : nextLineBreak + 1;
-  return trimmedStart.slice(blockEnd).trimStart();
-}
-
 export type AssistantVisibleTextSanitizerProfile = "delivery" | "history" | "internal-scaffolding";
 
 type AssistantVisibleTextPipelineOptions = {
@@ -580,7 +584,6 @@ function applyAssistantVisibleTextStagePipeline(
       cleaned = stripMinimaxToolCallXml(cleaned);
     }
     cleaned = stripModelSpecialTokens(cleaned);
-    cleaned = stripLeadingLeakedPromptContext(cleaned);
     cleaned = stripRelevantMemoriesTags(cleaned);
     cleaned = stripToolCallXmlTags(cleaned);
     if (!options.preserveDowngradedToolText) {

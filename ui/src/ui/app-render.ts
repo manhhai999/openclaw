@@ -12,8 +12,8 @@ import {
   renderChatControls,
   renderChatMobileToggle,
   renderChatSessionSelect,
-  renderTopbarLanguageToggle,
   renderTab,
+  renderTopbarLanguagePicker,
   resolveAssistantAttachmentAuthToken,
   renderSidebarConnectionStatus,
   renderTopbarThemeModeToggle,
@@ -74,10 +74,13 @@ import {
 } from "./controllers/devices.ts";
 import {
   backfillDreamDiary,
+  copyDreamingArchivePath,
+  dedupeDreamDiary,
   loadDreamDiary,
   loadDreamingStatus,
   loadWikiImportInsights,
   loadWikiMemoryPalace,
+  repairDreamingArtifacts,
   resetGroundedShortTerm,
   resetDreamDiary,
   resolveConfiguredDreaming,
@@ -91,15 +94,6 @@ import {
 } from "./controllers/exec-approvals.ts";
 import { loadLogs } from "./controllers/logs.ts";
 import { loadNodes } from "./controllers/nodes.ts";
-import {
-  buildPlansOverviewTeaserProps,
-  buildPlansViewProps,
-  loadSelectedPlan,
-  refreshPlansOverview,
-  selectPlan,
-  setPlansStatusFilter,
-  updateSelectedPlanStatus,
-} from "./controllers/plans.ts";
 import { loadPresence } from "./controllers/presence.ts";
 import {
   branchSessionFromCheckpoint,
@@ -121,10 +115,11 @@ import {
   updateSkillEdit,
   updateSkillEnabled,
 } from "./controllers/skills.ts";
-import "./components/dashboard-header.ts";
 import { buildExternalLinkRel, EXTERNAL_LINK_TARGET } from "./external-link.ts";
+import "./components/dashboard-header.ts";
 import { icons } from "./icons.ts";
 import { normalizeBasePath, TAB_GROUPS, subtitleForTab, titleForTab } from "./navigation.ts";
+import { isPluginEnabledInConfigSnapshot } from "./plugin-activation.ts";
 import { agentLogoUrl } from "./views/agents-utils.ts";
 import {
   resolveAgentConfig,
@@ -172,7 +167,6 @@ const lazyDebug = createLazy(() => import("./views/debug.ts"));
 const lazyInstances = createLazy(() => import("./views/instances.ts"));
 const lazyLogs = createLazy(() => import("./views/logs.ts"));
 const lazyNodes = createLazy(() => import("./views/nodes.ts"));
-const lazyPlans = createLazy(() => import("./views/plans.ts"));
 const lazySessions = createLazy(() => import("./views/sessions.ts"));
 const lazySkills = createLazy(() => import("./views/skills.ts"));
 
@@ -439,12 +433,15 @@ export function renderApp(state: AppViewState) {
   const dreamingLoading = state.dreamingStatusLoading || state.dreamingModeSaving;
   const dreamingRefreshLoading = state.dreamingStatusLoading || state.dreamDiaryLoading;
   const refreshDreaming = () => {
-    void Promise.all([
-      loadDreamingStatus(state),
-      loadDreamDiary(state),
-      loadWikiImportInsights(state),
-      loadWikiMemoryPalace(state),
-    ]);
+    void (async () => {
+      await loadConfig(state);
+      await Promise.all([
+        loadDreamingStatus(state),
+        loadDreamDiary(state),
+        loadWikiImportInsights(state),
+        loadWikiMemoryPalace(state),
+      ]);
+    })();
   };
   const openWikiPage = async (lookup: string) => {
     if (!state.client || !state.connected) {
@@ -618,12 +615,18 @@ export function renderApp(state: AppViewState) {
     setThemeMode: (mode, context) => state.setThemeMode(mode, context),
     borderRadius: state.settings.borderRadius,
     setBorderRadius: (value) => state.setBorderRadius(value),
-    textScale: state.settings.textScale,
-    setTextScale: (value) => state.setTextScale(value),
     gatewayUrl: state.settings.gatewayUrl,
     assistantName: state.assistantName,
     configPath: state.configSnapshot?.path ?? null,
-    rawAvailable: typeof state.configSnapshot?.raw === "string",
+    rawAvailable:
+      typeof state.configSnapshot?.raw === "string" ||
+      (typeof state.configSnapshot?.raw !== "string" && state.configValid === true),
+    rawModeSupport:
+      typeof state.configSnapshot?.raw === "string"
+        ? ("native" as const)
+        : state.configValid === true
+          ? ("derived" as const)
+          : ("disabled" as const),
   } satisfies Omit<
     ConfigProps,
     | "formMode"
@@ -892,15 +895,15 @@ export function renderApp(state: AppViewState) {
               @click=${() => {
                 state.paletteOpen = !state.paletteOpen;
               }}
-              title="${t("commandPalette.launchTitle")}"
-              aria-label="${t("commandPalette.openAria")}"
+              title="Search or jump to… (⌘K)"
+              aria-label="Open command palette"
             >
               <span class="topbar-search__label">${t("common.search")}</span>
               <kbd class="topbar-search__kbd">⌘K</kbd>
             </button>
             <div class="topbar-status">
               ${isChat ? renderChatMobileToggle(state) : nothing}
-              ${renderTopbarLanguageToggle(state)} ${renderTopbarThemeModeToggle(state)}
+              ${renderTopbarLanguagePicker(state)} ${renderTopbarThemeModeToggle(state)}
             </div>
           </div>
         </div>
@@ -987,7 +990,7 @@ export function renderApp(state: AppViewState) {
                   href="https://docs.openclaw.ai"
                   target=${EXTERNAL_LINK_TARGET}
                   rel=${buildExternalLinkRel()}
-                  title="${t("common.docs")} (${t("common.opensInNewTab")})"
+                  title="${t("common.docs")} (opens in new tab)"
                 >
                   <span class="nav-item__icon" aria-hidden="true">${icons.book}</span>
                   ${!navCollapsed
@@ -1024,23 +1027,20 @@ export function renderApp(state: AppViewState) {
         state.updateAvailable.latestVersion !== state.updateAvailable.currentVersion &&
         !isUpdateBannerDismissed(state.updateAvailable)
           ? html`<div class="update-banner callout danger" role="alert">
-              <strong>${t("updateBanner.available")}</strong>
-              ${t("updateBanner.version", {
-                latest: state.updateAvailable.latestVersion,
-                current: state.updateAvailable.currentVersion,
-              })}
+              <strong>Update available:</strong> v${state.updateAvailable.latestVersion} (running
+              v${state.updateAvailable.currentVersion}).
               <button
                 class="btn btn--sm update-banner__btn"
                 ?disabled=${state.updateRunning || !state.connected}
                 @click=${() => runUpdate(state)}
               >
-                ${state.updateRunning ? t("updateBanner.updating") : t("updateBanner.updateNow")}
+                ${state.updateRunning ? "Updating…" : "Update now"}
               </button>
               <button
                 class="update-banner__close"
                 type="button"
-                title=${t("updateBanner.dismiss")}
-                aria-label=${t("updateBanner.dismissAria")}
+                title="Dismiss"
+                aria-label="Dismiss update banner"
                 @click=${() => {
                   dismissUpdateBanner(state.updateAvailable);
                   state.updateAvailable = null;
@@ -1107,24 +1107,13 @@ export function renderApp(state: AppViewState) {
               cronNext,
               lastChannelsRefresh: state.channelsLastSuccess,
               warnQueryToken,
+              modelAuthStatus: state.modelAuthStatusResult,
               usageResult: state.usageResult,
               sessionsResult: state.sessionsResult,
               skillsReport: state.skillsReport,
               cronJobs: state.cronJobs,
               cronStatus: state.cronStatus,
               attentionItems: state.attentionItems,
-              plans: buildPlansOverviewTeaserProps(state, {
-                onRefresh: () => state.setTab("plans" as import("./navigation.ts").Tab),
-                onSelectPlan: (planId) => {
-                  selectPlan(state, planId);
-                  void loadSelectedPlan(state, planId);
-                },
-                onStatusFilterChange: (status) => {
-                  setPlansStatusFilter(state, status);
-                  void state.loadOverview();
-                },
-                onStatusAction: (status) => updateSelectedPlanStatus(state, status),
-              }),
               eventLog: state.eventLog,
               overviewLogLines: state.overviewLogLines,
               showGatewayToken: state.overviewShowGatewayToken,
@@ -1134,13 +1123,17 @@ export function renderApp(state: AppViewState) {
               onSessionKeyChange: (next) => {
                 state.sessionKey = next;
                 state.chatMessage = "";
+                state.chatMessages = [];
+                state.chatToolMessages = [];
+                state.chatStream = null;
+                state.chatRunId = null;
+                state.chatQueue = [];
                 state.resetToolStream();
                 state.applySettings({
                   ...state.settings,
                   sessionKey: next,
                   lastActiveSessionKey: next,
                 });
-                void state.loadAssistantIdentity();
               },
               onToggleGatewayTokenVisibility: () => {
                 state.overviewShowGatewayToken = !state.overviewShowGatewayToken;
@@ -1149,28 +1142,10 @@ export function renderApp(state: AppViewState) {
                 state.overviewShowGatewayPassword = !state.overviewShowGatewayPassword;
               },
               onConnect: () => state.connect(),
-              onRefresh: () => state.loadOverview(),
+              onRefresh: () => state.loadOverview({ refresh: true }),
               onNavigate: (tab) => state.setTab(tab as import("./navigation.ts").Tab),
-              onRefreshLogs: () => state.loadOverview(),
+              onRefreshLogs: () => state.loadOverview({ refresh: true }),
             })
-          : nothing}
-        ${state.tab === "plans"
-          ? lazyRender(lazyPlans, (m) =>
-              m.renderPlans(
-                buildPlansViewProps(state, {
-                  onRefresh: () => state.loadOverview(),
-                  onSelectPlan: (planId) => {
-                    selectPlan(state, planId);
-                    void loadSelectedPlan(state, planId);
-                  },
-                  onStatusFilterChange: (status) => {
-                    setPlansStatusFilter(state, status);
-                    void refreshPlansOverview(state);
-                  },
-                  onStatusAction: (status) => updateSelectedPlanStatus(state, status),
-                }),
-              ),
-            )
           : nothing}
         ${state.tab === "channels"
           ? lazyRender(lazyChannels, (m) =>
@@ -2031,9 +2006,16 @@ export function renderApp(state: AppViewState) {
               modeSaving: state.dreamingModeSaving,
               dreamDiaryLoading: state.dreamDiaryLoading,
               dreamDiaryActionLoading: state.dreamDiaryActionLoading,
+              dreamDiaryActionMessage: state.dreamDiaryActionMessage,
+              dreamDiaryActionArchivePath: state.dreamDiaryActionArchivePath,
               dreamDiaryError: state.dreamDiaryError,
               dreamDiaryPath: state.dreamDiaryPath,
               dreamDiaryContent: state.dreamDiaryContent,
+              memoryWikiEnabled: isPluginEnabledInConfigSnapshot(
+                state.configSnapshot,
+                "memory-wiki",
+                { enabledByDefault: false },
+              ),
               wikiImportInsightsLoading: state.wikiImportInsightsLoading,
               wikiImportInsightsError: state.wikiImportInsightsError,
               wikiImportInsights: state.wikiImportInsights,
@@ -2042,12 +2024,28 @@ export function renderApp(state: AppViewState) {
               wikiMemoryPalace: state.wikiMemoryPalace,
               onRefresh: refreshDreaming,
               onRefreshDiary: () => loadDreamDiary(state),
-              onRefreshImports: () => loadWikiImportInsights(state),
-              onRefreshMemoryPalace: () => loadWikiMemoryPalace(state),
+              onRefreshImports: () => {
+                void (async () => {
+                  await loadConfig(state);
+                  await loadWikiImportInsights(state);
+                })();
+              },
+              onRefreshMemoryPalace: () => {
+                void (async () => {
+                  await loadConfig(state);
+                  await loadWikiMemoryPalace(state);
+                })();
+              },
+              onOpenConfig: () => openConfigFile(state),
               onOpenWikiPage: (lookup: string) => openWikiPage(lookup),
               onBackfillDiary: () => backfillDreamDiary(state),
+              onCopyDreamingArchivePath: () => {
+                void copyDreamingArchivePath(state);
+              },
+              onDedupeDreamDiary: () => dedupeDreamDiary(state),
               onResetDiary: () => resetDreamDiary(state),
               onResetGroundedShortTerm: () => resetGroundedShortTerm(state),
+              onRepairDreamingArtifacts: () => repairDreamingArtifacts(state),
               onRequestUpdate: requestHostUpdate,
             })
           : nothing}

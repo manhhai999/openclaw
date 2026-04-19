@@ -121,7 +121,7 @@ export function renderLogs(props: LogsProps) {
           </div>`
         : nothing}
       ${props.truncated
-        ? html` <div class="callout" style="margin-top: 10px">${t("logsPage.truncated")}</div> `
+        ? html`<div class="callout" style="margin-top: 10px">${t("logsPage.truncated")}</div>`
         : nothing}
       ${props.error
         ? html`<div class="callout danger" style="margin-top: 10px;">${props.error}</div>`

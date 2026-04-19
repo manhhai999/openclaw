@@ -1,7 +1,6 @@
 import { html, nothing } from "lit";
 import { t, i18n, SUPPORTED_LOCALES, type Locale, isSupportedLocale } from "../../i18n/index.ts";
 import type { EventLogEntry } from "../app-events.ts";
-import type { PlansViewProps } from "../controllers/plans.ts";
 import { buildExternalLinkRel, EXTERNAL_LINK_TARGET } from "../external-link.ts";
 import { formatRelativeTimestamp, formatDurationHuman } from "../format.ts";
 import type { GatewayHelloOk } from "../gateway.ts";
@@ -12,6 +11,7 @@ import type {
   AttentionItem,
   CronJob,
   CronStatus,
+  ModelAuthStatusResult,
   SessionsListResult,
   SessionsUsageResult,
   SkillStatusReport,
@@ -26,7 +26,6 @@ import {
   shouldShowPairingHint,
 } from "./overview-hints.ts";
 import { renderOverviewLogTail } from "./overview-log-tail.ts";
-import { renderPlans } from "./plans.ts";
 
 export type OverviewProps = {
   connected: boolean;
@@ -42,13 +41,13 @@ export type OverviewProps = {
   lastChannelsRefresh: number | null;
   warnQueryToken: boolean;
   // New dashboard data
+  modelAuthStatus: ModelAuthStatusResult | null;
   usageResult: SessionsUsageResult | null;
   sessionsResult: SessionsListResult | null;
   skillsReport: SkillStatusReport | null;
   cronJobs: CronJob[];
   cronStatus: CronStatus | null;
   attentionItems: AttentionItem[];
-  plans: PlansViewProps;
   eventLog: EventLogEntry[];
   overviewLogLines: string[];
   showGatewayToken: boolean;
@@ -63,17 +62,6 @@ export type OverviewProps = {
   onNavigate: (tab: string) => void;
   onRefreshLogs: () => void;
 };
-
-function renderOverviewPlans(props: OverviewProps) {
-  return html`
-    <div>
-      ${renderPlans(props.plans)}
-      <div class="muted" style="margin-top: 10px; font-size: 12px;">
-        Use the Plans tab for the full inspect and lifecycle control surface.
-      </div>
-    </div>
-  `;
-}
 
 export function renderOverview(props: OverviewProps) {
   const snapshot = props.hello?.snapshot as
@@ -108,8 +96,8 @@ export function renderOverview(props: OverviewProps) {
             href="https://docs.openclaw.ai/web/control-ui#device-pairing-first-connection"
             target=${EXTERNAL_LINK_TARGET}
             rel=${buildExternalLinkRel()}
-            title=${t("overview.docs.devicePairingTitle", { target: t("common.opensInNewTab") })}
-            >${t("overview.docs.devicePairingLabel")}</a
+            title="Device pairing docs (opens in new tab)"
+            >Docs: Device pairing</a
           >
         </div>
       </div>
@@ -141,8 +129,8 @@ export function renderOverview(props: OverviewProps) {
               href="https://docs.openclaw.ai/web/dashboard"
               target=${EXTERNAL_LINK_TARGET}
               rel=${buildExternalLinkRel()}
-              title=${t("overview.docs.controlAuthTitle", { target: t("common.opensInNewTab") })}
-              >${t("overview.docs.controlAuthLabel")}</a
+              title="Control UI auth docs (opens in new tab)"
+              >Docs: Control UI auth</a
             >
           </div>
         </div>
@@ -157,8 +145,8 @@ export function renderOverview(props: OverviewProps) {
             href="https://docs.openclaw.ai/web/dashboard"
             target=${EXTERNAL_LINK_TARGET}
             rel=${buildExternalLinkRel()}
-            title=${t("overview.docs.controlAuthTitle", { target: t("common.opensInNewTab") })}
-            >${t("overview.docs.controlAuthLabel")}</a
+            title="Control UI auth docs (opens in new tab)"
+            >Docs: Control UI auth</a
           >
         </div>
       </div>
@@ -190,8 +178,8 @@ export function renderOverview(props: OverviewProps) {
             href="https://docs.openclaw.ai/gateway/tailscale"
             target=${EXTERNAL_LINK_TARGET}
             rel=${buildExternalLinkRel()}
-            title=${t("overview.docs.tailscaleTitle", { target: t("common.opensInNewTab") })}
-            >${t("overview.docs.tailscaleLabel")}</a
+            title="Tailscale Serve docs (opens in new tab)"
+            >Docs: Tailscale Serve</a
           >
           <span class="muted"> · </span>
           <a
@@ -199,10 +187,8 @@ export function renderOverview(props: OverviewProps) {
             href="https://docs.openclaw.ai/web/control-ui#insecure-http"
             target=${EXTERNAL_LINK_TARGET}
             rel=${buildExternalLinkRel()}
-            title=${t("overview.docs.insecureHttpTitle", {
-              target: t("common.opensInNewTab"),
-            })}
-            >${t("overview.docs.insecureHttpLabel")}</a
+            title="Insecure HTTP docs (opens in new tab)"
+            >Docs: Insecure HTTP</a
           >
         </div>
       </div>
@@ -218,7 +204,14 @@ export function renderOverview(props: OverviewProps) {
     if (!authFailed) {
       return null;
     }
-    return html` <div class="muted" style="margin-top: 8px">${t("overview.queryTokenHint")}</div> `;
+    return html`
+      <div class="muted" style="margin-top: 8px">
+        Auth token must be passed as a URL fragment:
+        <span class="mono">#token=&lt;token&gt;</span>. Query parameters (<span class="mono"
+          >?token=</span
+        >) may appear in server logs.
+      </div>
+    `;
   })();
 
   const currentLocale = isSupportedLocale(props.settings.locale)
@@ -267,10 +260,8 @@ export function renderOverview(props: OverviewProps) {
                       type="button"
                       class="btn btn--icon ${props.showGatewayToken ? "active" : ""}"
                       style="flex-shrink: 0; width: 36px; height: 36px; box-sizing: border-box;"
-                      title=${props.showGatewayToken
-                        ? t("overview.access.hideToken")
-                        : t("overview.access.showToken")}
-                      aria-label=${t("overview.access.toggleTokenVisibility")}
+                      title=${props.showGatewayToken ? "Hide token" : "Show token"}
+                      aria-label="Toggle token visibility"
                       aria-pressed=${props.showGatewayToken}
                       @click=${props.onToggleGatewayTokenVisibility}
                     >
@@ -290,16 +281,14 @@ export function renderOverview(props: OverviewProps) {
                         const v = (e.target as HTMLInputElement).value;
                         props.onPasswordChange(v);
                       }}
-                      placeholder=${t("overview.access.sharedPasswordPlaceholder")}
+                      placeholder="system or shared password"
                     />
                     <button
                       type="button"
                       class="btn btn--icon ${props.showGatewayPassword ? "active" : ""}"
                       style="flex-shrink: 0; width: 36px; height: 36px; box-sizing: border-box;"
-                      title=${props.showGatewayPassword
-                        ? t("overview.access.hidePassword")
-                        : t("overview.access.showPassword")}
-                      aria-label=${t("overview.access.togglePasswordVisibility")}
+                      title=${props.showGatewayPassword ? "Hide password" : "Show password"}
+                      aria-label="Toggle password visibility"
                       aria-pressed=${props.showGatewayPassword}
                       @click=${props.onToggleGatewayPasswordVisibility}
                     >
@@ -429,14 +418,11 @@ export function renderOverview(props: OverviewProps) {
       skillsReport: props.skillsReport,
       cronJobs: props.cronJobs,
       cronStatus: props.cronStatus,
+      modelAuthStatus: props.modelAuthStatus,
       presenceCount: props.presenceCount,
       onNavigate: props.onNavigate,
     })}
     ${renderOverviewAttention({ items: props.attentionItems })}
-
-    <div class="ov-section-divider"></div>
-
-    ${renderOverviewPlans(props)}
 
     <div class="ov-section-divider"></div>
 

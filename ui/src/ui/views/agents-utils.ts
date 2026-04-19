@@ -380,7 +380,9 @@ export function buildAgentContext(
     model: modelLabel,
     identityName,
     identityAvatar,
-    skillsLabel: skillFilter ? `${skillCount} selected` : "all skills",
+    skillsLabel: skillFilter
+      ? t("dashboard.agent.selectedCount", { count: String(skillCount ?? 0) })
+      : t("dashboard.agent.allSkills"),
     isDefault: Boolean(defaultId && agent.id === defaultId),
   };
 }
@@ -635,7 +637,10 @@ export function buildModelOptions(
   }
 
   if (current && !seen.has(normalizeLowercaseStringOrEmpty(current))) {
-    options.unshift({ value: current, label: `Current (${current})` });
+    options.unshift({
+      value: current,
+      label: t("dashboard.agent.currentOption", { value: current }),
+    });
   }
 
   if (options.length === 0) {

@@ -20,8 +20,6 @@ export type PluginApprovalRequest = {
   request: PluginApprovalRequestPayload;
   createdAtMs: number;
   expiresAtMs: number;
-  routeStatus?: "pending-route" | "delivered" | "delivery-failed" | "no-route";
-  recoverability?: "reconnect-recoverable" | "terminal";
 };
 
 export type PluginApprovalResolved = {
@@ -69,14 +67,6 @@ export function buildPluginApprovalRequestMessage(
   lines.push(`ID: ${request.id}`);
   const expiresIn = Math.max(0, Math.round((request.expiresAtMs - nowMsValue) / 1000));
   lines.push(`Expires in: ${expiresIn}s`);
-  if (request.routeStatus || request.recoverability) {
-    const parts = [request.routeStatus, request.recoverability].filter(
-      (value): value is NonNullable<typeof value> => typeof value === "string" && value.length > 0,
-    );
-    if (parts.length > 0) {
-      lines.push(`Route: ${parts.join(" • ")}`);
-    }
-  }
   lines.push("Reply with: /approve <id> allow-once|allow-always|deny");
   return lines.join("\n");
 }
