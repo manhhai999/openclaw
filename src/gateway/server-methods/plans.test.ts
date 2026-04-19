@@ -1,9 +1,15 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { createPlanRecord, resetPlanRegistryForTests } from "../../plans/plan-registry.js";
+import {
+  createPlanRecord,
+  enablePlanRegistryHydrationForTests,
+  resetPlanRegistryForTests,
+} from "../../plans/plan-registry.js";
 import { ErrorCodes } from "../protocol/index.js";
 
 const hoisted = vi.hoisted(() => ({
   loadConfigMock: vi.fn(),
+  loadSessionStoreMock: vi.fn(),
+  resolveAllAgentSessionStoreTargetsSyncMock: vi.fn(),
   updateSessionStoreMock: vi.fn(),
   resolveGatewaySessionStoreTargetMock: vi.fn(),
   migrateAndPruneGatewaySessionStoreKeyMock: vi.fn(),
@@ -25,6 +31,9 @@ vi.mock("../../config/sessions.js", async () => {
   );
   return {
     ...actual,
+    loadSessionStore: (...args: unknown[]) => hoisted.loadSessionStoreMock(...args),
+    resolveAllAgentSessionStoreTargetsSync: (...args: unknown[]) =>
+      hoisted.resolveAllAgentSessionStoreTargetsSyncMock(...args),
     updateSessionStore: (...args: unknown[]) => hoisted.updateSessionStoreMock(...args),
   };
 });
@@ -166,6 +175,8 @@ function setupSessionPersistenceMocks() {
 
 function setupNoopSessionPersistenceMocks() {
   hoisted.loadConfigMock.mockReset();
+  hoisted.loadSessionStoreMock.mockReset();
+  hoisted.resolveAllAgentSessionStoreTargetsSyncMock.mockReset();
   hoisted.updateSessionStoreMock.mockReset();
   hoisted.resolveGatewaySessionStoreTargetMock.mockReset();
   hoisted.migrateAndPruneGatewaySessionStoreKeyMock.mockReset();
@@ -549,6 +560,122 @@ describe("plans gateway handlers", () => {
     expect(call?.[0]).toBe(false);
     expect(call?.[2]?.code).toBe(ErrorCodes.INVALID_REQUEST);
     expect(call?.[2]?.message).toContain("invalid plan status transition draft -> approved");
+  });
+
+  it("rehydrates persisted session plan records after a registry reset", async () => {
+    resetPlanRegistryForTests();
+    enablePlanRegistryHydrationForTests();
+    const persisted = setupSessionPersistenceMocks();
+    hoisted.resolveAllAgentSessionStoreTargetsSyncMock.mockReturnValue([
+      { agentId: "main", storePath: "/tmp/sessions.json" },
+    ]);
+    hoisted.loadSessionStoreMock.mockReturnValue({
+      "agent:main:main": {
+        updatedAt: 900,
+        planMode: "active",
+        planArtifact: {
+          status: "active",
+          updatedAt: 900,
+          record: {
+            planId: "plan_persisted",
+            title: "Rehydrated session plan",
+            summary: "Recovered after restart",
+            content: "- [>] Continue execution",
+            format: "markdown",
+            status: "ready_for_review",
+            createdAt: 850,
+            updatedAt: 900,
+            reviewedAt: 900,
+          },
+        },
+      },
+    });
+
+    const list = listPlansCall();
+    await list.invoke();
+
+    const listCall = list.respond.mock.calls[0] as RespondCall | undefined;
+    const hydratedPlan = findPlanByTitleFromRespond(listCall, "Rehydrated session plan");
+    expect(hydratedPlan).toMatchObject({
+      planId: "plan_persisted",
+      status: "ready_for_review",
+      updatedAt: 900,
+      reviewedAt: 900,
+    });
+
+    const { respond, invoke } = createInvokeParams("plans.updateStatus", {
+      planId: hydratedPlan?.planId,
+      status: "approved",
+    });
+    await invoke();
+
+    const call = respond.mock.calls[0] as RespondCall | undefined;
+    expect(call?.[0]).toBe(true);
+    expect(hoisted.applySessionsPatchToStoreMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        patch: expect.objectContaining({
+          planArtifact: expect.objectContaining({
+            status: "completed",
+            record: expect.objectContaining({
+              planId: "plan_persisted",
+              status: "approved",
+            }),
+          }),
+        }),
+      }),
+    );
+    expect(
+      (
+        persisted.getCurrentEntry().planArtifact as {
+          record?: { status?: string; planId?: string };
+        }
+      ).record,
+    ).toMatchObject({
+      planId: "plan_persisted",
+      status: "approved",
+    });
+  });
+
+  it("derives a session plan from legacy plan artifacts without a persisted record snapshot", async () => {
+    resetPlanRegistryForTests();
+    enablePlanRegistryHydrationForTests();
+    hoisted.loadConfigMock.mockReturnValue({});
+    hoisted.resolveAllAgentSessionStoreTargetsSyncMock.mockReturnValue([
+      { agentId: "main", storePath: "/tmp/sessions.json" },
+    ]);
+    hoisted.loadSessionStoreMock.mockReturnValue({
+      "agent:main:main": {
+        updatedAt: 1200,
+        planMode: "active",
+        planArtifact: {
+          status: "active",
+          updatedAt: 1200,
+          lastExplanation: "Legacy persisted plan",
+          steps: [
+            { step: "Inspect state", status: "completed" },
+            { step: "Patch regression", status: "in_progress" },
+          ],
+        },
+      },
+    });
+
+    const list = listPlansCall();
+    await list.invoke();
+
+    const call = list.respond.mock.calls[0] as RespondCall | undefined;
+    const payload = call?.[1] as
+      | {
+          count: number;
+          plans: Array<{ title: string; status: string; content: string }>;
+        }
+      | undefined;
+    expect(payload?.count).toBe(1);
+    expect(payload?.plans[0]).toMatchObject({
+      title: "Patch regression",
+      status: "draft",
+    });
+    expect(payload?.plans[0]?.content).toContain("Legacy persisted plan");
+    expect(payload?.plans[0]?.content).toContain("- [>] Patch regression");
   });
 
   it("rejects unknown plan ids", async () => {

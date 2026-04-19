@@ -1,7 +1,11 @@
 import { Type } from "@sinclair/typebox";
 import type { OpenClawConfig } from "../../config/config.js";
 import { callGateway } from "../../gateway/call.js";
-import { upsertSessionDraftPlanRecord } from "../../plans/plan-registry.js";
+import {
+  buildSessionDraftPlanRecord,
+  restorePlanRecord,
+  serializePlanRecordForSessionArtifact,
+} from "../../plans/plan-registry.js";
 import { stringEnum } from "../schema/typebox.js";
 import {
   describeUpdatePlanTool,
@@ -127,6 +131,13 @@ export function createUpdatePlanTool(opts?: {
       if (sessionKey) {
         const gatewayCall = opts?.callGateway ?? callGateway;
         const updatedAt = Date.now();
+        const planRecord = buildSessionDraftPlanRecord({
+          sessionKey,
+          title: derivePlanTitle(plan, explanation),
+          summary: explanation,
+          content: buildPlanContent(plan, explanation),
+          updatedAt,
+        });
         await gatewayCall({
           method: "sessions.patch",
           params: {
@@ -137,17 +148,12 @@ export function createUpdatePlanTool(opts?: {
               updatedAt,
               ...(explanation ? { lastExplanation: explanation } : {}),
               steps: plan,
+              record: serializePlanRecordForSessionArtifact(planRecord),
             },
           },
           config: opts?.config,
         });
-        upsertSessionDraftPlanRecord({
-          sessionKey,
-          title: derivePlanTitle(plan, explanation),
-          summary: explanation,
-          content: buildPlanContent(plan, explanation),
-          updatedAt,
-        });
+        restorePlanRecord(planRecord);
       }
       return {
         content: [],

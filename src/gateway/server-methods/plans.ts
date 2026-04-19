@@ -5,10 +5,11 @@ import {
   listPlanRecords,
   listPlansForOwnerKey,
   restorePlanRecord,
+  serializePlanRecordForSessionArtifact,
   updatePlanStatus,
 } from "../../plans/plan-registry.js";
 import { summarizePlanRecords } from "../../plans/plan-registry.summary.js";
-import type { PlanRecordStatus } from "../../plans/plan-registry.types.js";
+import type { PlanRecord, PlanRecordStatus } from "../../plans/plan-registry.types.js";
 import { isPlanStatusTransitionError } from "../../plans/plan-registry.types.js";
 import { normalizeOptionalString } from "../../shared/string-coerce.js";
 import {
@@ -61,17 +62,31 @@ function buildPlansGetResult(planId: string): PlansGetResult | null {
   return { plan };
 }
 
-function toSessionPlanArtifactPatch(plan: {
-  status: PlanRecordStatus;
-  updatedAt: number;
-  approvedAt?: number;
-}) {
+function toSessionPlanArtifactPatch(
+  plan: Pick<
+    PlanRecord,
+    | "planId"
+    | "title"
+    | "summary"
+    | "content"
+    | "format"
+    | "status"
+    | "createdAt"
+    | "updatedAt"
+    | "reviewedAt"
+    | "approvedAt"
+    | "rejectedAt"
+    | "archivedAt"
+  >,
+) {
   const patch: {
     updatedAt: number;
     approvedAt?: number;
     status?: "active" | "completed" | "cancelled";
+    record: ReturnType<typeof serializePlanRecordForSessionArtifact>;
   } = {
     updatedAt: plan.updatedAt,
+    record: serializePlanRecordForSessionArtifact(plan),
   };
   if (plan.status === "approved") {
     patch.status = "completed";
@@ -89,9 +104,18 @@ function toSessionPlanArtifactPatch(plan: {
 async function persistSessionPlanStatus(plan: {
   scopeKind: "session" | "agent" | "system";
   sessionKey?: string;
+  planId: string;
+  title: string;
+  summary?: string;
+  content: string;
+  format: PlanRecord["format"];
   status: PlanRecordStatus;
+  createdAt: number;
   updatedAt: number;
+  reviewedAt?: number;
   approvedAt?: number;
+  rejectedAt?: number;
+  archivedAt?: number;
 }) {
   if (plan.scopeKind !== "session") {
     return;

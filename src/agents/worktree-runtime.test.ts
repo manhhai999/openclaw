@@ -47,4 +47,41 @@ describe("worktree-runtime", () => {
       expect(fs.existsSync(artifact.worktreeDir)).toBe(false);
     });
   });
+
+  it("allocates a unique default worktree name when a kept worktree already exists", async () => {
+    await withTempDir({ prefix: "openclaw-worktree-runtime-reenter-" }, async (root) => {
+      await runGit(root, ["init"]);
+      await runGit(root, ["config", "user.email", "tests@example.com"]);
+      await runGit(root, ["config", "user.name", "OpenClaw Tests"]);
+      await fsp.writeFile(path.join(root, "README.md"), "hello\n", "utf8");
+      await runGit(root, ["add", "README.md"]);
+      await runGit(root, ["commit", "-m", "init"]);
+
+      const first = await createSessionWorktree({
+        sessionKey: "agent:main:main",
+        workspaceDir: root,
+        cleanupPolicy: "keep",
+      });
+      const second = await createSessionWorktree({
+        sessionKey: "agent:main:main",
+        workspaceDir: root,
+        cleanupPolicy: "keep",
+      });
+
+      expect(first.requestedName).toBe("agent-main-main");
+      expect(second.requestedName).toBe("agent-main-main-2");
+      expect(second.worktreeDir).not.toBe(first.worktreeDir);
+      expect(fs.existsSync(first.worktreeDir)).toBe(true);
+      expect(fs.existsSync(second.worktreeDir)).toBe(true);
+
+      await removeSessionWorktree({
+        repoRoot: first.repoRoot,
+        worktreeDir: first.worktreeDir,
+      });
+      await removeSessionWorktree({
+        repoRoot: second.repoRoot,
+        worktreeDir: second.worktreeDir,
+      });
+    });
+  });
 });

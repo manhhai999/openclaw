@@ -120,6 +120,104 @@ function normalizeWorktreeCleanupPolicy(raw: string): "keep" | "remove" | undefi
   return undefined;
 }
 
+function normalizePlanArtifactRecordFormat(
+  raw: string,
+): "markdown" | "text" | "json" | undefined {
+  const normalized = normalizeOptionalLowercaseString(raw);
+  if (normalized === "markdown" || normalized === "text" || normalized === "json") {
+    return normalized;
+  }
+  return undefined;
+}
+
+function normalizePlanArtifactRecordStatus(
+  raw: string,
+): "draft" | "ready_for_review" | "approved" | "rejected" | "archived" | undefined {
+  const normalized = normalizeOptionalLowercaseString(raw);
+  if (
+    normalized === "draft" ||
+    normalized === "ready_for_review" ||
+    normalized === "approved" ||
+    normalized === "rejected" ||
+    normalized === "archived"
+  ) {
+    return normalized;
+  }
+  return undefined;
+}
+
+function normalizePlanArtifactRecord(
+  raw: unknown,
+): SessionPlanArtifact["record"] | { error: string } {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
+    return { error: "invalid planArtifact.record" };
+  }
+  const record = raw as Record<string, unknown>;
+  const planId = normalizeOptionalString(record.planId) ?? "";
+  if (!planId) {
+    return { error: "invalid planArtifact.record.planId" };
+  }
+  const title = normalizeOptionalString(record.title) ?? "";
+  if (!title) {
+    return { error: "invalid planArtifact.record.title" };
+  }
+  const content = normalizeOptionalString(record.content) ?? "";
+  if (!content) {
+    return { error: "invalid planArtifact.record.content" };
+  }
+  const formatRaw = normalizeOptionalString(record.format) ?? "";
+  const format = normalizePlanArtifactRecordFormat(formatRaw);
+  if (!format) {
+    return { error: 'invalid planArtifact.record.format (use "markdown"|"text"|"json")' };
+  }
+  const statusRaw = normalizeOptionalString(record.status) ?? "";
+  const status = normalizePlanArtifactRecordStatus(statusRaw);
+  if (!status) {
+    return {
+      error:
+        'invalid planArtifact.record.status (use "draft"|"ready_for_review"|"approved"|"rejected"|"archived")',
+    };
+  }
+  const createdAt = record.createdAt;
+  if (!Number.isInteger(createdAt) || (createdAt as number) < 0) {
+    return { error: "invalid planArtifact.record.createdAt" };
+  }
+  const updatedAt = record.updatedAt;
+  if (!Number.isInteger(updatedAt) || (updatedAt as number) < 0) {
+    return { error: "invalid planArtifact.record.updatedAt" };
+  }
+
+  const next: NonNullable<SessionPlanArtifact["record"]> = {
+    planId,
+    title,
+    content,
+    format,
+    status,
+    createdAt: createdAt as number,
+    updatedAt: updatedAt as number,
+  };
+
+  if ("summary" in record) {
+    const summary = normalizeOptionalString(record.summary) ?? "";
+    if (!summary) {
+      return { error: "invalid planArtifact.record.summary" };
+    }
+    next.summary = summary;
+  }
+
+  for (const key of ["reviewedAt", "approvedAt", "rejectedAt", "archivedAt"] as const) {
+    if (key in record) {
+      const value = record[key];
+      if (!Number.isInteger(value) || (value as number) < 0) {
+        return { error: `invalid planArtifact.record.${key}` };
+      }
+      next[key] = value as number;
+    }
+  }
+
+  return next;
+}
+
 function normalizeWorktreeArtifactStatus(
   raw: string,
 ): "active" | "closed" | "removed" | "remove_failed" | undefined {
@@ -228,6 +326,14 @@ function normalizePlanArtifactPatch(raw: unknown): SessionPlanArtifact | { error
       return { error: "planArtifact.steps can contain at most one in_progress item" };
     }
     next.steps = normalizedSteps;
+  }
+
+  if ("record" in artifact) {
+    const record = normalizePlanArtifactRecord(artifact.record);
+    if ("error" in record) {
+      return record;
+    }
+    next.record = record;
   }
 
   return next;

@@ -58,6 +58,36 @@ function createSessionWorktreeName(sessionKey: string): string {
   return sanitizeWorktreeName(sessionKey.replaceAll(":", "-")) ?? "session-worktree";
 }
 
+function resolveAvailableWorktreeName(params: {
+  worktreeBaseDir: string;
+  requestedName: string;
+  allowSuffix: boolean;
+}): { requestedName: string; worktreeDir: string } {
+  const directPath = path.join(params.worktreeBaseDir, params.requestedName);
+  if (!fs.existsSync(directPath)) {
+    return {
+      requestedName: params.requestedName,
+      worktreeDir: directPath,
+    };
+  }
+  if (!params.allowSuffix) {
+    throw new Error(`Worktree path already exists: ${directPath}`);
+  }
+  for (let index = 2; index <= 10_000; index += 1) {
+    const candidateName = `${params.requestedName}-${index}`;
+    const candidatePath = path.join(params.worktreeBaseDir, candidateName);
+    if (!fs.existsSync(candidatePath)) {
+      return {
+        requestedName: candidateName,
+        worktreeDir: candidatePath,
+      };
+    }
+  }
+  throw new Error(
+    `Unable to allocate a unique worktree name for ${params.requestedName} in ${params.worktreeBaseDir}`,
+  );
+}
+
 export async function resolveGitRepoRoot(workspaceDir: string): Promise<string> {
   const fallback = findGitRoot(workspaceDir);
   const result = await runCommandWithTimeout(
@@ -86,15 +116,17 @@ export async function createSessionWorktree(params: {
   cleanupPolicy?: "keep" | "remove";
 }): Promise<SessionWorktreeArtifact> {
   const repoRoot = await resolveGitRepoRoot(params.workspaceDir);
-  const requestedName =
-    sanitizeWorktreeName(params.requestedName) ?? createSessionWorktreeName(params.sessionKey);
+  const explicitRequestedName = sanitizeWorktreeName(params.requestedName);
+  const baseRequestedName = explicitRequestedName ?? createSessionWorktreeName(params.sessionKey);
   const worktreeBaseDir = path.join(repoRoot, WORKTREE_BASE_DIRNAME);
-  const worktreeDir = path.join(worktreeBaseDir, requestedName);
+  const resolvedWorktree = resolveAvailableWorktreeName({
+    worktreeBaseDir,
+    requestedName: baseRequestedName,
+    allowSuffix: explicitRequestedName === undefined,
+  });
+  const { requestedName, worktreeDir } = resolvedWorktree;
   if (path.resolve(worktreeDir) === path.resolve(repoRoot)) {
     throw new Error("Refusing to create a worktree at the repository root.");
-  }
-  if (fs.existsSync(worktreeDir)) {
-    throw new Error(`Worktree path already exists: ${worktreeDir}`);
   }
 
   await fsp.mkdir(worktreeBaseDir, { recursive: true });

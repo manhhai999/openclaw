@@ -157,6 +157,38 @@ const SessionPlanArtifactStepSchema = Type.Object(
   { additionalProperties: false },
 );
 
+const SessionPlanArtifactRecordFormatSchema = Type.Union([
+  Type.Literal("markdown"),
+  Type.Literal("text"),
+  Type.Literal("json"),
+]);
+
+const SessionPlanArtifactRecordStatusSchema = Type.Union([
+  Type.Literal("draft"),
+  Type.Literal("ready_for_review"),
+  Type.Literal("approved"),
+  Type.Literal("rejected"),
+  Type.Literal("archived"),
+]);
+
+const SessionPlanArtifactRecordSchema = Type.Object(
+  {
+    planId: NonEmptyString,
+    title: NonEmptyString,
+    summary: Type.Optional(NonEmptyString),
+    content: NonEmptyString,
+    format: SessionPlanArtifactRecordFormatSchema,
+    status: SessionPlanArtifactRecordStatusSchema,
+    createdAt: Type.Integer({ minimum: 0 }),
+    updatedAt: Type.Integer({ minimum: 0 }),
+    reviewedAt: Type.Optional(Type.Integer({ minimum: 0 })),
+    approvedAt: Type.Optional(Type.Integer({ minimum: 0 })),
+    rejectedAt: Type.Optional(Type.Integer({ minimum: 0 })),
+    archivedAt: Type.Optional(Type.Integer({ minimum: 0 })),
+  },
+  { additionalProperties: false },
+);
+
 const SessionPlanArtifactSchema = Type.Object(
   {
     goal: Type.Optional(NonEmptyString),
@@ -169,6 +201,7 @@ const SessionPlanArtifactSchema = Type.Object(
     approvedAt: Type.Optional(Type.Integer({ minimum: 0 })),
     exitedAt: Type.Optional(Type.Integer({ minimum: 0 })),
     steps: Type.Optional(Type.Array(SessionPlanArtifactStepSchema, { minItems: 1 })),
+    record: Type.Optional(SessionPlanArtifactRecordSchema),
   },
   { additionalProperties: false },
 );

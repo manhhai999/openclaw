@@ -94,6 +94,13 @@ describe("update_plan tool", () => {
               { step: "Inspect harness", status: "completed" },
               { step: "Add tool", status: "in_progress" },
             ],
+            record: expect.objectContaining({
+              title: "Add tool",
+              summary: "Captured plan",
+              content: expect.stringContaining("- [>] Add tool"),
+              format: "markdown",
+              status: "draft",
+            }),
           }),
         }),
       }),

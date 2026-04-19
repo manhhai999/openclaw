@@ -119,6 +119,30 @@ export type SessionPlanStep = {
 
 export type SessionPlanArtifactStatus = "active" | "completed" | "cancelled";
 
+export type SessionPlanArtifactRecordFormat = "markdown" | "text" | "json";
+
+export type SessionPlanArtifactRecordStatus =
+  | "draft"
+  | "ready_for_review"
+  | "approved"
+  | "rejected"
+  | "archived";
+
+export type SessionPlanArtifactRecord = {
+  planId: string;
+  title: string;
+  summary?: string;
+  content: string;
+  format: SessionPlanArtifactRecordFormat;
+  status: SessionPlanArtifactRecordStatus;
+  createdAt: number;
+  updatedAt: number;
+  reviewedAt?: number;
+  approvedAt?: number;
+  rejectedAt?: number;
+  archivedAt?: number;
+};
+
 export type SessionPlanArtifact = {
   goal?: string;
   notes?: string;
@@ -130,6 +154,7 @@ export type SessionPlanArtifact = {
   approvedAt?: number;
   exitedAt?: number;
   steps?: SessionPlanStep[];
+  record?: SessionPlanArtifactRecord;
 };
 
 export type SessionWorktreeMode = "active" | "inactive";

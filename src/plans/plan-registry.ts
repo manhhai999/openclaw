@@ -1,4 +1,8 @@
 import crypto from "node:crypto";
+import { loadConfig } from "../config/config.js";
+import type { SessionPlanArtifact } from "../config/sessions.js";
+import { loadSessionStore, resolveAllAgentSessionStoreTargetsSync } from "../config/sessions.js";
+import { normalizeOptionalString } from "../shared/string-coerce.js";
 import { summarizePlanRecords } from "./plan-registry.summary.js";
 import type {
   PlanRecord,
@@ -16,11 +20,82 @@ const planIdsByOwnerKey = new Map<string, Set<string>>();
 const planIdsBySessionKey = new Map<string, Set<string>>();
 const planIdsByParentPlanId = new Map<string, Set<string>>();
 
+let durableSessionPlansHydrated = false;
+let durableSessionPlansHydrationDisabledForTests = false;
+
 function clonePlanRecord(record: PlanRecord): PlanRecord {
   return {
     ...record,
     ...(record.linkedFlowIds ? { linkedFlowIds: [...record.linkedFlowIds] } : {}),
   };
+}
+
+function normalizeLinkedFlowIds(linkedFlowIds?: string[]): string[] | undefined {
+  if (!linkedFlowIds?.length) {
+    return undefined;
+  }
+  const normalized = [...new Set(linkedFlowIds.map((id) => id.trim()).filter(Boolean))];
+  return normalized.length ? normalized : undefined;
+}
+
+function formatPlanStepStatus(status: "pending" | "in_progress" | "completed"): " " | "x" | ">" {
+  if (status === "completed") {
+    return "x";
+  }
+  if (status === "in_progress") {
+    return ">";
+  }
+  return " ";
+}
+
+function buildPlanContentFromSessionArtifact(artifact: SessionPlanArtifact): string {
+  const explanation =
+    normalizeOptionalString(artifact.lastExplanation) ??
+    normalizeOptionalString(artifact.summary) ??
+    normalizeOptionalString(artifact.notes) ??
+    normalizeOptionalString(artifact.goal);
+  const steps =
+    artifact.steps?.map((entry) => `- [${formatPlanStepStatus(entry.status)}] ${entry.step}`) ?? [];
+  if (explanation && steps.length > 0) {
+    return `${explanation}\n\n${steps.join("\n")}`;
+  }
+  if (steps.length > 0) {
+    return steps.join("\n");
+  }
+  return explanation ?? "Execution plan";
+}
+
+function derivePlanTitleFromSessionArtifact(artifact: SessionPlanArtifact): string {
+  return (
+    artifact.steps?.find((entry) => entry.status === "in_progress")?.step.trim() ||
+    artifact.steps?.find((entry) => entry.status === "pending")?.step.trim() ||
+    normalizeOptionalString(artifact.summary) ||
+    normalizeOptionalString(artifact.lastExplanation) ||
+    normalizeOptionalString(artifact.goal) ||
+    normalizeOptionalString(artifact.notes) ||
+    "Execution plan"
+  );
+}
+
+function mapFallbackSessionArtifactStatusToPlanStatus(
+  artifact: SessionPlanArtifact,
+): PlanRecordStatus {
+  if (artifact.status === "completed") {
+    return "approved";
+  }
+  if (artifact.status === "cancelled") {
+    return "rejected";
+  }
+  return "draft";
+}
+
+function createPlanId(): string {
+  return `plan_${crypto.randomUUID()}`;
+}
+
+function createFallbackSessionPlanId(sessionKey: string): string {
+  const digest = crypto.createHash("sha256").update(sessionKey.trim()).digest("hex").slice(0, 16);
+  return `plan_session_${digest}`;
 }
 
 function upsertIndex(index: Map<string, Set<string>>, key: string | undefined, planId: string) {
@@ -65,20 +140,238 @@ function replacePlanRecord(record: PlanRecord): PlanRecord {
   if (existing) {
     deindexPlan(existing);
   }
-  plans.set(record.planId, {
-    ...record,
-    ...(record.linkedFlowIds ? { linkedFlowIds: [...record.linkedFlowIds] } : {}),
-  });
+  plans.set(record.planId, clonePlanRecord(record));
   indexPlan(record);
   return clonePlanRecord(record);
 }
 
-export function restorePlanRecord(record: PlanRecord): PlanRecord {
-  return replacePlanRecord(record);
+function buildPlanRecord(params: {
+  planId?: string;
+  ownerKey: string;
+  scopeKind: PlanScopeKind;
+  title: string;
+  content: string;
+  summary?: string;
+  format?: PlanRecordFormat;
+  sessionKey?: string;
+  parentPlanId?: string;
+  linkedFlowIds?: string[];
+  status?: PlanRecordStatus;
+  createdAt?: number;
+  updatedAt?: number;
+  reviewedAt?: number;
+  approvedAt?: number;
+  rejectedAt?: number;
+  archivedAt?: number;
+}): PlanRecord {
+  const now = params.updatedAt ?? params.createdAt ?? Date.now();
+  const linkedFlowIds = normalizeLinkedFlowIds(params.linkedFlowIds);
+  return {
+    planId: params.planId?.trim() || createPlanId(),
+    ownerKey: params.ownerKey.trim(),
+    scopeKind: params.scopeKind,
+    ...(params.sessionKey?.trim() ? { sessionKey: params.sessionKey.trim() } : {}),
+    ...(params.parentPlanId?.trim() ? { parentPlanId: params.parentPlanId.trim() } : {}),
+    title: params.title.trim(),
+    ...(params.summary?.trim() ? { summary: params.summary.trim() } : {}),
+    content: params.content,
+    format: params.format ?? "markdown",
+    status: params.status ?? "draft",
+    ...(linkedFlowIds ? { linkedFlowIds } : {}),
+    createdAt: params.createdAt ?? now,
+    updatedAt: now,
+    ...(typeof params.reviewedAt === "number" ? { reviewedAt: params.reviewedAt } : {}),
+    ...(typeof params.approvedAt === "number" ? { approvedAt: params.approvedAt } : {}),
+    ...(typeof params.rejectedAt === "number" ? { rejectedAt: params.rejectedAt } : {}),
+    ...(typeof params.archivedAt === "number" ? { archivedAt: params.archivedAt } : {}),
+  };
 }
 
-function createPlanId(): string {
-  return `plan_${crypto.randomUUID()}`;
+function applySessionArtifactOverlay(record: PlanRecord, artifact: SessionPlanArtifact): PlanRecord {
+  const next = clonePlanRecord(record);
+  const artifactSummary =
+    normalizeOptionalString(artifact.summary) ?? normalizeOptionalString(artifact.lastExplanation);
+  if (!next.summary && artifactSummary) {
+    next.summary = artifactSummary;
+  }
+  if (typeof artifact.updatedAt === "number" && artifact.updatedAt > next.updatedAt) {
+    next.updatedAt = artifact.updatedAt;
+  }
+  if (artifact.status === "completed") {
+    if (next.status !== "archived") {
+      next.status = "approved";
+    }
+    if (typeof artifact.approvedAt === "number") {
+      next.approvedAt = artifact.approvedAt;
+      next.reviewedAt = next.reviewedAt ?? artifact.approvedAt;
+    }
+  } else if (artifact.status === "cancelled") {
+    if (next.status !== "archived") {
+      next.status = "rejected";
+    }
+    const rejectedAt = artifact.exitedAt ?? artifact.updatedAt;
+    if (typeof rejectedAt === "number") {
+      next.rejectedAt = next.rejectedAt ?? rejectedAt;
+      next.reviewedAt = next.reviewedAt ?? rejectedAt;
+    }
+  }
+  return next;
+}
+
+function buildPlanRecordFromSessionArtifact(
+  sessionKey: string,
+  artifact: SessionPlanArtifact,
+): PlanRecord | undefined {
+  const recordSnapshot = artifact.record;
+  if (recordSnapshot) {
+    return applySessionArtifactOverlay(
+      buildPlanRecord({
+        planId: recordSnapshot.planId,
+        ownerKey: sessionKey,
+        scopeKind: "session",
+        sessionKey,
+        title: recordSnapshot.title,
+        summary: recordSnapshot.summary,
+        content: recordSnapshot.content,
+        format: recordSnapshot.format,
+        status: recordSnapshot.status,
+        createdAt: recordSnapshot.createdAt,
+        updatedAt: recordSnapshot.updatedAt,
+        reviewedAt: recordSnapshot.reviewedAt,
+        approvedAt: recordSnapshot.approvedAt,
+        rejectedAt: recordSnapshot.rejectedAt,
+        archivedAt: recordSnapshot.archivedAt,
+      }),
+      artifact,
+    );
+  }
+
+  const hasArtifactData = Boolean(
+    artifact.steps?.length ||
+      artifact.lastExplanation ||
+      artifact.summary ||
+      artifact.goal ||
+      artifact.notes ||
+      artifact.status,
+  );
+  if (!hasArtifactData) {
+    return undefined;
+  }
+
+  const createdAt = artifact.enteredAt ?? artifact.updatedAt ?? Date.now();
+  const updatedAt = artifact.updatedAt ?? createdAt;
+  const status = mapFallbackSessionArtifactStatusToPlanStatus(artifact);
+  const rejectedAt =
+    status === "rejected" ? (artifact.exitedAt ?? artifact.updatedAt ?? createdAt) : undefined;
+
+  return buildPlanRecord({
+    planId: createFallbackSessionPlanId(sessionKey),
+    ownerKey: sessionKey,
+    scopeKind: "session",
+    sessionKey,
+    title: derivePlanTitleFromSessionArtifact(artifact),
+    summary:
+      normalizeOptionalString(artifact.summary) ?? normalizeOptionalString(artifact.lastExplanation),
+    content: buildPlanContentFromSessionArtifact(artifact),
+    format: "markdown",
+    status,
+    createdAt,
+    updatedAt,
+    approvedAt: artifact.approvedAt,
+    rejectedAt,
+  });
+}
+
+function hasSessionPlanInMemory(sessionKey: string): boolean {
+  const normalizedSessionKey = sessionKey.trim();
+  for (const record of plans.values()) {
+    if (record.scopeKind === "session" && record.sessionKey === normalizedSessionKey) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function ensureDurableSessionPlansHydrated(): void {
+  if (durableSessionPlansHydrated || durableSessionPlansHydrationDisabledForTests) {
+    return;
+  }
+  try {
+    const cfg = loadConfig();
+    const targets = resolveAllAgentSessionStoreTargetsSync(cfg);
+    for (const target of targets) {
+      const store = loadSessionStore(target.storePath, { skipCache: true });
+      for (const [sessionKey, entry] of Object.entries(store)) {
+        const artifact = entry?.planArtifact;
+        if (!artifact) {
+          continue;
+        }
+        if (!artifact.record && hasSessionPlanInMemory(sessionKey)) {
+          continue;
+        }
+        const record = buildPlanRecordFromSessionArtifact(sessionKey, artifact);
+        if (record) {
+          replacePlanRecord(record);
+        }
+      }
+    }
+    durableSessionPlansHydrated = true;
+  } catch {
+    // Best-effort hydration only. Live writes still keep the in-memory registry current.
+    durableSessionPlansHydrated = false;
+  }
+}
+
+export function serializePlanRecordForSessionArtifact(
+  record: PlanRecord,
+): NonNullable<SessionPlanArtifact["record"]> {
+  return {
+    planId: record.planId,
+    title: record.title,
+    ...(record.summary ? { summary: record.summary } : {}),
+    content: record.content,
+    format: record.format,
+    status: record.status,
+    createdAt: record.createdAt,
+    updatedAt: record.updatedAt,
+    ...(typeof record.reviewedAt === "number" ? { reviewedAt: record.reviewedAt } : {}),
+    ...(typeof record.approvedAt === "number" ? { approvedAt: record.approvedAt } : {}),
+    ...(typeof record.rejectedAt === "number" ? { rejectedAt: record.rejectedAt } : {}),
+    ...(typeof record.archivedAt === "number" ? { archivedAt: record.archivedAt } : {}),
+  };
+}
+
+export function buildSessionDraftPlanRecord(params: {
+  sessionKey: string;
+  title: string;
+  content: string;
+  summary?: string;
+  updatedAt?: number;
+}): PlanRecord {
+  ensureDurableSessionPlansHydrated();
+  const sessionKey = params.sessionKey.trim();
+  const updatedAt = params.updatedAt ?? Date.now();
+  const existingDraft = listPlansByIndex(planIdsBySessionKey, sessionKey).find(
+    (record) =>
+      record.ownerKey === sessionKey && record.scopeKind === "session" && record.status === "draft",
+  );
+  return buildPlanRecord({
+    planId: existingDraft?.planId,
+    ownerKey: sessionKey,
+    scopeKind: "session",
+    sessionKey,
+    title: params.title,
+    summary: params.summary,
+    content: params.content,
+    format: "markdown",
+    status: "draft",
+    createdAt: existingDraft?.createdAt ?? updatedAt,
+    updatedAt,
+  });
+}
+
+export function restorePlanRecord(record: PlanRecord): PlanRecord {
+  return replacePlanRecord(record);
 }
 
 export function createPlanRecord(params: {
@@ -95,30 +388,11 @@ export function createPlanRecord(params: {
   createdAt?: number;
   updatedAt?: number;
 }): PlanRecord {
-  const now = params.updatedAt ?? params.createdAt ?? Date.now();
-  const record: PlanRecord = {
-    planId: createPlanId(),
-    ownerKey: params.ownerKey.trim(),
-    scopeKind: params.scopeKind,
-    ...(params.sessionKey?.trim() ? { sessionKey: params.sessionKey.trim() } : {}),
-    ...(params.parentPlanId?.trim() ? { parentPlanId: params.parentPlanId.trim() } : {}),
-    title: params.title.trim(),
-    ...(params.summary?.trim() ? { summary: params.summary.trim() } : {}),
-    content: params.content,
-    format: params.format ?? "markdown",
-    status: params.status ?? "draft",
-    ...(params.linkedFlowIds?.length
-      ? { linkedFlowIds: [...new Set(params.linkedFlowIds.map((id) => id.trim()).filter(Boolean))] }
-      : {}),
-    createdAt: params.createdAt ?? now,
-    updatedAt: now,
-  };
-  plans.set(record.planId, record);
-  indexPlan(record);
-  return clonePlanRecord(record);
+  return replacePlanRecord(buildPlanRecord(params));
 }
 
 export function listPlanRecords(): PlanRecord[] {
+  ensureDurableSessionPlansHydrated();
   return [...plans.values()]
     .map((record) => clonePlanRecord(record))
     .toSorted(
@@ -127,6 +401,7 @@ export function listPlanRecords(): PlanRecord[] {
 }
 
 export function getPlanById(planId: string): PlanRecord | undefined {
+  ensureDurableSessionPlansHydrated();
   const existing = plans.get(planId);
   return existing ? clonePlanRecord(existing) : undefined;
 }
@@ -146,14 +421,17 @@ function listPlansByIndex(index: Map<string, Set<string>>, key: string): PlanRec
 }
 
 export function listPlansForOwnerKey(ownerKey: string): PlanRecord[] {
+  ensureDurableSessionPlansHydrated();
   return listPlansByIndex(planIdsByOwnerKey, ownerKey);
 }
 
 export function listPlansForSessionKey(sessionKey: string): PlanRecord[] {
+  ensureDurableSessionPlansHydrated();
   return listPlansByIndex(planIdsBySessionKey, sessionKey);
 }
 
 export function listChildPlans(parentPlanId: string): PlanRecord[] {
+  ensureDurableSessionPlansHydrated();
   return listPlansByIndex(planIdsByParentPlanId, parentPlanId);
 }
 
@@ -181,6 +459,8 @@ export function updatePlanRecordById(
   }
   const nextStatus = updates.status ?? existing.status;
   const updatedAt = updates.updatedAt ?? Date.now();
+  const linkedFlowIds =
+    updates.linkedFlowIds !== undefined ? normalizeLinkedFlowIds(updates.linkedFlowIds) : undefined;
   const next: PlanRecord = {
     ...existing,
     ...(updates.title !== undefined ? { title: updates.title.trim() } : {}),
@@ -202,12 +482,8 @@ export function updatePlanRecordById(
         : { parentPlanId: undefined }
       : {}),
     ...(updates.linkedFlowIds !== undefined
-      ? updates.linkedFlowIds.length
-        ? {
-            linkedFlowIds: [
-              ...new Set(updates.linkedFlowIds.map((id) => id.trim()).filter(Boolean)),
-            ],
-          }
+      ? linkedFlowIds
+        ? { linkedFlowIds }
         : { linkedFlowIds: undefined }
       : {}),
     status: nextStatus,
@@ -223,10 +499,7 @@ export function updatePlanRecordById(
     archivedAt:
       nextStatus === "archived" ? (existing.archivedAt ?? updatedAt) : existing.archivedAt,
   };
-  deindexPlan(existing);
-  plans.set(planId, next);
-  indexPlan(next);
-  return clonePlanRecord(next);
+  return replacePlanRecord(next);
 }
 
 export function upsertSessionDraftPlanRecord(params: {
@@ -236,38 +509,11 @@ export function upsertSessionDraftPlanRecord(params: {
   summary?: string;
   updatedAt?: number;
 }): PlanRecord {
-  const sessionKey = params.sessionKey.trim();
-  const updatedAt = params.updatedAt ?? Date.now();
-  const existingDraft = listPlansForSessionKey(sessionKey).find(
-    (record) =>
-      record.ownerKey === sessionKey && record.scopeKind === "session" && record.status === "draft",
-  );
-  if (existingDraft) {
-    return (
-      updatePlanRecordById(existingDraft.planId, {
-        title: params.title,
-        summary: params.summary ?? "",
-        content: params.content,
-        format: "markdown",
-        updatedAt,
-      }) ?? clonePlanRecord(existingDraft)
-    );
-  }
-  return createPlanRecord({
-    ownerKey: sessionKey,
-    scopeKind: "session",
-    sessionKey,
-    title: params.title,
-    summary: params.summary,
-    content: params.content,
-    format: "markdown",
-    status: "draft",
-    createdAt: updatedAt,
-    updatedAt,
-  });
+  return replacePlanRecord(buildSessionDraftPlanRecord(params));
 }
 
 export function updatePlanStatus(params: UpdatePlanStatusParams): PlanStatusUpdateResult {
+  ensureDurableSessionPlansHydrated();
   const existing = plans.get(params.planId);
   if (!existing) {
     throw new PlanStatusTransitionError("plan_not_found", `plan not found: ${params.planId}`, {
@@ -297,7 +543,13 @@ export function updatePlanStatus(params: UpdatePlanStatusParams): PlanStatusUpda
 }
 
 export function getPlanRegistrySummary(): PlanRegistrySummary {
+  ensureDurableSessionPlansHydrated();
   return summarizePlanRecords(plans.values());
+}
+
+export function enablePlanRegistryHydrationForTests(): void {
+  durableSessionPlansHydrationDisabledForTests = false;
+  durableSessionPlansHydrated = false;
 }
 
 export function resetPlanRegistryForTests(): void {
@@ -305,4 +557,6 @@ export function resetPlanRegistryForTests(): void {
   planIdsByOwnerKey.clear();
   planIdsBySessionKey.clear();
   planIdsByParentPlanId.clear();
+  durableSessionPlansHydrated = false;
+  durableSessionPlansHydrationDisabledForTests = true;
 }
