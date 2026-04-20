@@ -9,7 +9,6 @@ import { loadConfig } from "../config/config.js";
 import { type AgentEventPayload, getAgentRunContext } from "../infra/agent-events.js";
 import { detectErrorKind, type ErrorKind } from "../infra/errors.js";
 import { resolveHeartbeatVisibility } from "../infra/heartbeat-visibility.js";
-import { sanitizeAssistantVisibleText } from "../shared/text/assistant-visible-text.js";
 import { stripInlineDirectiveTagsForDisplay } from "../utils/directive-tags.js";
 import {
   isSuppressedControlReplyLeadFragment,
@@ -535,8 +534,6 @@ export function createAgentEventHandler({
       origin: row?.origin,
       spawnedBy: row?.spawnedBy,
       spawnedWorkspaceDir: row?.spawnedWorkspaceDir,
-      worktreeMode: row?.worktreeMode,
-      worktreeArtifact: row?.worktreeArtifact,
       forkedFromParent: row?.forkedFromParent,
       spawnDepth: row?.spawnDepth,
       subagentRole: row?.subagentRole,
@@ -549,6 +546,7 @@ export function createAgentEventHandler({
       thinkingLevel: row?.thinkingLevel,
       fastMode: row?.fastMode,
       verboseLevel: row?.verboseLevel,
+      traceLevel: row?.traceLevel,
       reasoningLevel: row?.reasoningLevel,
       elevatedLevel: row?.elevatedLevel,
       sendPolicy: row?.sendPolicy,
@@ -692,9 +690,7 @@ export function createAgentEventHandler({
   ) => {
     const cleanedText = stripInlineDirectiveTagsForDisplay(text).text;
     const cleanedDelta =
-      typeof delta === "string"
-        ? stripInlineDirectiveTagsForDisplay(delta).text
-        : "";
+      typeof delta === "string" ? stripInlineDirectiveTagsForDisplay(delta).text : "";
     const previousRawText = chatRunState.rawBuffers.get(clientRunId) ?? "";
     const mergedRawText = resolveMergedAssistantText({
       previousText: previousRawText,
@@ -713,11 +709,9 @@ export function createAgentEventHandler({
       chatRunState.buffers.set(clientRunId, mergedRawText);
       return;
     }
-    const mergedText = sanitizeAssistantVisibleText(
-      startsWithSilentToken(mergedRawText, SILENT_REPLY_TOKEN)
-        ? stripLeadingSilentToken(mergedRawText, SILENT_REPLY_TOKEN)
-        : mergedRawText,
-    );
+    const mergedText = startsWithSilentToken(mergedRawText, SILENT_REPLY_TOKEN)
+      ? stripLeadingSilentToken(mergedRawText, SILENT_REPLY_TOKEN)
+      : mergedRawText;
     chatRunState.buffers.set(clientRunId, mergedText);
     if (isSuppressedControlReplyText(mergedText)) {
       return;
@@ -751,9 +745,9 @@ export function createAgentEventHandler({
   };
 
   const resolveBufferedChatTextState = (clientRunId: string, sourceRunId: string) => {
-    const bufferedText = sanitizeAssistantVisibleText(
-      stripInlineDirectiveTagsForDisplay(chatRunState.buffers.get(clientRunId) ?? "").text,
-    ).trim();
+    const bufferedText = stripInlineDirectiveTagsForDisplay(
+      chatRunState.buffers.get(clientRunId) ?? "",
+    ).text.trim();
     const normalizedHeartbeatText = normalizeHeartbeatChatFinalText({
       runId: clientRunId,
       sourceRunId,

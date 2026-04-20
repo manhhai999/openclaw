@@ -1,10 +1,10 @@
 /* @vitest-environment jsdom */
 
 import { render } from "lit";
-import { beforeEach, describe, expect, it, vi } from "vitest";
-import { i18n, SUPPORTED_LOCALES } from "../../i18n/index.ts";
+import { describe, expect, it, vi } from "vitest";
+import { i18n } from "../../i18n/index.ts";
 import { getSafeLocalStorage } from "../../local-storage.ts";
-import { renderChatSessionSelect, renderTopbarLanguageToggle } from "../app-render.helpers.ts";
+import { renderChatSessionSelect, renderTopbarLanguagePicker } from "../app-render.helpers.ts";
 import type { AppViewState } from "../app-view-state.ts";
 import {
   createModelCatalog,
@@ -113,7 +113,6 @@ function createChatHeaderState(
       navCollapsed: false,
       navGroupsCollapsed: {},
       borderRadius: 50,
-      textScale: 110,
       chatFocusMode: false,
       chatShowThinking: false,
     },
@@ -218,7 +217,6 @@ function createOverviewProps(overrides: Partial<OverviewProps> = {}): OverviewPr
       navWidth: 220,
       navGroupsCollapsed: {},
       borderRadius: 50,
-      textScale: 110,
       locale: "en",
     },
     password: "",
@@ -229,28 +227,13 @@ function createOverviewProps(overrides: Partial<OverviewProps> = {}): OverviewPr
     cronEnabled: null,
     cronNext: null,
     lastChannelsRefresh: null,
+    modelAuthStatus: null,
     usageResult: null,
     sessionsResult: null,
     skillsReport: null,
     cronJobs: [],
     cronStatus: null,
     attentionItems: [],
-    plans: {
-      loading: false,
-      error: null,
-      result: null,
-      selectedPlanId: null,
-      statusFilter: "all",
-      detailLoading: false,
-      detailError: null,
-      detail: null,
-      statusUpdating: false,
-      statusError: null,
-      onRefresh: () => undefined,
-      onSelectPlan: () => undefined,
-      onStatusFilterChange: () => undefined,
-      onStatusAction: () => undefined,
-    },
     eventLog: [],
     overviewLogLines: [],
     showGatewayToken: false,
@@ -269,10 +252,6 @@ function createOverviewProps(overrides: Partial<OverviewProps> = {}): OverviewPr
 }
 
 describe("chat view", () => {
-  beforeEach(async () => {
-    await i18n.setLocale("en");
-  });
-
   it("renders BTW side results outside transcript history", () => {
     const container = document.createElement("div");
     render(
@@ -582,15 +561,7 @@ describe("chat view", () => {
     let select = container.querySelector<HTMLSelectElement>("select");
     expect(i18n.getLocale()).toBe("en");
     expect(select?.value).toBe("vi");
-    const englishOptions = Array.from(select?.options ?? []);
-    expect(englishOptions.map((option) => option.value)).toEqual([...SUPPORTED_LOCALES]);
-    expect(englishOptions.find((option) => option.value === "vi")?.textContent?.trim()).toBe(
-      "Tiếng Việt",
-    );
-    expect(englishOptions.find((option) => option.value === "en")?.textContent?.trim()).toBe(
-      "English",
-    );
-    expect(select?.selectedOptions[0]?.textContent?.trim()).toBe("Tiếng Việt");
+    expect(select?.selectedOptions[0]?.textContent?.trim()).toBe("Tiếng Việt (Vietnamese)");
 
     await i18n.setLocale("vi");
     render(renderOverview(props), container);
@@ -598,220 +569,38 @@ describe("chat view", () => {
 
     select = container.querySelector<HTMLSelectElement>("select");
     expect(select?.value).toBe("vi");
-    const vietnameseOptions = Array.from(select?.options ?? []);
-    expect(vietnameseOptions.map((option) => option.value)).toEqual([...SUPPORTED_LOCALES]);
-    expect(vietnameseOptions.find((option) => option.value === "vi")?.textContent?.trim()).toBe(
-      "Tiếng Việt",
-    );
-    expect(vietnameseOptions.find((option) => option.value === "en")?.textContent?.trim()).toBe(
-      "Tiếng Anh",
-    );
     expect(select?.selectedOptions[0]?.textContent?.trim()).toBe("Tiếng Việt");
 
     await i18n.setLocale("en");
   });
 
-  it("switches the dashboard language from the topbar quick toggle", async () => {
+  it("switches the dashboard language from the topbar language picker", async () => {
     const container = document.createElement("div");
     const { state } = createChatHeaderState();
     await i18n.setLocale("en");
 
-    render(renderTopbarLanguageToggle(state), container);
+    render(renderTopbarLanguagePicker(state), container);
 
     const viButton = container.querySelector<HTMLButtonElement>('[data-locale="vi"]');
     expect(viButton).not.toBeNull();
     viButton?.click();
 
-    expect(state.settings.locale).toBe("vi");
     await vi.waitFor(() => {
+      expect(state.settings.locale).toBe("vi");
       expect(i18n.getLocale()).toBe("vi");
     });
 
-    render(renderTopbarLanguageToggle(state), container);
+    render(renderTopbarLanguagePicker(state), container);
 
-    const activeButton = container.querySelector<HTMLButtonElement>(".topbar-locale__btn--active");
+    const activeButton = container.querySelector<HTMLButtonElement>(
+      ".topbar-language-menu__option--active",
+    );
     expect(activeButton?.dataset.locale).toBe("vi");
+    expect(container.querySelector(".topbar-language-menu__current")?.textContent?.trim()).toBe(
+      "VI",
+    );
 
     await i18n.setLocale("en");
-  });
-
-  it("renders plans overview panel with selected detail", () => {
-    const container = document.createElement("div");
-    render(
-      renderOverview(
-        createOverviewProps({
-          plans: {
-            ...createOverviewProps().plans,
-            result: {
-              count: 2,
-              summary: {
-                total: 2,
-                reviewable: 1,
-                terminal: 1,
-                byStatus: {
-                  draft: 1,
-                  ready_for_review: 0,
-                  approved: 1,
-                  rejected: 0,
-                  archived: 0,
-                },
-              },
-              plans: [
-                {
-                  planId: "plan-1",
-                  ownerKey: "agent:main:main",
-                  scopeKind: "session",
-                  title: "Week 1 orchestration metadata",
-                  summary: "Inspect-only plan surface",
-                  content: "- tools.catalog\n- plans inspect",
-                  format: "markdown",
-                  status: "draft",
-                  createdAt: 1,
-                  updatedAt: Date.now(),
-                },
-                {
-                  planId: "plan-2",
-                  ownerKey: "agent:work:main",
-                  scopeKind: "agent",
-                  title: "Deferred lifecycle work",
-                  content: "- transitions later",
-                  format: "markdown",
-                  status: "approved",
-                  createdAt: 1,
-                  updatedAt: Date.now(),
-                },
-              ],
-            },
-            selectedPlanId: "plan-1",
-            detail: {
-              planId: "plan-1",
-              ownerKey: "agent:main:main",
-              scopeKind: "session",
-              title: "Week 1 orchestration metadata",
-              summary: "Inspect-only plan surface",
-              content: "- tools.catalog\n- plans inspect",
-              format: "markdown",
-              status: "draft",
-              linkedFlowIds: ["flow-1"],
-              createdAt: 1,
-              updatedAt: Date.now(),
-            },
-          },
-        }),
-      ),
-      container,
-    );
-
-    expect(container.textContent).toContain("Plans");
-    expect(container.textContent).toContain("2 total");
-    expect(container.textContent).toContain("Week 1 orchestration metadata");
-    expect(container.textContent).toContain("linked flows: flow-1");
-    expect(container.textContent).toContain("- tools.catalog");
-  });
-
-  it("calls onSelectPlan when clicking a plan in overview", () => {
-    const container = document.createElement("div");
-    const onSelectPlan = vi.fn();
-    render(
-      renderOverview(
-        createOverviewProps({
-          plans: {
-            ...createOverviewProps().plans,
-            onSelectPlan,
-            result: {
-              count: 1,
-              summary: {
-                total: 1,
-                reviewable: 1,
-                terminal: 0,
-                byStatus: {
-                  draft: 1,
-                  ready_for_review: 0,
-                  approved: 0,
-                  rejected: 0,
-                  archived: 0,
-                },
-              },
-              plans: [
-                {
-                  planId: "plan-1",
-                  ownerKey: "agent:main:main",
-                  scopeKind: "session",
-                  title: "Week 1 orchestration metadata",
-                  content: "- tools.catalog",
-                  format: "markdown",
-                  status: "draft",
-                  createdAt: 1,
-                  updatedAt: Date.now(),
-                },
-              ],
-            },
-          },
-        }),
-      ),
-      container,
-    );
-
-    const button = Array.from(container.querySelectorAll("button")).find((entry) =>
-      entry.textContent?.includes("Week 1 orchestration metadata"),
-    );
-    expect(button).not.toBeUndefined();
-    button?.click();
-    expect(onSelectPlan).toHaveBeenCalledWith("plan-1");
-  });
-
-  it("calls onPlansStatusFilterChange when changing the plans filter", () => {
-    const container = document.createElement("div");
-    const onPlansStatusFilterChange = vi.fn();
-    render(
-      renderOverview(
-        createOverviewProps({
-          plans: {
-            ...createOverviewProps().plans,
-            onStatusFilterChange: onPlansStatusFilterChange,
-            result: {
-              count: 1,
-              summary: {
-                total: 1,
-                reviewable: 1,
-                terminal: 0,
-                byStatus: {
-                  draft: 1,
-                  ready_for_review: 0,
-                  approved: 0,
-                  rejected: 0,
-                  archived: 0,
-                },
-              },
-              plans: [
-                {
-                  planId: "plan-1",
-                  ownerKey: "agent:main:main",
-                  scopeKind: "session",
-                  title: "Week 1 orchestration metadata",
-                  content: "- tools.catalog",
-                  format: "markdown",
-                  status: "draft",
-                  createdAt: 1,
-                  updatedAt: Date.now(),
-                },
-              ],
-            },
-          },
-        }),
-      ),
-      container,
-    );
-
-    const select = Array.from(container.querySelectorAll("select")).find(
-      (entry) => entry.value === "all",
-    );
-    expect(select).not.toBeUndefined();
-    if (select) {
-      select.value = "approved";
-      select.dispatchEvent(new Event("change"));
-    }
-    expect(onPlansStatusFilterChange).toHaveBeenCalledWith("approved");
   });
 
   it("renders compacting indicator as a badge", () => {

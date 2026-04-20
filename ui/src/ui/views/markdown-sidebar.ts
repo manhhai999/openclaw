@@ -1,6 +1,5 @@
 import { html, nothing } from "lit";
 import { unsafeHTML } from "lit/directives/unsafe-html.js";
-import { t } from "../../i18n/index.ts";
 import { resolveCanvasIframeUrl } from "../canvas-url.ts";
 import { resolveEmbedSandbox, type EmbedSandboxMode } from "../embed-sandbox.ts";
 import { icons } from "../icons.ts";
@@ -30,20 +29,16 @@ export function renderMarkdownSidebar(props: MarkdownSidebarProps) {
     <div class="sidebar-panel">
       <div class="sidebar-header">
         <div class="sidebar-title">
-          ${content?.kind === "canvas"
-            ? content.title?.trim() || t("markdownSidebar.title")
-            : t("markdownSidebar.title")}
+          ${content?.kind === "canvas" ? content.title?.trim() || "Render Preview" : "Tool Details"}
         </div>
-        <button @click=${props.onClose} class="btn" title=${t("markdownSidebar.close")}>
-          ${icons.x}
-        </button>
+        <button @click=${props.onClose} class="btn" title="Close sidebar">${icons.x}</button>
       </div>
       <div class="sidebar-content">
         ${props.error
           ? html`
               <div class="callout danger">${props.error}</div>
               <button @click=${props.onViewRawText} class="btn" style="margin-top: 12px;">
-                ${t("markdownSidebar.viewRawText")}
+                View Raw Text
               </button>
             `
           : content
@@ -53,7 +48,7 @@ export function renderMarkdownSidebar(props: MarkdownSidebarProps) {
                     <div class="chat-tool-card__preview-panel" data-side="front">
                       <iframe
                         class="chat-tool-card__preview-frame"
-                        title=${content.title?.trim() || t("markdownSidebar.title")}
+                        title=${content.title?.trim() || "Render preview"}
                         sandbox=${resolveSidebarCanvasSandbox(
                           content,
                           props.embedSandboxMode ?? "scripts",
@@ -71,9 +66,7 @@ export function renderMarkdownSidebar(props: MarkdownSidebarProps) {
                     ${content.rawText?.trim()
                       ? html`
                           <div style="margin-top: 12px;">
-                            <button @click=${props.onViewRawText} class="btn">
-                              ${t("markdownSidebar.viewRawText")}
-                            </button>
+                            <button @click=${props.onViewRawText} class="btn">View Raw Text</button>
                           </div>
                         `
                       : nothing}
@@ -82,7 +75,7 @@ export function renderMarkdownSidebar(props: MarkdownSidebarProps) {
               : html`<div class="sidebar-markdown">
                   ${unsafeHTML(toSanitizedMarkdownHtml(content.content))}
                 </div>`
-            : html` <div class="muted">${t("markdownSidebar.empty")}</div> `}
+            : html` <div class="muted">No content available</div> `}
       </div>
     </div>
   `;

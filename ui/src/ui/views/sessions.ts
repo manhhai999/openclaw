@@ -109,19 +109,6 @@ function resolveThinkLevelDisplay(value: string, isBinary: boolean): string {
   return "on";
 }
 
-function resolveThinkLevelPatchValue(value: string, isBinary: boolean): string | null {
-  if (!value) {
-    return null;
-  }
-  if (!isBinary) {
-    return value;
-  }
-  if (value === "on") {
-    return "low";
-  }
-  return value;
-}
-
 function formatSessionOptionLabel(
   value: string,
   context: "thinking" | "fast" | "verbose" | "reasoning",
@@ -183,6 +170,19 @@ function formatRowCount(count: number): string {
   return count === 1
     ? t("dashboard.sessions.pagination.row", { count: String(count) })
     : t("dashboard.sessions.pagination.rows", { count: String(count) });
+}
+
+function resolveThinkLevelPatchValue(value: string, isBinary: boolean): string | null {
+  if (!value) {
+    return null;
+  }
+  if (!isBinary) {
+    return value;
+  }
+  if (value === "on") {
+    return "low";
+  }
+  return value;
 }
 
 function filterRows(rows: GatewaySessionRow[], query: string): GatewaySessionRow[] {

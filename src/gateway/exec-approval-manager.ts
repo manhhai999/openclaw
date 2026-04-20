@@ -1,7 +1,5 @@
 import { randomUUID } from "node:crypto";
-import {
-  normalizeExecApprovalExpiredReason,
-  type ExecApprovalExpiredReason,
+import type {
   ExecApprovalDecision,
   ExecApprovalRequestPayload as InfraExecApprovalRequestPayload,
 } from "../infra/exec-approvals.js";
@@ -23,12 +21,6 @@ export type ExecApprovalRecord<TPayload = ExecApprovalRequestPayload> = {
   requestedByClientId?: string | null;
   resolvedAtMs?: number;
   decision?: ExecApprovalDecision;
-  expiredReason?: ExecApprovalExpiredReason | null;
-  resolvedBy?: string | null;
-};
-
-type ExpireOptions = {
-  reason?: ExecApprovalExpiredReason | null;
   resolvedBy?: string | null;
 };
 
@@ -47,23 +39,6 @@ export type ExecApprovalIdLookupResult =
 
 export class ExecApprovalManager<TPayload = ExecApprovalRequestPayload> {
   private pending = new Map<string, PendingEntry<TPayload>>();
-
-  private resolveExpireOptions(options?: ExpireOptions | string | null): Required<ExpireOptions> {
-    if (typeof options === "string") {
-      const reason = normalizeExecApprovalExpiredReason(options);
-      return {
-        reason,
-        resolvedBy: reason === "timeout" ? null : options,
-      };
-    }
-
-    const reason = normalizeExecApprovalExpiredReason(options?.reason);
-    return {
-      reason,
-      resolvedBy:
-        options?.resolvedBy ?? (reason === "no-approval-route" ? "no-approval-route" : null),
-    };
-  }
 
   create(request: TPayload, timeoutMs: number, id?: string | null): ExecApprovalRecord<TPayload> {
     const now = Date.now();
@@ -110,7 +85,7 @@ export class ExecApprovalManager<TPayload = ExecApprovalRequestPayload> {
       promise,
     };
     entry.timer = setTimeout(() => {
-      this.expire(record.id, { reason: "timeout" });
+      this.expire(record.id);
     }, timeoutMs);
     this.pending.set(record.id, entry);
     return promise;
@@ -138,7 +113,6 @@ export class ExecApprovalManager<TPayload = ExecApprovalRequestPayload> {
     clearTimeout(pending.timer);
     pending.record.resolvedAtMs = Date.now();
     pending.record.decision = decision;
-    pending.record.expiredReason = null;
     pending.record.resolvedBy = resolvedBy ?? null;
     // Resolve the promise first, then delete after a grace period.
     // This allows in-flight awaitDecision calls to find the resolved entry.
@@ -152,7 +126,7 @@ export class ExecApprovalManager<TPayload = ExecApprovalRequestPayload> {
     return true;
   }
 
-  expire(recordId: string, options?: ExpireOptions | string | null): boolean {
+  expire(recordId: string, resolvedBy?: string | null): boolean {
     const pending = this.pending.get(recordId);
     if (!pending) {
       return false;
@@ -160,12 +134,10 @@ export class ExecApprovalManager<TPayload = ExecApprovalRequestPayload> {
     if (pending.record.resolvedAtMs !== undefined) {
       return false;
     }
-    const resolved = this.resolveExpireOptions(options);
     clearTimeout(pending.timer);
     pending.record.resolvedAtMs = Date.now();
     pending.record.decision = undefined;
-    pending.record.expiredReason = resolved.reason ?? "timeout";
-    pending.record.resolvedBy = resolved.resolvedBy;
+    pending.record.resolvedBy = resolvedBy ?? null;
     pending.resolve(null);
     setTimeout(() => {
       if (this.pending.get(recordId) === pending) {

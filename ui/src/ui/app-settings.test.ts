@@ -45,7 +45,6 @@ type SettingsHost = {
     navWidth: number;
     navGroupsCollapsed: Record<string, boolean>;
     borderRadius: number;
-    textScale: number;
   };
   theme: ThemeName & ThemeMode;
   themeMode: ThemeMode;
@@ -71,6 +70,8 @@ type SettingsHost = {
   dreamingModeSaving: boolean;
   dreamDiaryLoading: boolean;
   dreamDiaryActionLoading: boolean;
+  dreamDiaryActionMessage: { kind: "success" | "error"; text: string } | null;
+  dreamDiaryActionArchivePath: string | null;
   dreamDiaryError: string | null;
   dreamDiaryPath: string | null;
   dreamDiaryContent: string | null;
@@ -141,7 +142,6 @@ const createHost = (tab: Tab): SettingsHost => ({
     navWidth: 220,
     navGroupsCollapsed: {},
     borderRadius: 50,
-    textScale: 110,
   },
   theme: "claw" as unknown as ThemeName & ThemeMode,
   themeMode: "system",
@@ -167,6 +167,8 @@ const createHost = (tab: Tab): SettingsHost => ({
   dreamingModeSaving: false,
   dreamDiaryLoading: false,
   dreamDiaryActionLoading: false,
+  dreamDiaryActionMessage: null,
+  dreamDiaryActionArchivePath: null,
   dreamDiaryError: null,
   dreamDiaryPath: null,
   dreamDiaryContent: null,
@@ -238,15 +240,6 @@ describe("setTabFromRoute", () => {
     expect(host.theme).toBe("dash");
     expect(host.themeMode).toBe("light");
     expect(host.themeResolved).toBe("dash-light");
-  });
-
-  it("applies the persisted text scale to the document root", () => {
-    const host = createHost("chat");
-    host.settings.textScale = 120;
-
-    syncThemeWithSettings(host);
-
-    expect(document.documentElement.style.getPropertyValue("--ui-text-scale")).toBe("1.20");
   });
 
   it("applies named system themes on OS preference changes", () => {

@@ -20,7 +20,7 @@ export function renderGoogleChatCard(params: {
 
   return renderSingleAccountChannelCard({
     title: "Google Chat",
-    subtitle: t("channels.cards.googleChatSubtitle"),
+    subtitle: "Chat API webhook status and channel configuration.",
     accountCountLabel,
     statusRows: [
       { label: t("common.configured"), value: formatNullableBoolean(configured) },

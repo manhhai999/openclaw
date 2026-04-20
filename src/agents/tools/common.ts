@@ -12,9 +12,6 @@ export type AgentToolWithMeta<TParameters extends TSchema, TResult> = AgentTool<
 > & {
   ownerOnly?: boolean;
   displaySummary?: string;
-  searchHint?: string;
-  searchTags?: string[];
-  deferred?: boolean;
 };
 
 // Cross-package tool registration still mixes concrete schema-typed tools with

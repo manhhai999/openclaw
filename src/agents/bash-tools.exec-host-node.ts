@@ -22,7 +22,6 @@ import {
   registerExecApprovalRequestForHostOrThrow,
 } from "./bash-tools.exec-approval-request.js";
 import * as execHostShared from "./bash-tools.exec-host-shared.js";
-import { formatJenniBridgeExecOutput } from "./bash-tools.exec-jenni-result.js";
 import {
   DEFAULT_NOTIFY_TAIL_CHARS,
   createApprovalSlug,
@@ -390,10 +389,9 @@ export async function executeNodeHostCommand(
             .filter(Boolean)
             .join("\n");
           const output = normalizeNotifyOutput(combined.slice(-DEFAULT_NOTIFY_TAIL_CHARS));
-          const renderedOutput = formatJenniBridgeExecOutput(output) ?? output;
           const exitLabel = payload.timedOut ? "timeout" : `code ${payload.exitCode ?? "?"}`;
-          const summary = renderedOutput
-            ? `Exec finished (node=${nodeId} id=${approvalId}, ${exitLabel})\n${renderedOutput}`
+          const summary = output
+            ? `Exec finished (node=${nodeId} id=${approvalId}, ${exitLabel})\n${output}`
             : `Exec finished (node=${nodeId} id=${approvalId}, ${exitLabel})`;
           await execHostShared.sendExecApprovalFollowupResult(followupTarget, summary);
         } catch {

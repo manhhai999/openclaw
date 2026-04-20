@@ -9,13 +9,6 @@ import {
   waitForEmbeddedPiRunEnd,
 } from "../../agents/pi-embedded-runner/runs.js";
 import { compactEmbeddedPiSession } from "../../agents/pi-embedded.js";
-import {
-  closeTeamFlow,
-  resolveTeamFlow,
-  syncTeamFlow,
-  type TeamFlowView,
-} from "../../agents/team-runtime.js";
-import { removeSessionWorktree } from "../../agents/worktree-runtime.js";
 import { clearSessionQueues } from "../../auto-reply/reply/queue/cleanup.js";
 import { normalizeReasoningLevel, normalizeThinkLevel } from "../../auto-reply/thinking.js";
 import { loadConfig } from "../../config/config.js";
@@ -24,7 +17,6 @@ import {
   resolveMainSessionKey,
   resolveSessionFilePath,
   resolveSessionFilePathOptions,
-  resolveSessionPreferredWorkspaceDir,
   type SessionEntry,
   updateSessionStore,
 } from "../../config/sessions.js";
@@ -56,10 +48,8 @@ import {
   validateSessionsCompactionGetParams,
   validateSessionsCompactionListParams,
   validateSessionsCompactionRestoreParams,
-  validateSessionsControlParams,
   validateSessionsCreateParams,
   validateSessionsDeleteParams,
-  validateSessionsInspectParams,
   validateSessionsListParams,
   validateSessionsMessagesSubscribeParams,
   validateSessionsMessagesUnsubscribeParams,
@@ -189,6 +179,7 @@ function emitSessionsChanged(
             thinkingLevel: sessionRow.thinkingLevel,
             fastMode: sessionRow.fastMode,
             verboseLevel: sessionRow.verboseLevel,
+            traceLevel: sessionRow.traceLevel,
             reasoningLevel: sessionRow.reasoningLevel,
             elevatedLevel: sessionRow.elevatedLevel,
             sendPolicy: sessionRow.sendPolicy,
@@ -221,123 +212,8 @@ function emitSessionsChanged(
   );
 }
 
-async function applySessionPatchMutation(params: {
-  key: string;
-  patch: Record<string, unknown>;
-  context: GatewayRequestContext;
-}): Promise<
-  | {
-      ok: true;
-      cfg: ReturnType<typeof loadConfig>;
-      target: ReturnType<typeof resolveGatewaySessionTargetFromKey>["target"];
-      storePath: string;
-      result: SessionsPatchResult;
-    }
-  | {
-      ok: false;
-      error: ReturnType<typeof errorShape>;
-    }
-> {
-  const { cfg, target, storePath } = resolveGatewaySessionTargetFromKey(params.key);
-  const applied = await updateSessionStore(storePath, async (store) => {
-    const { primaryKey } = migrateAndPruneGatewaySessionStoreKey({ cfg, key: params.key, store });
-    return await applySessionsPatchToStore({
-      cfg,
-      store,
-      storeKey: primaryKey,
-      patch: {
-        key: params.key,
-        ...params.patch,
-      },
-      loadGatewayModelCatalog: params.context.loadGatewayModelCatalog,
-    });
-  });
-  if (!applied.ok) {
-    return {
-      ok: false,
-      error: applied.error,
-    };
-  }
-
-  if (hasInternalHookListeners("session", "patch")) {
-    const hookContext: SessionPatchHookContext = structuredClone({
-      sessionEntry: applied.entry,
-      patch: {
-        key: params.key,
-        ...params.patch,
-      },
-      cfg,
-    });
-    const hookEvent: SessionPatchHookEvent = {
-      type: "session",
-      action: "patch",
-      sessionKey: target.canonicalKey ?? params.key,
-      context: hookContext,
-      timestamp: new Date(),
-      messages: [],
-    };
-    void triggerInternalHook(hookEvent);
-  }
-
-  const parsed = parseAgentSessionKey(target.canonicalKey ?? params.key);
-  const agentId = normalizeAgentId(parsed?.agentId ?? resolveDefaultAgentId(cfg));
-  const resolved = resolveSessionModelRef(cfg, applied.entry, agentId);
-  const result: SessionsPatchResult = {
-    ok: true,
-    path: storePath,
-    key: target.canonicalKey,
-    entry: applied.entry,
-    resolved: {
-      modelProvider: resolved.provider,
-      model: resolved.model,
-    },
-  };
-  return {
-    ok: true,
-    cfg,
-    target,
-    storePath,
-    result,
-  };
-}
-
-function formatTeamFlowForGateway(view: TeamFlowView) {
-  return {
-    teamId: view.state.teamId,
-    flowId: view.flow.flowId,
-    flowStatus: view.flow.status,
-    currentStep: view.flow.currentStep,
-    summary: view.state.summary,
-    worktreeDir: view.state.worktreeDir,
-    activeWorkers: view.activeCount,
-    counts: view.counts,
-    members: view.state.members.map((member) => ({
-      memberId: member.memberId,
-      label: member.label,
-      task: member.task,
-      status: member.status,
-      childSessionKey: member.childSessionKey,
-      runId: member.runId,
-      agentId: member.agentId,
-      mode: member.mode,
-      workspaceDir: member.workspaceDir,
-      error: member.error,
-      updatedAt: member.updatedAt,
-      finishedAt: member.finishedAt,
-    })),
-  };
-}
-
-function resolveSessionInspectTeam(ownerSessionKey: string) {
-  const flow = resolveTeamFlow({ ownerSessionKey });
-  if (!flow) {
-    return null;
-  }
-  return formatTeamFlowForGateway(syncTeamFlow(flow));
-}
-
 function rejectWebchatSessionMutation(params: {
-  action: "patch" | "delete" | "control";
+  action: "patch" | "delete";
   client: GatewayClient | null;
   isWebchatConnect: (params: GatewayClient["connect"] | null | undefined) => boolean;
   respond: RespondFn;
@@ -827,72 +703,6 @@ export const sessionsHandlers: GatewayRequestHandlers = {
       return;
     }
     respond(true, { ok: true, key: resolved.key }, undefined);
-  },
-  "sessions.inspect": ({ params, respond }) => {
-    if (!assertValidParams(params, validateSessionsInspectParams, "sessions.inspect", respond)) {
-      return;
-    }
-    const key = requireSessionKey((params as { key?: unknown }).key, respond);
-    if (!key) {
-      return;
-    }
-
-    const loaded = loadSessionEntry(key);
-    const { entry, canonicalKey } = loaded;
-    const row = entry ? loadGatewaySessionRow(canonicalKey) : null;
-    respond(
-      true,
-      {
-        ok: true,
-        key: canonicalKey,
-        exists: Boolean(entry),
-        session: row
-          ? {
-              key: row.key,
-              sessionId: row.sessionId,
-              updatedAt: row.updatedAt,
-              status: row.status,
-              label: row.label,
-              displayName: row.displayName,
-              modelProvider: row.modelProvider,
-              model: row.model,
-              kind: row.kind,
-              spawnedBy: entry?.spawnedBy,
-              spawnedWorkspaceDir: entry?.spawnedWorkspaceDir,
-              parentSessionKey: entry?.parentSessionKey,
-              spawnDepth: entry?.spawnDepth,
-              subagentRole: entry?.subagentRole,
-              subagentControlScope: entry?.subagentControlScope,
-            }
-          : null,
-        plan: entry
-          ? {
-              mode: entry.planMode ?? null,
-              artifact: entry.planArtifact ?? null,
-            }
-          : null,
-        worktree: entry
-          ? {
-              mode: entry.worktreeMode ?? null,
-              artifact: entry.worktreeArtifact ?? null,
-              preferredWorkspaceDir: resolveSessionPreferredWorkspaceDir(entry) ?? null,
-            }
-          : null,
-        team: resolveSessionInspectTeam(canonicalKey),
-        policy: entry
-          ? {
-              sendPolicy: entry.sendPolicy ?? null,
-              groupActivation: entry.groupActivation ?? null,
-              execHost: entry.execHost ?? null,
-              execSecurity: entry.execSecurity ?? null,
-              execAsk: entry.execAsk ?? null,
-              execNode: entry.execNode ?? null,
-              responseUsage: entry.responseUsage ?? null,
-            }
-          : null,
-      },
-      undefined,
-    );
   },
   "sessions.compaction.list": ({ params, respond }) => {
     if (
@@ -1458,272 +1268,56 @@ export const sessionsHandlers: GatewayRequestHandlers = {
       return;
     }
 
-    const applied = await applySessionPatchMutation({
-      key,
-      patch: p,
-      context,
+    const { cfg, target, storePath } = resolveGatewaySessionTargetFromKey(key);
+    const applied = await updateSessionStore(storePath, async (store) => {
+      const { primaryKey } = migrateAndPruneGatewaySessionStoreKey({ cfg, key, store });
+      return await applySessionsPatchToStore({
+        cfg,
+        store,
+        storeKey: primaryKey,
+        patch: p,
+        loadGatewayModelCatalog: context.loadGatewayModelCatalog,
+      });
     });
     if (!applied.ok) {
       respond(false, undefined, applied.error);
       return;
     }
 
-    respond(true, applied.result, undefined);
-    emitSessionsChanged(context, {
-      sessionKey: applied.target.canonicalKey,
-      reason: "patch",
-    });
-  },
-  "sessions.control": async ({ params, respond, context, client, isWebchatConnect }) => {
-    if (!assertValidParams(params, validateSessionsControlParams, "sessions.control", respond)) {
-      return;
-    }
-    const p = params as {
-      key?: unknown;
-      plan?: {
-        exit?: boolean;
-        status?: "completed" | "cancelled";
-        summary?: string;
-        approved?: boolean;
-      };
-      worktree?: {
-        exit?: boolean;
-        cleanup?: "keep" | "remove";
-        force?: boolean;
-      };
-      team?: {
-        close?: boolean;
-        teamId?: string;
-        summary?: string;
-        cancelActive?: boolean;
-      };
-    };
-    const key = requireSessionKey(p.key, respond);
-    if (!key) {
-      return;
-    }
-    if (rejectWebchatSessionMutation({ action: "control", client, isWebchatConnect, respond })) {
-      return;
-    }
-
-    const loaded = loadSessionEntry(key);
-    if (!loaded.entry) {
-      respond(
-        false,
-        undefined,
-        errorShape(ErrorCodes.INVALID_REQUEST, `session not found: ${key}`),
-      );
-      return;
-    }
-
-    const wantsPlanExit = p.plan?.exit === true;
-    const wantsWorktreeExit = p.worktree?.exit === true;
-    const wantsTeamClose = p.team?.close === true;
-    if (!wantsPlanExit && !wantsWorktreeExit && !wantsTeamClose) {
-      respond(
-        false,
-        undefined,
-        errorShape(
-          ErrorCodes.INVALID_REQUEST,
-          "sessions.control requires at least one active action (plan.exit, worktree.exit, team.close)",
-        ),
-      );
-      return;
-    }
-
-    const teamFlow = wantsTeamClose
-      ? resolveTeamFlow({
-          ownerSessionKey: loaded.canonicalKey,
-          teamId: normalizeOptionalString(p.team?.teamId) ?? undefined,
-        })
-      : null;
-    if (wantsTeamClose && !teamFlow) {
-      respond(
-        false,
-        undefined,
-        errorShape(ErrorCodes.INVALID_REQUEST, "No managed team found for this session."),
-      );
-      return;
-    }
-
-    let latestEntry = loaded.entry;
-    const actions: Record<string, unknown> = {};
-
-    if (wantsTeamClose && teamFlow) {
-      let closed: TeamFlowView;
-      try {
-        closed = await closeTeamFlow({
-          flow: teamFlow,
-          ownerSessionKey: loaded.canonicalKey,
-          summary: normalizeOptionalString(p.team?.summary) ?? undefined,
-          cancelActive: p.team?.cancelActive !== false,
-        });
-      } catch (error) {
-        respond(
-          false,
-          undefined,
-          errorShape(
-            ErrorCodes.INVALID_REQUEST,
-            error instanceof Error ? error.message : String(error),
-          ),
-        );
-        return;
-      }
-      actions.team = formatTeamFlowForGateway(closed);
-    }
-
-    if (wantsPlanExit) {
-      const now = Date.now();
-      const planSummary = normalizeOptionalString(p.plan?.summary);
-      const planStatus =
-        p.plan?.status === "completed" || p.plan?.status === "cancelled"
-          ? p.plan.status
-          : p.plan?.approved === true
-            ? "completed"
-            : "cancelled";
-      const applied = await applySessionPatchMutation({
-        key: loaded.canonicalKey,
-        patch: {
-          planMode: "inactive",
-          planArtifact: {
-            status: planStatus,
-            updatedAt: now,
-            exitedAt: now,
-            ...(planStatus === "completed" ? { approvedAt: now } : {}),
-            ...(planSummary ? { summary: planSummary } : {}),
-          },
-        },
-        context,
+    if (hasInternalHookListeners("session", "patch")) {
+      const hookContext: SessionPatchHookContext = structuredClone({
+        sessionEntry: applied.entry,
+        patch: p,
+        cfg,
       });
-      if (!applied.ok) {
-        respond(false, undefined, applied.error);
-        return;
-      }
-      latestEntry = applied.result.entry;
-      actions.plan = {
-        mode: latestEntry.planMode ?? "inactive",
-        artifact: latestEntry.planArtifact ?? null,
+      const hookEvent: SessionPatchHookEvent = {
+        type: "session",
+        action: "patch",
+        sessionKey: target.canonicalKey ?? key,
+        context: hookContext,
+        timestamp: new Date(),
+        messages: [],
       };
+      void triggerInternalHook(hookEvent);
     }
 
-    if (wantsWorktreeExit) {
-      const artifact = latestEntry.worktreeArtifact;
-      if (!artifact?.repoRoot || !artifact.worktreeDir) {
-        const applied = await applySessionPatchMutation({
-          key: loaded.canonicalKey,
-          patch: {
-            worktreeMode: "inactive",
-            worktreeArtifact: null,
-          },
-          context,
-        });
-        if (!applied.ok) {
-          respond(false, undefined, applied.error);
-          return;
-        }
-        latestEntry = applied.result.entry;
-        actions.worktree = {
-          status: "inactive",
-          cleanup: p.worktree?.cleanup ?? "keep",
-          removed: false,
-          dirty: false,
-          previousWorktreeDir: null,
-          resumedWorkspaceDir: null,
-          effectiveOnNextTurn: true,
-        };
-      } else {
-        const cleanup =
-          p.worktree?.cleanup === "remove"
-            ? "remove"
-            : p.worktree?.cleanup === "keep"
-              ? "keep"
-              : (artifact.cleanupPolicy ?? "keep");
-        const now = Date.now();
-        const deactivatedArtifact = {
-          ...artifact,
-          cleanupPolicy: cleanup,
-          status: "closed" as const,
-          updatedAt: now,
-          exitedAt: now,
-        };
-        const deactivated = await applySessionPatchMutation({
-          key: loaded.canonicalKey,
-          patch: {
-            worktreeMode: "inactive",
-            worktreeArtifact: deactivatedArtifact,
-          },
-          context,
-        });
-        if (!deactivated.ok) {
-          respond(false, undefined, deactivated.error);
-          return;
-        }
-        latestEntry = deactivated.result.entry;
-
-        let nextStatus = cleanup === "remove" ? "removed" : "closed";
-        let removed = false;
-        let dirty = false;
-        let error: string | undefined;
-
-        if (cleanup === "remove") {
-          const removal = await removeSessionWorktree({
-            repoRoot: artifact.repoRoot,
-            worktreeDir: artifact.worktreeDir,
-            force: p.worktree?.force === true,
-          });
-          removed = removal.removed;
-          dirty = removal.dirty;
-          error = removal.error;
-          if (!removed) {
-            nextStatus = "remove_failed";
-          }
-
-          const finalized = await applySessionPatchMutation({
-            key: loaded.canonicalKey,
-            patch: {
-              worktreeArtifact: {
-                ...(latestEntry.worktreeArtifact ?? deactivatedArtifact),
-                cleanupPolicy: cleanup,
-                status: nextStatus,
-                updatedAt: Date.now(),
-                exitedAt: now,
-                ...(error ? { lastError: error } : {}),
-              },
-            },
-            context,
-          });
-          if (!finalized.ok) {
-            respond(false, undefined, finalized.error);
-            return;
-          }
-          latestEntry = finalized.result.entry;
-        }
-        actions.worktree = {
-          status: latestEntry.worktreeMode ?? "inactive",
-          cleanup,
-          removed,
-          dirty,
-          error,
-          previousWorktreeDir: artifact.worktreeDir,
-          resumedWorkspaceDir: artifact.cwdBefore ?? artifact.repoRoot,
-          effectiveOnNextTurn: true,
-          artifact: latestEntry.worktreeArtifact ?? null,
-        };
-      }
-    }
-
-    respond(
-      true,
-      {
-        ok: true,
-        key: loaded.canonicalKey,
-        actions,
+    const parsed = parseAgentSessionKey(target.canonicalKey ?? key);
+    const agentId = normalizeAgentId(parsed?.agentId ?? resolveDefaultAgentId(cfg));
+    const resolved = resolveSessionModelRef(cfg, applied.entry, agentId);
+    const result: SessionsPatchResult = {
+      ok: true,
+      path: storePath,
+      key: target.canonicalKey,
+      entry: applied.entry,
+      resolved: {
+        modelProvider: resolved.provider,
+        model: resolved.model,
       },
-      undefined,
-    );
+    };
+    respond(true, result, undefined);
     emitSessionsChanged(context, {
-      sessionKey: loaded.canonicalKey,
-      reason: "control",
+      sessionKey: target.canonicalKey,
+      reason: "patch",
     });
   },
   "sessions.reset": async ({ params, respond, context }) => {
@@ -1943,7 +1537,8 @@ export const sessionsHandlers: GatewayRequestHandlers = {
 
       const resolvedModel = resolveSessionModelRef(cfg, entry, target.agentId);
       const workspaceDir =
-        resolveSessionPreferredWorkspaceDir(entry) || resolveAgentWorkspaceDir(cfg, target.agentId);
+        normalizeOptionalString(entry?.spawnedWorkspaceDir) ||
+        resolveAgentWorkspaceDir(cfg, target.agentId);
       const result = await compactEmbeddedPiSession({
         sessionId,
         sessionKey: target.canonicalKey,

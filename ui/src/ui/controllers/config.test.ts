@@ -269,6 +269,31 @@ describe("applyConfig", () => {
     });
   });
 
+  it("allows raw apply when the snapshot only has derived raw text", async () => {
+    const request = vi.fn().mockResolvedValue({});
+    const state = createState();
+    state.connected = true;
+    state.client = { request } as unknown as ConfigState["client"];
+    state.applySessionKey = "agent:main:web:dm:test";
+    state.configFormMode = "raw";
+    state.configRaw = '{\n  "gateway": {\n    "mode": "local"\n  }\n}\n';
+    state.configSnapshot = {
+      hash: "hash-derived-1",
+      config: { gateway: { mode: "local" } },
+      valid: true,
+      issues: [],
+      raw: null,
+    };
+
+    await applyConfig(state);
+
+    expect(request).toHaveBeenCalledWith("config.apply", {
+      raw: '{\n  "gateway": {\n    "mode": "local"\n  }\n}\n',
+      baseHash: "hash-derived-1",
+      sessionKey: "agent:main:web:dm:test",
+    });
+  });
+
   it("coerces schema-typed values before config.apply in form mode", async () => {
     const request = createRequestWithConfigGet();
     const state = createState();

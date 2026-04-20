@@ -17,13 +17,8 @@ import {
   normalizeUsageDisplay,
   supportsXHighThinking,
 } from "../auto-reply/thinking.js";
-import type { OpenClawConfig } from "../config/config.js";
-import type {
-  SessionEntry,
-  SessionPlanArtifact,
-  SessionPlanStep,
-  SessionWorktreeArtifact,
-} from "../config/sessions.js";
+import type { SessionEntry } from "../config/sessions.js";
+import type { OpenClawConfig } from "../config/types.openclaw.js";
 import { normalizeExecTarget } from "../infra/exec-approvals.js";
 import {
   isAcpSessionKey,
@@ -31,7 +26,12 @@ import {
   normalizeAgentId,
   parseAgentSessionKey,
 } from "../routing/session-key.js";
-import { applyVerboseOverride, parseVerboseOverride } from "../sessions/level-overrides.js";
+import {
+  applyTraceOverride,
+  applyVerboseOverride,
+  parseTraceOverride,
+  parseVerboseOverride,
+} from "../sessions/level-overrides.js";
 import { applyModelOverrideToSessionEntry } from "../sessions/model-overrides.js";
 import { normalizeSendPolicy } from "../sessions/send-policy.js";
 import { parseSessionLabel } from "../sessions/session-label.js";
@@ -84,358 +84,6 @@ function normalizeSubagentControlScope(raw: string): "children" | "none" | undef
     return normalized;
   }
   return undefined;
-}
-
-function normalizePlanMode(raw: string): "active" | "inactive" | undefined {
-  const normalized = normalizeOptionalLowercaseString(raw);
-  if (normalized === "active" || normalized === "inactive") {
-    return normalized;
-  }
-  return undefined;
-}
-
-function normalizePlanArtifactStatus(
-  raw: string,
-): "active" | "completed" | "cancelled" | undefined {
-  const normalized = normalizeOptionalLowercaseString(raw);
-  if (normalized === "active" || normalized === "completed" || normalized === "cancelled") {
-    return normalized;
-  }
-  return undefined;
-}
-
-function normalizeWorktreeMode(raw: string): "active" | "inactive" | undefined {
-  const normalized = normalizeOptionalLowercaseString(raw);
-  if (normalized === "active" || normalized === "inactive") {
-    return normalized;
-  }
-  return undefined;
-}
-
-function normalizeWorktreeCleanupPolicy(raw: string): "keep" | "remove" | undefined {
-  const normalized = normalizeOptionalLowercaseString(raw);
-  if (normalized === "keep" || normalized === "remove") {
-    return normalized;
-  }
-  return undefined;
-}
-
-function normalizePlanArtifactRecordFormat(
-  raw: string,
-): "markdown" | "text" | "json" | undefined {
-  const normalized = normalizeOptionalLowercaseString(raw);
-  if (normalized === "markdown" || normalized === "text" || normalized === "json") {
-    return normalized;
-  }
-  return undefined;
-}
-
-function normalizePlanArtifactRecordStatus(
-  raw: string,
-): "draft" | "ready_for_review" | "approved" | "rejected" | "archived" | undefined {
-  const normalized = normalizeOptionalLowercaseString(raw);
-  if (
-    normalized === "draft" ||
-    normalized === "ready_for_review" ||
-    normalized === "approved" ||
-    normalized === "rejected" ||
-    normalized === "archived"
-  ) {
-    return normalized;
-  }
-  return undefined;
-}
-
-function normalizePlanArtifactRecord(
-  raw: unknown,
-): SessionPlanArtifact["record"] | { error: string } {
-  if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
-    return { error: "invalid planArtifact.record" };
-  }
-  const record = raw as Record<string, unknown>;
-  const planId = normalizeOptionalString(record.planId) ?? "";
-  if (!planId) {
-    return { error: "invalid planArtifact.record.planId" };
-  }
-  const title = normalizeOptionalString(record.title) ?? "";
-  if (!title) {
-    return { error: "invalid planArtifact.record.title" };
-  }
-  const content = normalizeOptionalString(record.content) ?? "";
-  if (!content) {
-    return { error: "invalid planArtifact.record.content" };
-  }
-  const formatRaw = normalizeOptionalString(record.format) ?? "";
-  const format = normalizePlanArtifactRecordFormat(formatRaw);
-  if (!format) {
-    return { error: 'invalid planArtifact.record.format (use "markdown"|"text"|"json")' };
-  }
-  const statusRaw = normalizeOptionalString(record.status) ?? "";
-  const status = normalizePlanArtifactRecordStatus(statusRaw);
-  if (!status) {
-    return {
-      error:
-        'invalid planArtifact.record.status (use "draft"|"ready_for_review"|"approved"|"rejected"|"archived")',
-    };
-  }
-  const createdAt = record.createdAt;
-  if (!Number.isInteger(createdAt) || (createdAt as number) < 0) {
-    return { error: "invalid planArtifact.record.createdAt" };
-  }
-  const updatedAt = record.updatedAt;
-  if (!Number.isInteger(updatedAt) || (updatedAt as number) < 0) {
-    return { error: "invalid planArtifact.record.updatedAt" };
-  }
-
-  const next: NonNullable<SessionPlanArtifact["record"]> = {
-    planId,
-    title,
-    content,
-    format,
-    status,
-    createdAt: createdAt as number,
-    updatedAt: updatedAt as number,
-  };
-
-  if ("summary" in record) {
-    const summary = normalizeOptionalString(record.summary) ?? "";
-    if (!summary) {
-      return { error: "invalid planArtifact.record.summary" };
-    }
-    next.summary = summary;
-  }
-
-  for (const key of ["reviewedAt", "approvedAt", "rejectedAt", "archivedAt"] as const) {
-    if (key in record) {
-      const value = record[key];
-      if (!Number.isInteger(value) || (value as number) < 0) {
-        return { error: `invalid planArtifact.record.${key}` };
-      }
-      next[key] = value as number;
-    }
-  }
-
-  return next;
-}
-
-function normalizeWorktreeArtifactStatus(
-  raw: string,
-): "active" | "closed" | "removed" | "remove_failed" | undefined {
-  const normalized = normalizeOptionalLowercaseString(raw);
-  if (
-    normalized === "active" ||
-    normalized === "closed" ||
-    normalized === "removed" ||
-    normalized === "remove_failed"
-  ) {
-    return normalized;
-  }
-  return undefined;
-}
-
-function normalizePlanStep(entry: unknown, index: number): SessionPlanStep | { error: string } {
-  if (!entry || typeof entry !== "object") {
-    return { error: `invalid planArtifact.steps[${index}]` };
-  }
-  const stepRaw = normalizeOptionalString((entry as { step?: unknown }).step) ?? "";
-  if (!stepRaw) {
-    return { error: `invalid planArtifact.steps[${index}].step` };
-  }
-  const statusRaw = normalizeOptionalString((entry as { status?: unknown }).status) ?? "";
-  const status = normalizeOptionalLowercaseString(statusRaw);
-  if (status !== "pending" && status !== "in_progress" && status !== "completed") {
-    return { error: `invalid planArtifact.steps[${index}].status` };
-  }
-  return {
-    step: stepRaw,
-    status,
-  };
-}
-
-function normalizePlanArtifactPatch(raw: unknown): SessionPlanArtifact | { error: string } {
-  if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
-    return { error: "invalid planArtifact" };
-  }
-  const artifact = raw as Record<string, unknown>;
-  const next: SessionPlanArtifact = {};
-
-  if ("goal" in artifact) {
-    const value = normalizeOptionalString(artifact.goal) ?? "";
-    if (!value) {
-      return { error: "invalid planArtifact.goal" };
-    }
-    next.goal = value;
-  }
-  if ("notes" in artifact) {
-    const value = normalizeOptionalString(artifact.notes) ?? "";
-    if (!value) {
-      return { error: "invalid planArtifact.notes" };
-    }
-    next.notes = value;
-  }
-  if ("summary" in artifact) {
-    const value = normalizeOptionalString(artifact.summary) ?? "";
-    if (!value) {
-      return { error: "invalid planArtifact.summary" };
-    }
-    next.summary = value;
-  }
-  if ("lastExplanation" in artifact) {
-    const value = normalizeOptionalString(artifact.lastExplanation) ?? "";
-    if (!value) {
-      return { error: "invalid planArtifact.lastExplanation" };
-    }
-    next.lastExplanation = value;
-  }
-  if ("status" in artifact) {
-    const value = normalizeOptionalString(artifact.status) ?? "";
-    const status = normalizePlanArtifactStatus(value);
-    if (!status) {
-      return { error: 'invalid planArtifact.status (use "active"|"completed"|"cancelled")' };
-    }
-    next.status = status;
-  }
-
-  for (const key of ["enteredAt", "updatedAt", "approvedAt", "exitedAt"] as const) {
-    if (key in artifact) {
-      const value = artifact[key];
-      if (!Number.isInteger(value) || (value as number) < 0) {
-        return { error: `invalid planArtifact.${key}` };
-      }
-      next[key] = value as number;
-    }
-  }
-
-  if ("steps" in artifact) {
-    const stepsRaw = artifact.steps;
-    if (!Array.isArray(stepsRaw) || stepsRaw.length === 0) {
-      return { error: "invalid planArtifact.steps" };
-    }
-    const steps = stepsRaw.map((entry, index) => normalizePlanStep(entry, index));
-    const normalizedSteps: SessionPlanStep[] = [];
-    for (const step of steps) {
-      if ("error" in step) {
-        return step;
-      }
-      normalizedSteps.push(step);
-    }
-    const inProgressCount = normalizedSteps.filter(
-      (entry) => entry.status === "in_progress",
-    ).length;
-    if (inProgressCount > 1) {
-      return { error: "planArtifact.steps can contain at most one in_progress item" };
-    }
-    next.steps = normalizedSteps;
-  }
-
-  if ("record" in artifact) {
-    const record = normalizePlanArtifactRecord(artifact.record);
-    if ("error" in record) {
-      return record;
-    }
-    next.record = record;
-  }
-
-  return next;
-}
-
-function normalizeWorktreeArtifactPatch(
-  raw: unknown,
-): Partial<SessionWorktreeArtifact> | { error: string } {
-  if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
-    return { error: "invalid worktreeArtifact" };
-  }
-  const artifact = raw as Record<string, unknown>;
-  const next: Partial<SessionWorktreeArtifact> = {};
-
-  for (const key of [
-    "repoRoot",
-    "worktreeDir",
-    "branch",
-    "baseRef",
-    "requestedName",
-    "cwdBefore",
-  ] as const) {
-    if (key in artifact) {
-      const value = normalizeOptionalString(artifact[key]) ?? "";
-      if (!value) {
-        return { error: `invalid worktreeArtifact.${key}` };
-      }
-      Object.assign(next, { [key]: value });
-    }
-  }
-
-  if ("cleanupPolicy" in artifact) {
-    const value = normalizeOptionalString(artifact.cleanupPolicy) ?? "";
-    const normalized = normalizeWorktreeCleanupPolicy(value);
-    if (!normalized) {
-      return { error: 'invalid worktreeArtifact.cleanupPolicy (use "keep"|"remove")' };
-    }
-    next.cleanupPolicy = normalized;
-  }
-
-  if ("status" in artifact) {
-    const value = normalizeOptionalString(artifact.status) ?? "";
-    const normalized = normalizeWorktreeArtifactStatus(value);
-    if (!normalized) {
-      return {
-        error: 'invalid worktreeArtifact.status (use "active"|"closed"|"removed"|"remove_failed")',
-      };
-    }
-    next.status = normalized;
-  }
-
-  for (const key of ["createdAt", "updatedAt", "exitedAt"] as const) {
-    if (key in artifact) {
-      const value = artifact[key];
-      if (!Number.isInteger(value) || (value as number) < 0) {
-        return { error: `invalid worktreeArtifact.${key}` };
-      }
-      Object.assign(next, { [key]: value as number });
-    }
-  }
-
-  if ("lastError" in artifact) {
-    const value = normalizeOptionalString(artifact.lastError) ?? "";
-    if (!value) {
-      return { error: "invalid worktreeArtifact.lastError" };
-    }
-    next.lastError = value;
-  }
-
-  return next;
-}
-
-function validateCompleteWorktreeArtifact(
-  artifact: Partial<SessionWorktreeArtifact>,
-): SessionWorktreeArtifact | { error: string } {
-  const repoRoot = normalizeOptionalString(artifact.repoRoot) ?? "";
-  if (!repoRoot) {
-    return { error: "invalid worktreeArtifact.repoRoot" };
-  }
-  const worktreeDir = normalizeOptionalString(artifact.worktreeDir) ?? "";
-  if (!worktreeDir) {
-    return { error: "invalid worktreeArtifact.worktreeDir" };
-  }
-  if (!Number.isInteger(artifact.createdAt) || (artifact.createdAt as number) < 0) {
-    return { error: "invalid worktreeArtifact.createdAt" };
-  }
-  return {
-    repoRoot,
-    worktreeDir,
-    ...(normalizeOptionalString(artifact.branch) ? { branch: artifact.branch } : {}),
-    ...(normalizeOptionalString(artifact.baseRef) ? { baseRef: artifact.baseRef } : {}),
-    ...(normalizeOptionalString(artifact.requestedName)
-      ? { requestedName: artifact.requestedName }
-      : {}),
-    ...(normalizeOptionalString(artifact.cwdBefore) ? { cwdBefore: artifact.cwdBefore } : {}),
-    ...(artifact.cleanupPolicy ? { cleanupPolicy: artifact.cleanupPolicy } : {}),
-    ...(artifact.status ? { status: artifact.status } : {}),
-    createdAt: artifact.createdAt as number,
-    ...(artifact.updatedAt !== undefined ? { updatedAt: artifact.updatedAt } : {}),
-    ...(artifact.exitedAt !== undefined ? { exitedAt: artifact.exitedAt } : {}),
-    ...(normalizeOptionalString(artifact.lastError) ? { lastError: artifact.lastError } : {}),
-  };
 }
 
 export async function applySessionsPatchToStore(params: {
@@ -630,6 +278,15 @@ export async function applySessionsPatchToStore(params: {
     applyVerboseOverride(next, parsed.value);
   }
 
+  if ("traceLevel" in patch) {
+    const raw = patch.traceLevel;
+    const parsed = parseTraceOverride(raw);
+    if (!parsed.ok) {
+      return invalid(parsed.error);
+    }
+    applyTraceOverride(next, parsed.value);
+  }
+
   if ("reasoningLevel" in patch) {
     const raw = patch.reasoningLevel;
     if (raw === null) {
@@ -811,68 +468,6 @@ export async function applySessionsPatchToStore(params: {
         return invalid('invalid groupActivation (use "mention"|"always")');
       }
       next.groupActivation = normalized;
-    }
-  }
-
-  if ("planMode" in patch) {
-    const raw = patch.planMode;
-    if (raw === null) {
-      delete next.planMode;
-    } else if (raw !== undefined) {
-      const normalized = normalizePlanMode(raw);
-      if (!normalized) {
-        return invalid('invalid planMode (use "active"|"inactive")');
-      }
-      next.planMode = normalized;
-    }
-  }
-
-  if ("planArtifact" in patch) {
-    const raw = patch.planArtifact;
-    if (raw === null) {
-      delete next.planArtifact;
-    } else if (raw !== undefined) {
-      const normalized = normalizePlanArtifactPatch(raw);
-      if ("error" in normalized) {
-        return invalid(normalized.error);
-      }
-      next.planArtifact = {
-        ...(existing?.planArtifact ?? next.planArtifact),
-        ...normalized,
-      };
-    }
-  }
-
-  if ("worktreeMode" in patch) {
-    const raw = patch.worktreeMode;
-    if (raw === null) {
-      delete next.worktreeMode;
-    } else if (raw !== undefined) {
-      const normalized = normalizeWorktreeMode(raw);
-      if (!normalized) {
-        return invalid('invalid worktreeMode (use "active"|"inactive")');
-      }
-      next.worktreeMode = normalized;
-    }
-  }
-
-  if ("worktreeArtifact" in patch) {
-    const raw = patch.worktreeArtifact;
-    if (raw === null) {
-      delete next.worktreeArtifact;
-    } else if (raw !== undefined) {
-      const normalized = normalizeWorktreeArtifactPatch(raw);
-      if ("error" in normalized) {
-        return invalid(normalized.error);
-      }
-      const validated = validateCompleteWorktreeArtifact({
-        ...(existing?.worktreeArtifact ?? next.worktreeArtifact),
-        ...normalized,
-      });
-      if ("error" in validated) {
-        return invalid(validated.error);
-      }
-      next.worktreeArtifact = validated;
     }
   }
 

@@ -9,6 +9,7 @@ import {
   resolveChatModelOverrideValue,
   resolveChatModelSelectState,
 } from "./chat-model-select-state.ts";
+import { refreshSlashCommands } from "./chat/slash-commands.ts";
 import { refreshVisibleToolsEffectiveForCurrentSession } from "./controllers/agents.ts";
 import { ChatState, loadChatHistory } from "./controllers/chat.ts";
 import { loadSessions } from "./controllers/sessions.ts";
@@ -116,9 +117,11 @@ export function renderTab(state: AppViewState, tab: Tab, opts?: { collapsed?: bo
         }
         event.preventDefault();
         if (tab === "chat") {
-          const mainSessionKey = resolveSidebarChatSessionKey(state);
-          if (state.sessionKey !== mainSessionKey) {
+          if (!state.sessionKey) {
+            const mainSessionKey = resolveSidebarChatSessionKey(state);
             resetChatStateForSessionSwitch(state, mainSessionKey);
+          }
+          if (state.tab !== "chat") {
             void state.loadAssistantIdentity();
           }
         }
@@ -201,7 +204,13 @@ export function renderChatSessionSelect(state: AppViewState) {
                   group.options,
                   (entry) => entry.key,
                   (entry) =>
-                    html`<option value=${entry.key} title=${entry.title}>${entry.label}</option>`,
+                    html`<option
+                      value=${entry.key}
+                      title=${entry.title}
+                      ?selected=${entry.key === state.sessionKey}
+                    >
+                      ${entry.label}
+                    </option>`,
                 )}
               </optgroup>`,
           )}
@@ -473,7 +482,13 @@ export function renderChatMobileToggle(state: AppViewState) {
                   <optgroup label=${group.label}>
                     ${group.options.map(
                       (opt) => html`
-                        <option value=${opt.key} title=${opt.title}>${opt.label}</option>
+                        <option
+                          value=${opt.key}
+                          title=${opt.title}
+                          ?selected=${opt.key === state.sessionKey}
+                        >
+                          ${opt.label}
+                        </option>
                       `,
                     )}
                   </optgroup>
@@ -542,6 +557,10 @@ export function switchChatSession(state: AppViewState, nextSessionKey: string) {
   resetChatStateForSessionSwitch(state, nextSessionKey);
   void state.loadAssistantIdentity();
   void refreshChatAvatar(state);
+  void refreshSlashCommands({
+    client: state.client,
+    agentId: parseAgentSessionKey(nextSessionKey)?.agentId,
+  });
   syncUrlWithSessionKey(
     state as unknown as Parameters<typeof syncUrlWithSessionKey>[0],
     nextSessionKey,
@@ -1118,52 +1137,79 @@ const THEME_MODE_OPTIONS: ThemeModeOption[] = [
   { id: "light", label: "Light", short: "LIGHT" },
   { id: "dark", label: "Dark", short: "DARK" },
 ];
-type QuickLocaleOption = { id: Extract<Locale, "en" | "vi">; short: string };
-const QUICK_LOCALE_OPTIONS: QuickLocaleOption[] = [
-  { id: "en", short: "EN" },
-  { id: "vi", short: "VI" },
-];
 
 function resolveSelectedLocale(state: AppViewState): Locale {
   return isSupportedLocale(state.settings.locale) ? state.settings.locale : i18n.getLocale();
 }
 
-function applyLocale(state: AppViewState, locale: Locale) {
+async function applyLocale(state: AppViewState, locale: Locale) {
   if (!SUPPORTED_LOCALES.includes(locale)) {
     return;
   }
   if (resolveSelectedLocale(state) === locale) {
     return;
   }
-  void i18n.setLocale(locale);
+  await i18n.setLocale(locale);
   state.applySettings({
     ...state.settings,
     locale,
   });
 }
 
-export function renderTopbarLanguageToggle(state: AppViewState) {
+function localeLabelKey(locale: Locale): string {
+  return locale.replace(/-([a-zA-Z])/g, (_, char: string) => char.toUpperCase());
+}
+
+function localeLabel(locale: Locale): string {
+  return t(`languages.${localeLabelKey(locale)}`);
+}
+
+function localeTriggerLabel(locale: Locale): string {
+  return locale.toUpperCase();
+}
+
+export function renderTopbarLanguagePicker(state: AppViewState) {
   const currentLocale = resolveSelectedLocale(state);
+  const currentLabel = localeLabel(currentLocale);
+
+  const handleLocaleChange = async (locale: Locale, event: Event) => {
+    event.preventDefault();
+    const details = (event.currentTarget as HTMLElement | null)?.closest("details");
+    if (locale !== currentLocale) {
+      await applyLocale(state, locale);
+    }
+    details?.removeAttribute("open");
+  };
+
   return html`
-    <div class="topbar-locale" role="group" aria-label=${t("overview.access.language")}>
-      ${QUICK_LOCALE_OPTIONS.map(
-        (opt) => html`
-          <button
-            type="button"
-            class="topbar-locale__btn ${opt.id === currentLocale
-              ? "topbar-locale__btn--active"
-              : ""}"
-            data-locale=${opt.id}
-            title=${t(`languages.${opt.id}`)}
-            aria-label=${`${t("overview.access.language")}: ${t(`languages.${opt.id}`)}`}
-            aria-pressed=${opt.id === currentLocale}
-            @click=${() => applyLocale(state, opt.id)}
-          >
-            ${opt.short}
-          </button>
-        `,
-      )}
-    </div>
+    <details class="topbar-language-menu">
+      <summary
+        class="topbar-language-menu__trigger"
+        title="${t("overview.access.language")}: ${currentLabel}"
+        aria-label="${t("overview.access.language")}: ${currentLabel}"
+      >
+        <span class="topbar-language-menu__icon" aria-hidden="true">${icons.globe}</span>
+        <span class="topbar-language-menu__current">${localeTriggerLabel(currentLocale)}</span>
+        <span class="topbar-language-menu__chevron" aria-hidden="true">${icons.chevronDown}</span>
+      </summary>
+      <div class="topbar-language-menu__panel">
+        ${SUPPORTED_LOCALES.map(
+          (locale) => html`
+            <button
+              type="button"
+              class="topbar-language-menu__option ${locale === currentLocale
+                ? "topbar-language-menu__option--active"
+                : ""}"
+              data-locale=${locale}
+              @click=${(event: Event) => void handleLocaleChange(locale, event)}
+            >
+              <span class="topbar-language-menu__option-code"> ${localeTriggerLabel(locale)} </span>
+              <span class="topbar-language-menu__option-label">${localeLabel(locale)}</span>
+            </button>
+          `,
+        )}
+      </div>
+    </details>
   `;
 }
 

@@ -1,7 +1,6 @@
 /* @vitest-environment jsdom */
 import { render } from "lit";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { i18n } from "../../i18n/lib/translate.ts";
+import { describe, expect, it } from "vitest";
 import { renderNodes, type NodesProps } from "./nodes.ts";
 
 function baseProps(overrides: Partial<NodesProps> = {}): NodesProps {
@@ -48,14 +47,6 @@ function baseProps(overrides: Partial<NodesProps> = {}): NodesProps {
 }
 
 describe("nodes devices pending rendering", () => {
-  beforeEach(async () => {
-    await i18n.setLocale("en");
-  });
-
-  afterEach(async () => {
-    await i18n.setLocale("vi");
-  });
-
   it("shows pending role and scopes from effective pending auth", () => {
     const container = document.createElement("div");
     render(

@@ -15,8 +15,6 @@ export type ExecApprovalRequest = {
   id: string;
   kind: "exec" | "plugin";
   request: ExecApprovalRequestPayload;
-  routeStatus?: "pending-route" | "delivered" | "delivery-failed" | "no-route";
-  recoverability?: "reconnect-recoverable" | "terminal";
   pluginTitle?: string;
   pluginDescription?: string | null;
   pluginSeverity?: string | null;
@@ -69,14 +67,6 @@ export function parseExecApprovalRequested(payload: unknown): ExecApprovalReques
     },
     createdAtMs,
     expiresAtMs,
-    routeStatus:
-      typeof payload.routeStatus === "string"
-        ? (payload.routeStatus as ExecApprovalRequest["routeStatus"])
-        : undefined,
-    recoverability:
-      typeof payload.recoverability === "string"
-        ? (payload.recoverability as ExecApprovalRequest["recoverability"])
-        : undefined,
   };
 }
 
@@ -133,14 +123,6 @@ export function parsePluginApprovalRequested(payload: unknown): ExecApprovalRequ
     pluginId,
     createdAtMs,
     expiresAtMs,
-    routeStatus:
-      typeof payload.routeStatus === "string"
-        ? (payload.routeStatus as ExecApprovalRequest["routeStatus"])
-        : undefined,
-    recoverability:
-      typeof payload.recoverability === "string"
-        ? (payload.recoverability as ExecApprovalRequest["recoverability"])
-        : undefined,
   };
 }
 

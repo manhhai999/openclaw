@@ -273,17 +273,6 @@
     flex-wrap: nowrap;
   }
 
-  .topbar-locale {
-    padding: 2px;
-  }
-
-  .topbar-locale__btn {
-    min-width: 34px;
-    height: 28px;
-    padding: 0 8px;
-    font-size: 10px;
-  }
-
   .topbar-search {
     min-width: 0;
     flex: 1;
@@ -291,6 +280,18 @@
 
   .topbar-theme-mode {
     display: none;
+  }
+
+  .topbar-language-menu__trigger {
+    min-width: 0;
+    padding: 0 10px;
+  }
+
+  .topbar-language-menu__panel {
+    right: 0;
+    left: auto;
+    min-width: min(82vw, 260px);
+    max-width: min(82vw, 260px);
   }
 
   .sidebar-mode-switch {
@@ -396,7 +397,7 @@
 
   .chat-mobile-controls-wrapper .chat-controls-dropdown .chat-controls__session select {
     width: 100%;
-    font-size: var(--chat-font-body);
+    font-size: 14px;
     padding: 10px 12px;
   }
 
@@ -521,7 +522,7 @@
     min-height: 60px;
     padding: 8px 10px;
     border-radius: var(--radius-md);
-    font-size: var(--chat-font-body);
+    font-size: 14px;
   }
 
   .agent-chat__input {

@@ -39,7 +39,6 @@ import {
   callGateway,
   emitSessionLifecycleEvent,
   getGlobalHookRunner,
-  loadSessionEntry,
   loadConfig,
   mergeSessionEntry,
   normalizeDeliveryContext,
@@ -283,28 +282,6 @@ function summarizeError(err: unknown): string {
   return "error";
 }
 
-function buildInheritedPolicySessionPatch(
-  entry?: {
-    sendPolicy?: "allow" | "deny";
-    groupActivation?: "mention" | "always";
-    execHost?: string;
-    execSecurity?: string;
-    execAsk?: string;
-    execNode?: string;
-    responseUsage?: "on" | "off" | "tokens" | "full";
-  } | null,
-): Record<string, unknown> {
-  return {
-    ...(entry?.sendPolicy ? { sendPolicy: entry.sendPolicy } : {}),
-    ...(entry?.groupActivation ? { groupActivation: entry.groupActivation } : {}),
-    ...(entry?.execHost ? { execHost: entry.execHost } : {}),
-    ...(entry?.execSecurity ? { execSecurity: entry.execSecurity } : {}),
-    ...(entry?.execAsk ? { execAsk: entry.execAsk } : {}),
-    ...(entry?.execNode ? { execNode: entry.execNode } : {}),
-    ...(entry?.responseUsage ? { responseUsage: entry.responseUsage } : {}),
-  };
-}
-
 async function ensureThreadBindingForSubagentSpawn(params: {
   hookRunner: SubagentLifecycleHookRunner | null;
   childSessionKey: string;
@@ -437,7 +414,6 @@ export async function spawnSubagentDirect(
     alias,
     mainKey,
   });
-  const requesterEntry = loadSessionEntry(requesterInternalKey).entry;
 
   const callerDepth = getSubagentDepthFromSessionStore(requesterInternalKey, { cfg });
   const maxSpawnDepth =
@@ -551,7 +527,6 @@ export async function spawnSubagentDirect(
   };
 
   const initialChildSessionPatch: Record<string, unknown> = {
-    ...buildInheritedPolicySessionPatch(requesterEntry),
     spawnDepth: childDepth,
     subagentRole: childCapabilities.role === "main" ? null : childCapabilities.role,
     subagentControlScope: childCapabilities.controlScope,

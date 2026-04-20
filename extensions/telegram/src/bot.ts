@@ -12,7 +12,7 @@ import {
   resolveThreadBindingMaxAgeMsForChannel,
   resolveThreadBindingSpawnPolicy,
 } from "openclaw/plugin-sdk/conversation-runtime";
-import { formatUncaughtError } from "openclaw/plugin-sdk/error-runtime";
+import { formatErrorMessage, formatUncaughtError } from "openclaw/plugin-sdk/error-runtime";
 import { resolveTextChunkLimit } from "openclaw/plugin-sdk/reply-chunking";
 import { DEFAULT_GROUP_HISTORY_LIMIT, type HistoryEntry } from "openclaw/plugin-sdk/reply-history";
 import { danger, logVerbose, shouldLogVerbose } from "openclaw/plugin-sdk/runtime-env";
@@ -75,6 +75,9 @@ type TelegramCompatFetch = (
   input: TelegramFetchInput,
   init?: TelegramFetchInit,
 ) => ReturnType<TelegramClientFetch>;
+type AbortSignalLike = Pick<AbortSignal, "aborted" | "addEventListener" | "removeEventListener"> & {
+  readonly reason?: unknown;
+};
 
 function asTelegramClientFetch(
   fetchImpl: TelegramCompatFetch | typeof globalThis.fetch,
@@ -170,16 +173,9 @@ export function createTelegramBot(opts: TelegramBotOptions): TelegramBotInstance
     // AbortSignal issue in Node.js (grammY's signal may come from a different module context,
     // causing "signals[0] must be an instance of AbortSignal" errors).
     finalFetch = (input: TelegramFetchInput, init?: TelegramFetchInit) => {
-      type AbortSignalLike = Pick<
-        globalThis.AbortSignal,
-        "aborted" | "addEventListener" | "removeEventListener"
-      > & {
-        reason?: unknown;
-      };
       const controller = new AbortController();
-      const abortWith = (signal: Pick<AbortSignalLike, "reason">) =>
-        controller.abort(signal.reason);
-      const shutdownSignal = opts.fetchAbortSignal;
+      const abortWith = (signal: AbortSignalLike) => controller.abort(signal.reason);
+      const shutdownSignal: AbortSignalLike | undefined = opts.fetchAbortSignal;
       const onShutdown = () => {
         if (shutdownSignal) {
           abortWith(shutdownSignal);
@@ -263,6 +259,8 @@ export function createTelegramBot(opts: TelegramBotOptions): TelegramBotInstance
   });
 
   const recentUpdates = createTelegramUpdateDedupe();
+  const pendingUpdateKeys = new Set<string>();
+  const activeHandledUpdateKeys = new Map<string, boolean>();
   const initialUpdateId =
     typeof opts.updateOffset?.lastUpdateId === "number" ? opts.updateOffset.lastUpdateId : null;
 
@@ -271,6 +269,7 @@ export function createTelegramBot(opts: TelegramBotOptions): TelegramBotInstance
   // We only persist a watermark that is strictly less than the smallest pending update_id,
   // so we never write an offset that would skip an update still waiting to run.
   const pendingUpdateIds = new Set<number>();
+  const failedUpdateIds = new Set<number>();
   let highestCompletedUpdateId: number | null = initialUpdateId;
   let highestPersistedUpdateId: number | null = initialUpdateId;
   const maybePersistSafeWatermark = () => {
@@ -292,11 +291,32 @@ export function createTelegramBot(opts: TelegramBotOptions): TelegramBotInstance
         safe = Math.min(safe, minPending - 1);
       }
     }
+    if (failedUpdateIds.size > 0) {
+      let minFailed: number | null = null;
+      for (const id of failedUpdateIds) {
+        if (minFailed === null || id < minFailed) {
+          minFailed = id;
+        }
+      }
+      if (minFailed !== null) {
+        safe = Math.min(safe, minFailed - 1);
+      }
+    }
     if (highestPersistedUpdateId !== null && safe <= highestPersistedUpdateId) {
       return;
     }
     highestPersistedUpdateId = safe;
-    void opts.updateOffset.onUpdateId(safe);
+    void Promise.resolve()
+      .then(() => opts.updateOffset?.onUpdateId?.(safe))
+      .catch((err) => {
+        runtime.error?.(`telegram: failed to persist update watermark: ${formatErrorMessage(err)}`);
+      });
+  };
+
+  const logSkippedUpdate = (key: string) => {
+    if (shouldLogVerbose()) {
+      logVerbose(`telegram dedupe: skipped ${key}`);
+    }
   };
 
   const shouldSkipUpdate = (ctx: TelegramUpdateKeyContext) => {
@@ -306,27 +326,65 @@ export function createTelegramBot(opts: TelegramBotOptions): TelegramBotInstance
       return true;
     }
     const key = buildTelegramUpdateKey(ctx);
+    if (!key) {
+      return false;
+    }
+    const handled = activeHandledUpdateKeys.get(key);
+    if (handled != null) {
+      if (handled) {
+        logSkippedUpdate(key);
+        return true;
+      }
+      activeHandledUpdateKeys.set(key, true);
+      return false;
+    }
     const skipped = recentUpdates.check(key);
-    if (skipped && key && shouldLogVerbose()) {
-      logVerbose(`telegram dedupe: skipped ${key}`);
+    if (skipped) {
+      logSkippedUpdate(key);
     }
     return skipped;
   };
 
   bot.use(async (ctx, next) => {
     const updateId = resolveTelegramUpdateId(ctx);
+    const updateKey = buildTelegramUpdateKey(ctx);
+    let completed = false;
     if (typeof updateId === "number") {
+      failedUpdateIds.delete(updateId);
       pendingUpdateIds.add(updateId);
+    }
+    if (updateKey) {
+      if (pendingUpdateKeys.has(updateKey) || recentUpdates.peek(updateKey)) {
+        logSkippedUpdate(updateKey);
+        if (typeof updateId === "number") {
+          pendingUpdateIds.delete(updateId);
+        }
+        return;
+      }
+      pendingUpdateKeys.add(updateKey);
+      activeHandledUpdateKeys.set(updateKey, false);
     }
     try {
       await next();
+      completed = true;
     } finally {
+      if (updateKey) {
+        activeHandledUpdateKeys.delete(updateKey);
+        if (completed) {
+          recentUpdates.check(updateKey);
+        }
+        pendingUpdateKeys.delete(updateKey);
+      }
       if (typeof updateId === "number") {
         pendingUpdateIds.delete(updateId);
-        if (highestCompletedUpdateId === null || updateId > highestCompletedUpdateId) {
-          highestCompletedUpdateId = updateId;
+        if (completed) {
+          if (highestCompletedUpdateId === null || updateId > highestCompletedUpdateId) {
+            highestCompletedUpdateId = updateId;
+          }
+          maybePersistSafeWatermark();
+        } else {
+          failedUpdateIds.add(updateId);
         }
-        maybePersistSafeWatermark();
       }
     }
   });

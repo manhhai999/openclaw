@@ -92,13 +92,17 @@ export function renderChannelConfigForm(props: ChannelConfigFormProps) {
   const normalized = analysis.schema;
   if (!normalized) {
     return html`
-      <div class="callout danger">${t("dashboard.config.form.schemaUnavailableUseRaw")}</div>
+      <div class="callout danger">
+        ${t("configUi.schemaUnavailableUseRaw")}
+      </div>
     `;
   }
   const node = resolveSchemaNode(normalized, ["channels", props.channelId]);
   if (!node) {
     return html`
-      <div class="callout danger">${t("dashboard.config.form.channelSchemaUnavailable")}</div>
+      <div class="callout danger">
+        ${t("configUi.channelSchemaUnavailable")}
+      </div>
     `;
   }
   const configValue = props.configValue ?? {};
@@ -126,7 +130,7 @@ export function renderChannelConfigSection(params: { channelId: string; props: C
   return html`
     <div style="margin-top: 16px;">
       ${props.configSchemaLoading
-        ? html` <div class="muted">${t("dashboard.config.form.loadingSchema")}</div> `
+        ? html` <div class="muted">${t("configUi.loadingSchema")}</div> `
         : renderChannelConfigForm({
             channelId,
             configValue: props.configForm,

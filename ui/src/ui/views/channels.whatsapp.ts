@@ -20,7 +20,7 @@ export function renderWhatsAppCard(params: {
 
   return renderSingleAccountChannelCard({
     title: "WhatsApp",
-    subtitle: t("channels.cards.whatsappSubtitle"),
+    subtitle: "Link WhatsApp Web and monitor connection health.",
     accountCountLabel,
     statusRows: [
       { label: t("common.configured"), value: formatNullableBoolean(configured) },
@@ -55,7 +55,7 @@ export function renderWhatsAppCard(params: {
         : nothing}
       ${props.whatsappQrDataUrl
         ? html`<div class="qr-wrap">
-            <img src=${props.whatsappQrDataUrl} alt=${t("channels.cards.whatsappQrAlt")} />
+            <img src=${props.whatsappQrDataUrl} alt="WhatsApp QR" />
           </div>`
         : nothing}
     `,

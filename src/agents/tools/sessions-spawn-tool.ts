@@ -11,7 +11,6 @@ import {
   describeSessionsSpawnTool,
   SESSIONS_SPAWN_TOOL_DISPLAY_SUMMARY,
 } from "../tool-description-presets.js";
-import { resolveRuntimeWorkspaceDirForSession } from "../worktree-runtime.js";
 import type { AnyAgentTool } from "./common.js";
 import { jsonResult, readStringParam, ToolInputError } from "./common.js";
 import {
@@ -174,6 +173,7 @@ export function createSessionsSpawnTool(
       const mode = params.mode === "run" || params.mode === "session" ? params.mode : undefined;
       const cleanup =
         params.cleanup === "keep" || params.cleanup === "delete" ? params.cleanup : "keep";
+      const expectsCompletionMessage = params.expectsCompletionMessage !== false;
       const sandbox = params.sandbox === "require" ? "require" : "inherit";
       const streamTo = params.streamTo === "parent" ? "parent" : undefined;
       const lightContext = params.lightContext === true;
@@ -290,7 +290,7 @@ export function createSessionsSpawnTool(
               cleanup: trackedCleanup,
               label: label || undefined,
               runTimeoutSeconds,
-              expectsCompletionMessage: true,
+              expectsCompletionMessage,
               spawnMode: trackedSpawnMode,
             });
           } catch (err) {
@@ -308,11 +308,6 @@ export function createSessionsSpawnTool(
         return jsonResult(result);
       }
 
-      const runtimeWorkspaceDir = resolveRuntimeWorkspaceDirForSession({
-        sessionKey: opts?.agentSessionKey,
-        fallbackWorkspaceDir: opts?.workspaceDir,
-      });
-
       const result = await spawnSubagentDirect(
         {
           task,
@@ -326,7 +321,7 @@ export function createSessionsSpawnTool(
           cleanup,
           sandbox,
           lightContext,
-          expectsCompletionMessage: true,
+          expectsCompletionMessage,
           attachments,
           attachMountPath:
             params.attachAs && typeof params.attachAs === "object"
@@ -343,7 +338,7 @@ export function createSessionsSpawnTool(
           agentGroupChannel: opts?.agentGroupChannel,
           agentGroupSpace: opts?.agentGroupSpace,
           requesterAgentIdOverride: opts?.requesterAgentIdOverride,
-          workspaceDir: runtimeWorkspaceDir,
+          workspaceDir: opts?.workspaceDir,
         },
       );
 

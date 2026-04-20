@@ -14,9 +14,9 @@ import {
   isAllowedByPolicy,
   localizeToolDescription,
   localizeToolGroupLabel,
+  localizeToolProfileLabel,
   matchesList,
   resolveAgentConfig,
-  localizeToolProfileLabel,
   resolveToolProfileOptions,
   resolveToolProfile,
   resolveToolSections,
@@ -630,14 +630,10 @@ function renderAgentSkillRow(
         <div class="list-sub">${skill.description}</div>
         ${renderSkillStatusChips({ skill })}
         ${missing.length > 0
-          ? html`<div class="muted" style="margin-top: 6px;">
-              ${t("skillsPage.agent.missing", { items: missing.join(", ") })}
-            </div>`
+          ? html`<div class="muted" style="margin-top: 6px;">Missing: ${missing.join(", ")}</div>`
           : nothing}
         ${reasons.length > 0
-          ? html`<div class="muted" style="margin-top: 6px;">
-              ${t("skillsPage.detail.reason", { reasons: reasons.join(", ") })}
-            </div>`
+          ? html`<div class="muted" style="margin-top: 6px;">Reason: ${reasons.join(", ")}</div>`
           : nothing}
       </div>
       <div class="list-meta">

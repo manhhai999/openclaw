@@ -1,6 +1,6 @@
 import { render } from "lit";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { i18n } from "../../i18n/lib/translate.ts";
+import { beforeEach, describe, expect, it } from "vitest";
+import { i18n, t } from "../../i18n/index.ts";
 import { renderAgentTools } from "./agents-panels-tools-skills.ts";
 
 function createBaseParams(overrides: Partial<Parameters<typeof renderAgentTools>[0]> = {}) {
@@ -35,10 +35,6 @@ describe("agents tools panel (browser)", () => {
     await i18n.setLocale("en");
   });
 
-  afterEach(async () => {
-    await i18n.setLocale("vi");
-  });
-
   it("renders per-tool provenance badges and optional marker", async () => {
     const container = document.createElement("div");
     render(
@@ -63,9 +59,6 @@ describe("agents tools panel (browser)", () => {
                     label: "tts",
                     description: "Text-to-speech conversion",
                     source: "core",
-                    activationMode: "always",
-                    executionScope: "unknown",
-                    operatorVisibility: "normal",
                     defaultProfiles: [],
                   },
                 ],
@@ -83,9 +76,6 @@ describe("agents tools panel (browser)", () => {
                     source: "plugin",
                     pluginId: "voice-call",
                     optional: true,
-                    activationMode: "optional",
-                    executionScope: "gateway",
-                    operatorVisibility: "normal",
                     defaultProfiles: [],
                   },
                 ],
@@ -100,7 +90,7 @@ describe("agents tools panel (browser)", () => {
 
     const text = container.textContent ?? "";
     expect(text).toContain("core");
-    expect(text).toContain("Plugin: voice-call");
+    expect(text).toContain(t("agentTools.badges.plugin", { id: "voice-call" }));
     expect(text).toContain("optional");
   });
 
@@ -155,6 +145,6 @@ describe("agents tools panel (browser)", () => {
     const text = container.textContent ?? "";
     expect(text).toContain("Available Right Now");
     expect(text).toContain("Message Actions");
-    expect(text).toContain("Channel: discord");
+    expect(text).toContain(t("agentTools.channelSource", { id: "discord" }));
   });
 });

@@ -5,7 +5,6 @@ export { mergeSessionEntry, updateSessionStore } from "../config/sessions.js";
 export { callGateway } from "../gateway/call.js";
 export { ADMIN_SCOPE, isAdminOnlyMethod } from "../gateway/method-scopes.js";
 export {
-  loadSessionEntry,
   pruneLegacyStoreKeys,
   resolveGatewaySessionStoreTarget,
 } from "../gateway/session-utils.js";
