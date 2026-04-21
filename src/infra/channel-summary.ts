@@ -8,7 +8,7 @@ import {
   resolveChannelAccountConfigured,
   resolveChannelAccountEnabled,
 } from "../channels/account-summary.js";
-import { listChannelPlugins } from "../channels/plugins/index.js";
+import { listStatusChannelPlugins } from "../channels/plugins/status-read.js";
 import type { ChannelPlugin } from "../channels/plugins/types.plugin.js";
 import type { ChannelAccountSnapshot } from "../channels/plugins/types.public.js";
 import { inspectReadOnlyChannelAccount } from "../channels/read-only-account-inspect.js";
@@ -131,8 +131,12 @@ export async function buildChannelSummary(
   const tint = (value: string, color?: (input: string) => string) =>
     resolved.colorize && color ? color(value) : value;
   const sourceConfig = options?.sourceConfig ?? effective;
+  const plugins = listStatusChannelPlugins({
+    cfg: effective,
+    sourceConfig,
+  });
 
-  for (const plugin of listChannelPlugins()) {
+  for (const plugin of plugins) {
     const accountIds = plugin.config.listAccountIds(effective);
     const defaultAccountId =
       plugin.config.defaultAccountId?.(effective) ?? accountIds[0] ?? DEFAULT_ACCOUNT_ID;
