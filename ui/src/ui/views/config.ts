@@ -1,7 +1,12 @@
 import { html, nothing, type TemplateResult } from "lit";
 import { t } from "../../i18n/index.ts";
 import { icons } from "../icons.ts";
-import { BORDER_RADIUS_STOPS, type BorderRadiusStop } from "../storage.ts";
+import {
+  BORDER_RADIUS_STOPS,
+  TEXT_SCALE_STOPS,
+  type BorderRadiusStop,
+  type TextScaleStop,
+} from "../storage.ts";
 import type { ThemeTransitionContext } from "../theme-transition.ts";
 import type { ThemeMode, ThemeName } from "../theme.ts";
 import type { ConfigUiHints } from "../types.ts";
@@ -15,6 +20,12 @@ import {
   type JsonSchema,
 } from "./config-form.shared.ts";
 import { analyzeConfigSchema, getSectionMetaCopy, renderConfigForm } from "./config-form.ts";
+
+const TEXT_SCALE_LABELS: Record<TextScaleStop, string> = {
+  100: "Compact",
+  110: "Comfort",
+  120: "Large",
+};
 
 export type ConfigProps = {
   raw: string;
@@ -55,6 +66,8 @@ export type ConfigProps = {
   setThemeMode: (mode: ThemeMode, context?: ThemeTransitionContext) => void;
   borderRadius: number;
   setBorderRadius: (value: number) => void;
+  textScale: number;
+  setTextScale: (value: number) => void;
   gatewayUrl: string;
   assistantName: string;
   configPath?: string | null;
@@ -662,10 +675,8 @@ function renderAppearanceSection(props: ConfigProps) {
       </div>
 
       <div class="settings-appearance__section">
-        <h3 class="settings-appearance__heading">
-          ${t("dashboard.config.appearance.textSizeTitle")}
-        </h3>
-        <p class="settings-appearance__hint">${t("dashboard.config.appearance.textSizeHint")}</p>
+        <h3 class="settings-appearance__heading">Text size</h3>
+        <p class="settings-appearance__hint">Choose a more comfortable base reading size.</p>
         <div class="settings-text-scale">
           <div class="settings-text-scale__options">
             ${TEXT_SCALE_STOPS.map(
@@ -680,7 +691,7 @@ function renderAppearanceSection(props: ConfigProps) {
                     style="font-size: ${Math.round((stop / 100) * 16)}px"
                     >Aa</span
                   >
-                  <span class="settings-text-scale__label">${getTextScaleLabel(stop)}</span>
+                  <span class="settings-text-scale__label">${TEXT_SCALE_LABELS[stop]}</span>
                 </button>
               `,
             )}
@@ -689,9 +700,7 @@ function renderAppearanceSection(props: ConfigProps) {
       </div>
 
       <div class="settings-appearance__section">
-        <h3 class="settings-appearance__heading">
-          ${t("dashboard.config.appearance.connectionTitle")}
-        </h3>
+        <h3 class="settings-appearance__heading">Connection</h3>
         <div class="settings-info-grid">
           <div class="settings-info-row">
             <span class="settings-info-row__label"
