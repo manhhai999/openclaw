@@ -396,7 +396,7 @@
 
   .chat-mobile-controls-wrapper .chat-controls-dropdown .chat-controls__session select {
     width: 100%;
-    font-size: 14px;
+    font-size: var(--chat-font-body);
     padding: 10px 12px;
   }
 
@@ -521,7 +521,7 @@
     min-height: 60px;
     padding: 8px 10px;
     border-radius: var(--radius-md);
-    font-size: 14px;
+    font-size: var(--chat-font-body);
   }
 
   .agent-chat__input {
