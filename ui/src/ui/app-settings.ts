@@ -713,7 +713,8 @@ function buildAttentionItems(host: SettingsAppHost) {
     // Use the same predicate as the Overview card so the two stay in sync.
     // Without this, a `missing` provider shows up on the card but never
     // produces the re-auth attention callout.
-    const monitored = modelAuth.providers.filter(isMonitoredAuthProvider);
+    const providers = Array.isArray(modelAuth.providers) ? modelAuth.providers : [];
+    const monitored = providers.filter(isMonitoredAuthProvider);
     const expiredProviders = monitored.filter(
       (p) => p.status === "expired" || p.status === "missing",
     );

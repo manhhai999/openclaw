@@ -2,7 +2,7 @@ import { render } from "lit";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { i18n } from "../../i18n/index.ts";
 import type { ThemeMode, ThemeName } from "../theme.ts";
-import { renderConfig, resetConfigViewStateForTests, type ConfigProps } from "./config.ts";
+import { renderConfig, type ConfigProps } from "./config.ts";
 
 describe("config view", () => {
   const baseProps = () => ({

@@ -189,6 +189,8 @@ describe("resolveAuthForTarget", () => {
     await withEnvAsync(
       {
         MISSING_GATEWAY_TOKEN: undefined,
+        OPENCLAW_GATEWAY_TOKEN: undefined,
+        OPENCLAW_GATEWAY_PASSWORD: undefined,
       },
       async () => {
         const auth = await resolveAuthForTarget(

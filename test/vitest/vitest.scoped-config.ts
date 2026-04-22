@@ -205,7 +205,7 @@ export function createScopedVitestConfig(
               groupOrder: scopedGroupOrder,
             },
           }),
-      ...(options?.passWithNoTests !== undefined || cliInclude !== null
+      ...(options?.passWithNoTests !== undefined || includeFromEnv !== null || cliInclude !== null
         ? { passWithNoTests: options?.passWithNoTests ?? true }
         : {}),
     },

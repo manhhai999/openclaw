@@ -1,7 +1,7 @@
 /* @vitest-environment jsdom */
 
 import { render } from "lit";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { i18n } from "../../i18n/lib/translate.ts";
 import type { SkillStatusEntry, SkillStatusReport } from "../types.ts";
 import { renderSkills, type SkillsProps } from "./skills.ts";
@@ -92,19 +92,19 @@ function createProps(overrides: Partial<SkillsProps> = {}): SkillsProps {
 }
 
 describe("renderSkills", () => {
-  afterEach(() => {
+  beforeEach(async () => {
+    await i18n.setLocale("en");
+  });
+
+  afterEach(async () => {
     vi.restoreAllMocks();
     while (dialogRestores.length > 0) {
       dialogRestores.pop()?.();
     }
-  });
-
-  afterEach(async () => {
     await i18n.setLocale("vi");
   });
 
-  it("opens the skill detail dialog as a modal", async () => {
-    await i18n.setLocale("en");
+  it("opens detail dialogs and routes ClawHub actions", async () => {
     const container = document.createElement("div");
     const onDetailClose = vi.fn();
     const showModal = vi.fn(function (this: HTMLDialogElement) {
@@ -114,29 +114,6 @@ describe("renderSkills", () => {
     const onClawHubInstall = vi.fn();
 
     installDialogMethod("showModal", showModal);
-
-    render(
-      renderSkills(
-        createProps({
-          detailKey: "repo-skill",
-        }),
-      ),
-      container,
-    );
-    await Promise.resolve();
-
-    expect(showModal).toHaveBeenCalledTimes(1);
-    expect(container.querySelector("dialog")?.hasAttribute("open")).toBe(true);
-  });
-
-  it("closes the skill detail dialog through the dialog close event", async () => {
-    await i18n.setLocale("en");
-    const container = document.createElement("div");
-    const onDetailClose = vi.fn();
-
-    installDialogMethod("showModal", function (this: HTMLDialogElement) {
-      this.setAttribute("open", "");
-    });
     installDialogMethod("close", function (this: HTMLDialogElement) {
       this.removeAttribute("open");
       this.dispatchEvent(new Event("close"));
@@ -159,13 +136,6 @@ describe("renderSkills", () => {
     container.querySelector<HTMLButtonElement>(".md-preview-dialog__header .btn")?.click();
 
     expect(onDetailClose).toHaveBeenCalledTimes(1);
-  });
-
-  it("renders ClawHub search results and routes detail/install actions", async () => {
-    await i18n.setLocale("en");
-    const container = document.createElement("div");
-    const onClawHubDetailOpen = vi.fn();
-    const onClawHubInstall = vi.fn();
 
     render(
       renderSkills(
@@ -203,14 +173,8 @@ describe("renderSkills", () => {
     expect(onClawHubInstall).toHaveBeenCalledTimes(1);
     expect(onClawHubInstall).toHaveBeenCalledWith("github");
 
-  it("opens the ClawHub detail dialog and renders install feedback", async () => {
-    await i18n.setLocale("en");
-    const container = document.createElement("div");
-    const showModal = vi.fn(function (this: HTMLDialogElement) {
-      this.setAttribute("open", "");
-    });
-    const onClawHubInstall = vi.fn();
-    installDialogMethod("showModal", showModal);
+    onClawHubInstall.mockClear();
+    showModal.mockClear();
 
     render(
       renderSkills(

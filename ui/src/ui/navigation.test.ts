@@ -1,4 +1,5 @@
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
+import { i18n, t } from "../i18n/index.ts";
 import {
   TAB_GROUPS,
   iconForTab,
@@ -14,6 +15,10 @@ import {
 
 /** All valid tab identifiers derived from TAB_GROUPS */
 const ALL_TABS: Tab[] = TAB_GROUPS.flatMap((group) => group.tabs) as Tab[];
+
+beforeEach(async () => {
+  await i18n.setLocale("vi");
+});
 
 describe("iconForTab", () => {
   it("returns a non-empty string for every tab", () => {
@@ -56,9 +61,9 @@ describe("titleForTab", () => {
   });
 
   it("returns expected titles", () => {
-    expect(titleForTab("chat")).toBe("Chat");
-    expect(titleForTab("overview")).toBe("Overview");
-    expect(titleForTab("cron")).toBe("Cron Jobs");
+    expect(titleForTab("chat")).toBe(t("tabs.chat"));
+    expect(titleForTab("overview")).toBe(t("tabs.overview"));
+    expect(titleForTab("cron")).toBe(t("tabs.cron"));
   });
 });
 
@@ -71,8 +76,8 @@ describe("subtitleForTab", () => {
   });
 
   it("returns descriptive subtitles", () => {
-    expect(subtitleForTab("chat")).toContain("quick interventions");
-    expect(subtitleForTab("config")).toContain("openclaw.json");
+    expect(subtitleForTab("chat")).toBe(t("subtitles.chat"));
+    expect(subtitleForTab("config")).toBe(t("subtitles.config"));
   });
 });
 

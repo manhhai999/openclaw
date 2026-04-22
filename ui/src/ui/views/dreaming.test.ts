@@ -1,7 +1,8 @@
 /* @vitest-environment jsdom */
 
 import { render } from "lit";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { i18n, t } from "../../i18n/index.ts";
 import {
   renderDreaming,
   setDreamAdvancedWaitingSort,
@@ -197,6 +198,19 @@ function renderInto(props: DreamingProps): HTMLDivElement {
   return container;
 }
 
+beforeEach(async () => {
+  await i18n.setLocale("vi");
+  setDreamSubTab("scene");
+  setDreamDiarySubTab("dreams");
+  setDreamAdvancedWaitingSort("recent");
+});
+
+afterEach(() => {
+  setDreamSubTab("scene");
+  setDreamDiarySubTab("dreams");
+  setDreamAdvancedWaitingSort("recent");
+});
+
 describe("dreaming view", () => {
   it("renders the active dream scene chrome and status", () => {
     const container = renderInto(buildProps({ dreamingOf: "reindexing old chats\u2026" }));
@@ -215,34 +229,42 @@ describe("dreaming view", () => {
     const phases = [...container.querySelectorAll(".dreams__phase-name")].map((node) =>
       node.textContent?.trim(),
     );
-    expect(phases).toEqual(["Light", "Deep", "Rem"]);
+    expect(phases).toEqual([
+      t("dreaming.phase.light"),
+      t("dreaming.phase.deep"),
+      t("dreaming.phase.rem"),
+    ]);
     expect(container.querySelectorAll(".dreams__phase").length).toBe(3);
-    expect(container.querySelector(".dreams__phase--off")?.textContent).toContain("off");
+    expect(container.querySelector(".dreams__phase--off")?.textContent).toContain(
+      t("dreaming.phase.off"),
+    );
 
     const buttons = [...container.querySelectorAll("button")].map((node) =>
       node.textContent?.trim(),
     );
-    expect(buttons).not.toContain("Backfill");
-    expect(buttons).not.toContain("Reset");
-    expect(buttons).not.toContain("Clear Replayed");
+    expect(buttons).not.toContain(t("dreaming.scene.backfill"));
+    expect(buttons).not.toContain(t("dreaming.scene.reset"));
+    expect(buttons).not.toContain(t("dreaming.scene.clearGrounded"));
     expect(container.querySelector(".dreams__bubble")).not.toBeNull();
     const text = container.querySelector(".dreams__bubble-text");
     expect(text?.textContent).toBe("reindexing old chats\u2026");
     const label = container.querySelector(".dreams__status-label");
-    expect(label?.textContent).toBe("Dreaming Active");
+    expect(label?.textContent).toBe(t("dreaming.status.active"));
     const detail = container.querySelector(".dreams__status-detail span");
     expect(detail?.textContent).toContain("4:00 AM");
     const tabs = container.querySelectorAll(".dreams__tab");
     expect(tabs.length).toBe(3);
-    expect(tabs[0]?.textContent).toContain("Scene");
-    expect(tabs[1]?.textContent).toContain("Diary");
-    expect(tabs[2]?.textContent).toContain("Advanced");
+    expect(tabs[0]?.textContent).toContain(t("dreaming.tabs.scene"));
+    expect(tabs[1]?.textContent).toContain(t("dreaming.tabs.diary"));
+    expect(tabs[2]?.textContent).toContain(t("dreaming.tabs.advanced"));
   });
 
   it("renders idle and unavailable scene states", () => {
     const idleContainer = renderInto(buildProps({ active: false }));
     expect(idleContainer.querySelector(".dreams__bubble")).toBeNull();
-    expect(idleContainer.querySelector(".dreams__status-label")?.textContent).toBe("Dreaming Idle");
+    expect(idleContainer.querySelector(".dreams__status-label")?.textContent).toBe(
+      t("dreaming.status.idle"),
+    );
     expect(idleContainer.querySelector(".dreams--idle")).not.toBeNull();
 
     const unknownPhaseContainer = renderInto(buildProps({ phases: undefined }));
@@ -373,7 +395,7 @@ describe("dreaming view", () => {
     setDreamDiarySubTab("dreams");
     const container = renderInto(buildProps());
     const title = container.querySelector(".dreams-diary__title");
-    expect(title?.textContent).toContain("Dream Diary");
+    expect(title?.textContent).toContain(t("dreaming.diary.title"));
 
     const entry = container.querySelector(".dreams-diary__entry");
     expect(entry).not.toBeNull();
@@ -474,7 +496,7 @@ describe("dreaming view", () => {
     const emptyContainer = renderInto(buildProps({ dreamDiaryContent: null }));
     expect(emptyContainer.querySelector(".dreams-diary__empty")).not.toBeNull();
     expect(emptyContainer.querySelector(".dreams-diary__empty-text")?.textContent).toContain(
-      "No dreams yet",
+      t("dreaming.diary.noDreamsYet"),
     );
 
     const errorContainer = renderInto(buildProps({ dreamDiaryError: "read failed" }));
@@ -493,26 +515,26 @@ describe("dreaming view", () => {
     setDreamAdvancedWaitingSort("recent");
     const container = renderInto(buildProps());
     expect(container.querySelector(".dreams-advanced__title")?.textContent).toContain(
-      "Daily Log Review",
+      t("dreaming.advanced.title"),
     );
     const buttons = [...container.querySelectorAll("button")].map((node) =>
       node.textContent?.trim(),
     );
-    expect(buttons).toContain("Backfill");
-    expect(buttons).toContain("Reset");
-    expect(buttons).toContain("Clear Replayed");
-    expect(buttons).toContain("Most recent");
-    expect(buttons).toContain("Strongest support");
+    expect(buttons).toContain(t("dreaming.scene.backfill"));
+    expect(buttons).toContain(t("dreaming.scene.reset"));
+    expect(buttons).toContain(t("dreaming.scene.clearGrounded"));
+    expect(buttons).toContain(t("dreaming.advanced.sortRecent"));
+    expect(buttons).toContain(t("dreaming.advanced.sortSignals"));
     const sectionTitles = [...container.querySelectorAll(".dreams-advanced__section-title")].map(
       (node) => node.textContent?.trim(),
     );
     expect(sectionTitles).toEqual([
-      "From the Daily Log",
-      "Waiting for Promotion",
-      "Recent Promotions",
+      t("dreaming.advanced.stagedTitle"),
+      t("dreaming.advanced.shortTermTitle"),
+      t("dreaming.advanced.promotedTitle"),
     ]);
     expect(container.querySelector(".dreams-advanced__summary")?.textContent).toContain(
-      "1 from daily log",
+      t("dreaming.advanced.summaryFromDailyLog"),
     );
     expect(container.querySelector(".dreams-advanced__item")?.textContent).toContain(
       "Emma prefers shorter",

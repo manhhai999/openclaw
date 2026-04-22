@@ -91,6 +91,18 @@ describe("unit vitest config", () => {
     expect(unitConfig.test?.passWithNoTests).toBe(true);
   });
 
+  it("treats include-pattern files as pass-with-no-tests scopes too", () => {
+    const includeFile = patternFiles.writePatternFile("include-runtime.json", [
+      "ui/src/i18n/locales/vi.ts",
+    ]);
+    const unitConfig = createUnitVitestConfigWithOptions({
+      OPENCLAW_VITEST_INCLUDE_FILE: includeFile,
+    });
+
+    expect(unitConfig.test?.include).toEqual(["ui/src/i18n/locales/vi.ts"]);
+    expect(unitConfig.test?.passWithNoTests).toBe(true);
+  });
+
   it("adds the OpenClaw runtime setup hooks on top of the base setup", () => {
     const unitConfig = createUnitVitestConfig({});
     expect(normalizeConfigPaths(unitConfig.test?.setupFiles)).toEqual([

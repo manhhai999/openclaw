@@ -168,15 +168,17 @@ export function resolveToolProfileOptions(
   toolsCatalogResult: ToolsCatalogResult | null,
 ): readonly ToolCatalogProfile[] | typeof PROFILE_OPTIONS {
   if (toolsCatalogResult?.profiles?.length) {
-    return toolsCatalogResult.profiles.map((profile) => ({
-      ...profile,
-      label: localizeToolProfileLabel(profile.id, profile.label),
-    }));
+    return toolsCatalogResult.profiles.map((profile) =>
+      Object.assign({}, profile, {
+        label: localizeToolProfileLabel(profile.id, profile.label),
+      }),
+    );
   }
-  return PROFILE_OPTIONS.map((profile) => ({
-    ...profile,
-    label: localizeToolProfileLabel(profile.id, profile.label),
-  }));
+  return PROFILE_OPTIONS.map((profile) =>
+    Object.assign({}, profile, {
+      label: localizeToolProfileLabel(profile.id, profile.label),
+    }),
+  );
 }
 
 type ToolPolicy = {

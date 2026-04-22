@@ -74,7 +74,14 @@ Supporting tests in scope:
 - `ui/src/ui/views/config.browser.test.ts`
 - `ui/src/ui/views/skills.test.ts`
 
-Status: pending
+Status: completed
+
+Completed notes:
+
+- Restored the VI-first control UI locale flow on top of `v2026.4.20`, including generated locale/meta outputs regenerated on the new codebase.
+- Forward-ported the broader dashboard localization sweep instead of replaying the old tree verbatim, then aligned tests with the new VI default surface.
+- Reapplied dashboard review UX fixes that matter before runtime rollout: persisted text scale, chat typography scaling, reconnect queue resume, config view fixes, and review-surface parity fixes.
+- Fixed post-port drift against new UI contracts in `chat.ts`, `config.ts`, `app-settings.ts`, `app-gateway.node.test.ts`, `app-render.helpers.node.test.ts`, `navigation.test.ts`, `cron.test.ts`, and `dreaming.test.ts`.
 
 ## Bucket 2: Status And Dashboard Runtime
 
@@ -109,7 +116,13 @@ Supporting tests in scope:
 - `src/plugins/memory-runtime.test.ts`
 - `src/plugins/status.test.ts`
 
-Status: pending
+Status: completed
+
+Completed notes:
+
+- Forward-ported the status fast-path/channel snapshot behavior the dashboard depends on, keeping the `v2026.4.20` structure instead of copying legacy implementations.
+- Reconciled new helper/data-shape contracts in `src/infra/channel-summary.ts`, `src/plugins/status.ts`, and `src/commands/status-all/channels.ts`.
+- Updated status command/status link/status scan tests to match the release surface now shipped by `v2026.4.20`.
 
 ## Bucket 3: Compatibility, Ops, And Guardrails
 
@@ -134,7 +147,14 @@ Files in scope:
 - `src/gateway/server.canvas-auth.test.ts`
 - `src/i18n/registry.test.ts`
 
-Status: pending
+Status: completed
+
+Completed notes:
+
+- Reapplied the sandbox safety guard that requires the built default Docker image before use.
+- Fixed gateway/runtime-config test isolation so local env vars like `OPENCLAW_GATEWAY_TOKEN` do not poison parity/startup/runtime-config suites.
+- Aligned CLI/preaction route expectations with the newer `status` preload behavior in `v2026.4.20`.
+- Carried forward compatibility fixes in `extensions/telegram/src/bot.ts` and hardened `extensions/browser/src/browser/chrome.internal.test.ts` so launch tests no longer depend on host OS browser auto-detection.
 
 ## Migration Order
 
@@ -150,6 +170,14 @@ Status: pending
 - Targeted UI/status tests
 - `pnpm build`
 - `pnpm check:changed`
+
+Verification snapshot on this branch:
+
+- `pnpm ui:i18n:check`
+- Targeted gateway/CLI/status/UI suites used while porting drift fixes
+- `pnpm exec vitest run --config test/vitest/vitest.extension-browser.config.ts`
+- Full `pnpm check:changed` rerun passed after fixing the `extension-browser` launch-test drift
+- `pnpm build`
 
 ## Runtime Safety
 

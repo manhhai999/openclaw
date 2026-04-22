@@ -67,6 +67,8 @@ type FakeProc = EventEmitter & {
   stderr: EventEmitter;
 };
 
+const MOCK_BROWSER_EXECUTABLE_PATH = "/mock/google-chrome";
+
 function makeFakeProc(overrides: Partial<FakeProc> = {}): FakeProc {
   const stderr = new EventEmitter();
   const proc = Object.assign(new EventEmitter(), {
@@ -80,6 +82,20 @@ function makeFakeProc(overrides: Partial<FakeProc> = {}): FakeProc {
     stderr,
   }) as unknown as FakeProc;
   return Object.assign(proc, overrides);
+}
+
+function makeResolvedConfig(overrides: Partial<ResolvedBrowserConfig> = {}): ResolvedBrowserConfig {
+  return {
+    executablePath: MOCK_BROWSER_EXECUTABLE_PATH,
+    headless: true,
+    noSandbox: true,
+    extraArgs: [],
+    ...overrides,
+  } as unknown as ResolvedBrowserConfig;
+}
+
+function isMockExecutablePath(value: string): boolean {
+  return value === MOCK_BROWSER_EXECUTABLE_PATH;
 }
 
 async function withMockChromeCdpServer(params: {
@@ -153,12 +169,12 @@ describe("chrome.ts internal", () => {
 
   describe("buildOpenClawChromeLaunchArgs branches", () => {
     const baseResolved = (overrides: Partial<ResolvedBrowserConfig> = {}): ResolvedBrowserConfig =>
-      ({
+      makeResolvedConfig({
         headless: false,
         noSandbox: false,
         extraArgs: [],
         ...overrides,
-      }) as unknown as ResolvedBrowserConfig;
+      });
 
     const baseProfile: ResolvedBrowserProfile = {
       name: "openclaw",
@@ -232,7 +248,7 @@ describe("chrome.ts internal", () => {
           }
           return true;
         }
-        if (s.includes("Google Chrome")) {
+        if (isMockExecutablePath(s)) {
           return true;
         }
         return false;
@@ -250,11 +266,7 @@ describe("chrome.ts internal", () => {
             cdpUrl: baseUrl,
             cdpIsLoopback: true,
           } as unknown as ResolvedBrowserProfile;
-          const resolved = {
-            headless: true,
-            noSandbox: true,
-            extraArgs: [],
-          } as unknown as ResolvedBrowserConfig;
+          const resolved = makeResolvedConfig();
           const running = await launchOpenClawChrome(resolved, profile);
           running.proc.kill?.("SIGTERM");
         },
@@ -285,12 +297,8 @@ describe("chrome.ts internal", () => {
         cdpIsLoopback: true,
       }) as unknown as ResolvedBrowserProfile;
 
-    const makeResolved = (): ResolvedBrowserConfig =>
-      ({
-        headless: true,
-        noSandbox: true,
-        extraArgs: [],
-      }) as unknown as ResolvedBrowserConfig;
+    const makeResolved = (overrides: Partial<ResolvedBrowserConfig> = {}): ResolvedBrowserConfig =>
+      makeResolvedConfig(overrides);
 
     it("rejects a remote profile before attempting to spawn", async () => {
       const profile = {
@@ -311,17 +319,16 @@ describe("chrome.ts internal", () => {
       // path is set, then mock existsSync to return false for everything.
       vi.spyOn(fs, "existsSync").mockReturnValue(false);
       const profile = makeProfile(51111);
-      await expect(launchOpenClawChrome(makeResolved(), profile)).rejects.toThrow(
-        /No supported browser found/,
-      );
+      await expect(
+        launchOpenClawChrome(makeResolved({ executablePath: undefined }), profile),
+      ).rejects.toThrow(/No supported browser found/);
     });
 
     it("completes successfully when Chrome reports /json/version and CDP is reachable", async () => {
       // Mock executable discovery to a truthy path.
       vi.spyOn(fs, "existsSync").mockImplementation((p) => {
         const s = String(p);
-        // Pretend the mac Chrome binary exists and the preference files exist.
-        if (s.includes("Google Chrome")) {
+        if (isMockExecutablePath(s)) {
           return true;
         }
         if (s.endsWith("Local State") || s.endsWith("Preferences")) {
@@ -373,11 +380,10 @@ describe("chrome.ts internal", () => {
         // fetch always fails → isChromeReachable returns false every poll.
         vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("ECONNREFUSED")));
 
-        const resolved = {
+        const resolved = makeResolved({
           headless: false,
           noSandbox: false, // sandbox hint will render on linux
-          extraArgs: [],
-        } as unknown as ResolvedBrowserConfig;
+        });
         const profile = makeProfile(55555);
         await expect(launchOpenClawChrome(resolved, profile)).rejects.toThrow(
           /Failed to start Chrome CDP/,
@@ -516,7 +522,9 @@ describe("chrome.ts internal", () => {
           });
         },
         run: async (baseUrl) => {
-          await expect(isChromeCdpReady(baseUrl, 50, 10)).resolves.toBe(true);
+          // This case exercises post-settled message handling, not timeout
+          // behavior, so use relaxed probe budgets to avoid broad-run flakes.
+          await expect(isChromeCdpReady(baseUrl, 500, 250)).resolves.toBe(true);
         },
       });
     });
@@ -693,7 +701,7 @@ describe("chrome.ts internal", () => {
         );
         vi.spyOn(fs, "existsSync").mockImplementation((p) => {
           const s = String(p);
-          if (s.includes("Google Chrome")) {
+          if (isMockExecutablePath(s)) {
             return true;
           }
           // Fall through to real fs for the user-data-dir files.
@@ -711,11 +719,7 @@ describe("chrome.ts internal", () => {
               cdpUrl: baseUrl,
               cdpIsLoopback: true,
             } as unknown as ResolvedBrowserProfile;
-            const resolved = {
-              headless: true,
-              noSandbox: true,
-              extraArgs: [],
-            } as unknown as ResolvedBrowserConfig;
+            const resolved = makeResolvedConfig();
             const running = await launchOpenClawChrome(resolved, profile);
             running.proc.kill?.("SIGTERM");
           },
@@ -731,7 +735,7 @@ describe("chrome.ts internal", () => {
       // Covers the `profile.color ?? DEFAULT_OPENCLAW_BROWSER_COLOR` coalescing.
       vi.spyOn(fs, "existsSync").mockImplementation((p) => {
         const s = String(p);
-        if (s.includes("Google Chrome")) {
+        if (isMockExecutablePath(s)) {
           return true;
         }
         if (s.endsWith("Local State") || s.endsWith("Preferences")) {
@@ -751,11 +755,7 @@ describe("chrome.ts internal", () => {
             cdpUrl: baseUrl,
             cdpIsLoopback: true,
           } as unknown as ResolvedBrowserProfile;
-          const resolved = {
-            headless: true,
-            noSandbox: true,
-            extraArgs: [],
-          } as unknown as ResolvedBrowserConfig;
+          const resolved = makeResolvedConfig();
           const running = await launchOpenClawChrome(resolved, profile);
           running.proc.kill?.("SIGTERM");
         },
@@ -767,7 +767,7 @@ describe("chrome.ts internal", () => {
       // stderrHint truthy branch on failure.
       vi.spyOn(fs, "existsSync").mockImplementation((p) => {
         const s = String(p);
-        if (s.includes("Google Chrome")) {
+        if (isMockExecutablePath(s)) {
           return true;
         }
         if (s.endsWith("Local State") || s.endsWith("Preferences")) {
@@ -789,11 +789,7 @@ describe("chrome.ts internal", () => {
         cdpUrl: "http://127.0.0.1:54321",
         cdpIsLoopback: true,
       } as unknown as ResolvedBrowserProfile;
-      const resolved = {
-        headless: true,
-        noSandbox: true,
-        extraArgs: [],
-      } as unknown as ResolvedBrowserConfig;
+      const resolved = makeResolvedConfig();
       await expect(launchOpenClawChrome(resolved, profile)).rejects.toThrow(/Chrome stderr:/);
     });
 
@@ -804,7 +800,7 @@ describe("chrome.ts internal", () => {
       try {
         vi.spyOn(fs, "existsSync").mockImplementation((p) => {
           const s = String(p);
-          if (s.includes("Google Chrome")) {
+          if (isMockExecutablePath(s)) {
             return true;
           }
           if (s.endsWith("Local State") || s.endsWith("Preferences")) {
@@ -821,11 +817,9 @@ describe("chrome.ts internal", () => {
           cdpUrl: "http://127.0.0.1:54322",
           cdpIsLoopback: true,
         } as unknown as ResolvedBrowserProfile;
-        const resolved = {
-          headless: true,
+        const resolved = makeResolvedConfig({
           noSandbox: false,
-          extraArgs: [],
-        } as unknown as ResolvedBrowserConfig;
+        });
         let caught: unknown;
         try {
           await launchOpenClawChrome(resolved, profile);
@@ -850,7 +844,7 @@ describe("chrome.ts internal", () => {
       }, 50);
       vi.spyOn(fs, "existsSync").mockImplementation((p) => {
         const s = String(p);
-        if (s.includes("Google Chrome")) {
+        if (isMockExecutablePath(s)) {
           return true;
         }
         if (s.endsWith("Local State") || s.endsWith("Preferences")) {
@@ -876,11 +870,7 @@ describe("chrome.ts internal", () => {
             cdpUrl: baseUrl,
             cdpIsLoopback: true,
           } as unknown as ResolvedBrowserProfile;
-          const resolved = {
-            headless: true,
-            noSandbox: true,
-            extraArgs: [],
-          } as unknown as ResolvedBrowserConfig;
+          const resolved = makeResolvedConfig();
           const running = await launchOpenClawChrome(resolved, profile);
           running.proc.kill?.("SIGTERM");
         },
@@ -892,7 +882,7 @@ describe("chrome.ts internal", () => {
       let prefsProbeCount = 0;
       vi.spyOn(fs, "existsSync").mockImplementation((p) => {
         const s = String(p);
-        if (s.includes("Google Chrome")) {
+        if (isMockExecutablePath(s)) {
           return true;
         }
         if (s.endsWith("Local State") || s.endsWith("Preferences")) {
@@ -926,11 +916,7 @@ describe("chrome.ts internal", () => {
             cdpUrl: baseUrl,
             cdpIsLoopback: true,
           } as unknown as ResolvedBrowserProfile;
-          const resolved = {
-            headless: true,
-            noSandbox: true,
-            extraArgs: [],
-          } as unknown as ResolvedBrowserConfig;
+          const resolved = makeResolvedConfig();
           const running = await launchOpenClawChrome(resolved, profile);
           running.proc.kill?.("SIGTERM");
         },
@@ -942,7 +928,7 @@ describe("chrome.ts internal", () => {
       const { decorateOpenClawProfile } = await import("./chrome.profile-decoration.js");
       vi.spyOn(fs, "existsSync").mockImplementation((p) => {
         const s = String(p);
-        if (s.includes("Google Chrome")) {
+        if (isMockExecutablePath(s)) {
           return true;
         }
         if (s.endsWith("Local State") || s.endsWith("Preferences")) {
@@ -975,11 +961,7 @@ describe("chrome.ts internal", () => {
             cdpUrl: baseUrl,
             cdpIsLoopback: true,
           } as unknown as ResolvedBrowserProfile;
-          const resolved = {
-            headless: true,
-            noSandbox: true,
-            extraArgs: [],
-          } as unknown as ResolvedBrowserConfig;
+          const resolved = makeResolvedConfig();
           const running = await launchOpenClawChrome(resolved, profile);
           running.proc.kill?.("SIGTERM");
         },
@@ -992,7 +974,7 @@ describe("chrome.ts internal", () => {
       // Covers the `proc.pid ?? -1` falsy side.
       vi.spyOn(fs, "existsSync").mockImplementation((p) => {
         const s = String(p);
-        if (s.includes("Google Chrome")) {
+        if (isMockExecutablePath(s)) {
           return true;
         }
         if (s.endsWith("Local State") || s.endsWith("Preferences")) {
@@ -1016,11 +998,7 @@ describe("chrome.ts internal", () => {
             cdpUrl: baseUrl,
             cdpIsLoopback: true,
           } as unknown as ResolvedBrowserProfile;
-          const resolved = {
-            headless: true,
-            noSandbox: true,
-            extraArgs: [],
-          } as unknown as ResolvedBrowserConfig;
+          const resolved = makeResolvedConfig();
           const running = await launchOpenClawChrome(resolved, profile);
           expect(running.pid).toBe(-1);
           running.proc.kill?.("SIGTERM");

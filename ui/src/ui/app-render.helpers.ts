@@ -1,5 +1,4 @@
 import { html, nothing } from "lit";
-import { repeat } from "lit/directives/repeat.js";
 import { SUPPORTED_LOCALES, i18n, isSupportedLocale, t, type Locale } from "../i18n/index.ts";
 import { refreshChat, refreshChatAvatar } from "./app-chat.ts";
 import { syncUrlWithSessionKey } from "./app-settings.ts";

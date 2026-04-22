@@ -1,9 +1,4 @@
 import { html, nothing } from "lit";
-import {
-  resolvePendingDeviceApprovalState,
-  type DevicePairingAccessSummary,
-  type PendingDeviceApprovalKind,
-} from "../../../../src/shared/device-pairing-access.js";
 import { t } from "../../i18n/index.ts";
 import type { DeviceTokenSummary, PairedDevice, PendingDevice } from "../controllers/devices.ts";
 import { formatRelativeTimestamp, formatList } from "../format.ts";
@@ -41,11 +36,6 @@ function renderDevices(props: NodesProps) {
   const list = props.devicesList ?? { pending: [], paired: [] };
   const pending = Array.isArray(list.pending) ? list.pending : [];
   const paired = Array.isArray(list.paired) ? list.paired : [];
-  const pairedByDeviceId = new Map(
-    paired
-      .map((device) => [normalizeOptionalString(device.deviceId), device] as const)
-      .filter((entry): entry is [string, PairedDevice] => Boolean(entry[0])),
-  );
   return html`
     <section class="card">
       <div class="row" style="justify-content: space-between;">
@@ -83,50 +73,7 @@ function renderDevices(props: NodesProps) {
   `;
 }
 
-function lookupPairedDevice(
-  pairedByDeviceId: ReadonlyMap<string, PairedDevice>,
-  request: Pick<PendingDevice, "deviceId" | "publicKey">,
-): PairedDevice | undefined {
-  const deviceId = normalizeOptionalString(request.deviceId);
-  if (!deviceId) {
-    return undefined;
-  }
-  const paired = pairedByDeviceId.get(deviceId);
-  if (!paired) {
-    return undefined;
-  }
-  const requestPublicKey = normalizeOptionalString(request.publicKey);
-  const pairedPublicKey = normalizeOptionalString(paired.publicKey);
-  if (requestPublicKey && pairedPublicKey && requestPublicKey !== pairedPublicKey) {
-    return undefined;
-  }
-  return paired;
-}
-
-function formatAccessSummary(access: DevicePairingAccessSummary | null): string {
-  if (!access) {
-    return "none";
-  }
-  return `roles: ${formatList(access.roles)} · scopes: ${formatList(access.scopes)}`;
-}
-
-function renderPendingApprovalNote(kind: PendingDeviceApprovalKind) {
-  switch (kind) {
-    case "scope-upgrade":
-      return "scope upgrade requires approval";
-    case "role-upgrade":
-      return "role upgrade requires approval";
-    case "re-approval":
-      return "reconnect details changed; approval required";
-    case "new-pairing":
-      return "new device pairing request";
-  }
-  const exhaustiveKind: never = kind;
-  void exhaustiveKind;
-  throw new Error("unsupported pending approval kind");
-}
-
-function renderPendingDevice(req: PendingDevice, props: NodesProps, paired?: PairedDevice) {
+function renderPendingDevice(req: PendingDevice, props: NodesProps) {
   const name = normalizeOptionalString(req.displayName) || req.deviceId;
   const age = typeof req.ts === "number" ? formatRelativeTimestamp(req.ts) : t("common.na");
   const roleValue = normalizeOptionalString(req.role) || formatList(req.roles);

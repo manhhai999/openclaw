@@ -6,32 +6,6 @@ import type {
   ExecApprovalRequestPayload,
 } from "../controllers/exec-approval.ts";
 
-function localizeRouteStatus(route?: string | null): string | null {
-  switch (route) {
-    case "delivery-failed":
-      return t("execApprovalPrompt.route.deliveryFailed");
-    case "pending-route":
-      return t("execApprovalPrompt.route.pendingRoute");
-    case "no-route":
-      return t("execApprovalPrompt.route.noRoute");
-    case "delivered":
-      return t("execApprovalPrompt.route.delivered");
-    default:
-      return null;
-  }
-}
-
-function localizeRecoverability(recoverability?: string | null): string | null {
-  switch (recoverability) {
-    case "reconnect-recoverable":
-      return t("execApprovalPrompt.recoverability.reconnectRecoverable");
-    case "terminal":
-      return t("execApprovalPrompt.recoverability.terminal");
-    default:
-      return null;
-  }
-}
-
 function localizeSecurity(value?: string | null): string | null {
   switch (value) {
     case "deny":
@@ -56,28 +30,6 @@ function localizeAsk(value?: string | null): string | null {
     default:
       return value ?? null;
   }
-}
-
-function renderPluginRouteSemantics(entry: AppViewState["execApprovalQueue"][number]) {
-  if (entry.kind !== "plugin") {
-    return nothing;
-  }
-
-  const route = entry.routeStatus;
-  const recoverability = entry.recoverability;
-  if (!route && !recoverability) {
-    return nothing;
-  }
-
-  const routeText = localizeRouteStatus(route);
-  const recoverabilityText = localizeRecoverability(recoverability);
-
-  const parts = [routeText, recoverabilityText].filter((value): value is string => Boolean(value));
-  if (parts.length === 0) {
-    return nothing;
-  }
-
-  return html`<div class="exec-approval-sub">${parts.join(" • ")}</div>`;
 }
 
 function formatRemaining(ms: number): string {

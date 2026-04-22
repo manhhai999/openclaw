@@ -9,6 +9,7 @@ const loadChatHistoryMock = vi.hoisted(() => vi.fn(async () => undefined));
 type GatewayClientMock = {
   start: ReturnType<typeof vi.fn>;
   stop: ReturnType<typeof vi.fn>;
+  request: ReturnType<typeof vi.fn>;
   options: { clientVersion?: string };
   emitHello: (hello?: GatewayHelloOk) => void;
   emitClose: (info: {
@@ -39,6 +40,7 @@ vi.mock("./gateway.ts", async (importOriginal) => {
   class GatewayBrowserClient {
     readonly start = vi.fn();
     readonly stop = vi.fn();
+    readonly request = vi.fn(async () => undefined);
 
     constructor(
       private opts: {
@@ -56,6 +58,7 @@ vi.mock("./gateway.ts", async (importOriginal) => {
       gatewayClientInstances.push({
         start: this.start,
         stop: this.stop,
+        request: this.request,
         options: { clientVersion: this.opts.clientVersion },
         emitHello: (hello) => {
           this.opts.onHello?.(
@@ -104,7 +107,7 @@ type TestGatewayHost = Parameters<typeof connectGateway>[0] & {
 };
 
 function createHost(): TestGatewayHost {
-  return {
+  const host = {
     settings: {
       gatewayUrl: "ws://127.0.0.1:18789",
       token: "",
@@ -120,6 +123,9 @@ function createHost(): TestGatewayHost {
       textScale: 110,
     },
     password: "",
+    applySettings(next: TestGatewayHost["settings"]) {
+      host.settings = next;
+    },
     clientInstanceId: "instance-test",
     client: null,
     connected: false,
@@ -141,25 +147,54 @@ function createHost(): TestGatewayHost {
     assistantAgentId: null,
     localMediaPreviewRoots: [],
     serverVersion: null,
+    basePath: "",
     sessionKey: "main",
     chatMessages: [],
+    chatMessage: "",
+    chatAttachments: [],
     chatQueue: [],
     chatToolMessages: [],
     chatStreamSegments: [],
     chatStream: null,
     chatStreamStartedAt: null,
     chatRunId: null,
+    chatAvatarUrl: null,
     chatSideResult: null,
     chatSending: false,
+    chatModelOverrides: {},
+    chatModelsLoading: false,
+    chatModelCatalog: [],
     toolStreamById: new Map(),
     toolStreamOrder: [],
     toolStreamSyncTimer: null,
+    updateComplete: Promise.resolve(),
+    querySelector: () => null,
+    style: {
+      setProperty: () => undefined,
+    } as unknown as CSSStyleDeclaration,
+    chatScrollFrame: null,
+    chatScrollTimeout: null,
+    chatHasAutoScrolled: false,
+    chatUserNearBottom: true,
+    chatNewMessagesBelow: false,
+    logsScrollFrame: null,
+    logsAtBottom: true,
+    topbarObserver: null,
     refreshSessionsAfterChat: new Set<string>(),
     chatSideResultTerminalRuns: new Set<string>(),
     execApprovalQueue: [],
     execApprovalError: null,
+    skillsReport: null,
+    cronJobs: [],
+    attentionItems: [],
+    overviewLogLines: [],
+    overviewLogCursor: null,
+    modelAuthStatusLoading: false,
+    modelAuthStatusResult: null,
+    modelAuthStatusError: null,
     updateAvailable: null,
-  } as unknown as TestGatewayHost;
+  };
+  return host as unknown as TestGatewayHost;
 }
 
 function connectHostGateway() {
@@ -320,7 +355,8 @@ describe("connectGateway", () => {
         attachments: undefined,
       });
       expect(chatHost.chatQueue).toHaveLength(0);
-      expect(chatHost.chatRunId).toBeNull();
+      expect(chatHost.chatRunId).toEqual(expect.any(String));
+      expect(chatHost.chatRunId).not.toBe("run-1");
     });
   });
 
@@ -501,7 +537,7 @@ describe("connectGateway", () => {
     expect(host.lastErrorCode).toBeNull();
   });
 
-  it("preserves pending approval requests across reconnect", () => {
+  it("clears pending approval requests across reconnect until rehydration completes", () => {
     const host = createHost();
     host.execApprovalQueue = [
       {
@@ -518,8 +554,7 @@ describe("connectGateway", () => {
     expect(host.execApprovalQueue).toHaveLength(1);
 
     connectGateway(host);
-    expect(host.execApprovalQueue).toHaveLength(1);
-    expect(host.execApprovalQueue[0]?.id).toBe("approval-1");
+    expect(host.execApprovalQueue).toEqual([]);
   });
 
   it("maps generic fetch-failed auth errors to actionable token mismatch message", () => {

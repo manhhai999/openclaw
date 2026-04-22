@@ -7,6 +7,7 @@ import {
 } from "../../channels/account-summary.js";
 import { resolveChannelDefaultAccountId } from "../../channels/plugins/helpers.js";
 import { listStatusChannelPlugins } from "../../channels/plugins/status-read.js";
+import { formatChannelStatusState } from "../../channels/plugins/status-state.js";
 import type {
   ChannelAccountSnapshot,
   ChannelId,
@@ -153,7 +154,7 @@ export function buildChannelsTableFromGatewayStatus(payload: Record<string, unkn
   return { rows, details: [] };
 }
 
-type ChannelAccountRow = {
+type ChannelAccountRow = ChannelAccountTokenSummaryRow & {
   accountId: string;
   configured: boolean;
 };

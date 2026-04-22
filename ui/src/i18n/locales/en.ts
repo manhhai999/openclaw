@@ -462,12 +462,6 @@ export const en: TranslationMap = {
       togglePasswordVisibility: "Toggle password visibility",
       connectHint: "Click Connect to apply connection changes.",
       trustedProxy: "Authenticated via trusted proxy.",
-      showToken: "Show token",
-      hideToken: "Hide token",
-      toggleTokenVisibility: "Toggle token visibility",
-      showPassword: "Show password",
-      hidePassword: "Hide password",
-      togglePasswordVisibility: "Toggle password visibility",
     },
     snapshot: {
       title: "Snapshot",
@@ -1496,8 +1490,20 @@ export const en: TranslationMap = {
     },
   },
   languages: {
+    de: "Deutsch (German)",
     en: "English",
+    es: "Espanol (Spanish)",
+    fr: "Francais (French)",
+    id: "Bahasa Indonesia (Indonesian)",
+    jaJP: "日本語 (Japanese)",
+    ko: "한국어 (Korean)",
+    pl: "Polski (Polish)",
+    ptBR: "Portugues (Brazilian Portuguese)",
+    tr: "Turkce (Turkish)",
+    uk: "Українська (Ukrainian)",
     vi: "Tiếng Việt",
+    zhCN: "简体中文 (Simplified Chinese)",
+    zhTW: "繁體中文 (Traditional Chinese)",
   },
   cron: {
     summary: {

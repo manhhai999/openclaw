@@ -21,6 +21,7 @@ function getNestedTranslation(map: TranslationMap | null, ...path: string[]): st
 describe("ui i18n locale registry", () => {
   it("lists supported locales", () => {
     expect(SUPPORTED_LOCALES).toEqual([
+      "vi",
       "en",
       "zh-CN",
       "zh-TW",
@@ -52,6 +53,7 @@ describe("ui i18n locale registry", () => {
     expect(resolveNavigatorLocale("uk-UA")).toBe("uk");
     expect(resolveNavigatorLocale("id-ID")).toBe("id");
     expect(resolveNavigatorLocale("pl-PL")).toBe("pl");
+    expect(resolveNavigatorLocale("vi-VN")).toBe("vi");
   });
 
   it("loads lazy locale translations from the registry", async () => {

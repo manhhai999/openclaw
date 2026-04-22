@@ -12,7 +12,9 @@ import {
 } from "./bundled-compat.js";
 import { normalizePluginsConfig } from "./config-state.js";
 import {
+  buildPluginCapabilityEntries,
   buildPluginShapeSummary,
+  derivePluginInspectShape,
   type PluginCapabilityEntry,
   type PluginInspectShape,
 } from "./inspect-shape.js";
@@ -137,8 +139,8 @@ function buildCompatibilityNoticesFromReport(
   }
 
   return report.plugins.flatMap((plugin) => {
-    const shape = deriveInspectShape({
-      capabilityCount: buildCapabilityEntries(plugin).length,
+    const shape = derivePluginInspectShape({
+      capabilityCount: buildPluginCapabilityEntries(plugin).length,
       typedHookCount: typedHookCounts.get(plugin.id) ?? 0,
       customHookCount: customHookCounts.get(plugin.id) ?? 0,
       toolCount: toolCounts.get(plugin.id) ?? 0,

@@ -21,12 +21,6 @@ import {
 } from "./config-form.shared.ts";
 import { analyzeConfigSchema, getSectionMetaCopy, renderConfigForm } from "./config-form.ts";
 
-const TEXT_SCALE_LABELS: Record<TextScaleStop, string> = {
-  100: "Compact",
-  110: "Comfort",
-  120: "Large",
-};
-
 export type ConfigProps = {
   raw: string;
   originalRaw: string;
@@ -691,7 +685,7 @@ function renderAppearanceSection(props: ConfigProps) {
                     style="font-size: ${Math.round((stop / 100) * 16)}px"
                     >Aa</span
                   >
-                  <span class="settings-text-scale__label">${TEXT_SCALE_LABELS[stop]}</span>
+                  <span class="settings-text-scale__label">${getTextScaleLabel(stop)}</span>
                 </button>
               `,
             )}
@@ -797,12 +791,13 @@ export function renderConfig(props: ConfigProps) {
 
   const VIRTUAL_SECTIONS = new Set(["__appearance__"]);
   const visibleCategories = sectionCategories
-    .map((cat) => ({
-      ...cat,
-      sections: cat.sections.filter(
-        (s) => (includeVirtualSections && VIRTUAL_SECTIONS.has(s.key)) || s.key in schemaProps,
-      ),
-    }))
+    .map((cat) =>
+      Object.assign({}, cat, {
+        sections: cat.sections.filter(
+          (s) => (includeVirtualSections && VIRTUAL_SECTIONS.has(s.key)) || s.key in schemaProps,
+        ),
+      }),
+    )
     .filter((cat) => cat.sections.length > 0);
 
   // Catch any schema keys not in our categories
@@ -840,9 +835,6 @@ export function renderConfig(props: ConfigProps) {
     ),
   ];
 
-  const settingsLayout = props.settingsLayout ?? "tabs";
-  const allCategories = [...visibleCategories, ...(otherCategory ? [otherCategory] : [])];
-
   const resetContentScroll = (target: EventTarget | null) => {
     queueMicrotask(() => {
       const origin = target instanceof Element ? target : null;
@@ -860,94 +852,6 @@ export function renderConfig(props: ConfigProps) {
       content.scrollLeft = 0;
     });
   };
-
-  function renderAccordionNav() {
-    return html`
-      <div class="config-accordion-nav">
-        ${props.onBackToQuick
-          ? html`
-              <button class="config-accordion-nav__back" @click=${props.onBackToQuick}>
-                <svg
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="2"
-                  width="14"
-                  height="14"
-                >
-                  <polyline points="15 18 9 12 15 6"></polyline>
-                </svg>
-                Quick Settings
-              </button>
-            `
-          : nothing}
-        ${allCategories.map(
-          (cat) => html`
-            <div class="config-accordion-group">
-              <button
-                class="config-accordion-group__header ${props.activeSection != null &&
-                cat.sections.some((s) => s.key === props.activeSection)
-                  ? "config-accordion-group__header--active"
-                  : ""}"
-                @click=${(e: Event) => {
-                  const firstKey = cat.sections[0]?.key ?? null;
-                  const isCurrentlyInGroup = cat.sections.some(
-                    (s) => s.key === props.activeSection,
-                  );
-                  props.onSectionChange(isCurrentlyInGroup ? null : firstKey);
-                  resetContentScroll(e.currentTarget);
-                }}
-              >
-                <span class="config-accordion-group__icon">
-                  ${getSectionIcon(cat.sections[0]?.key ?? "default")}
-                </span>
-                <span>${cat.label}</span>
-                <svg
-                  class="config-accordion-group__chevron ${cat.sections.some(
-                    (s) => s.key === props.activeSection,
-                  )
-                    ? "config-accordion-group__chevron--open"
-                    : ""}"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="2"
-                  width="14"
-                  height="14"
-                >
-                  <polyline points="6 9 12 15 18 9"></polyline>
-                </svg>
-              </button>
-              ${cat.sections.some((s) => s.key === props.activeSection)
-                ? html`
-                    <div class="config-accordion-group__items">
-                      ${cat.sections.map(
-                        (s) => html`
-                          <button
-                            class="config-accordion-group__item ${props.activeSection === s.key
-                              ? "config-accordion-group__item--active"
-                              : ""}"
-                            @click=${(e: Event) => {
-                              props.onSectionChange(s.key);
-                              resetContentScroll(e.currentTarget);
-                            }}
-                          >
-                            <span class="config-accordion-group__item-icon">
-                              ${getSectionIcon(s.key)}
-                            </span>
-                            ${s.label}
-                          </button>
-                        `,
-                      )}
-                    </div>
-                  `
-                : nothing}
-            </div>
-          `,
-        )}
-      </div>
-    `;
-  }
 
   // Compute diff for showing changes (works for both form and raw modes)
   const diff = formMode === "form" ? computeDiff(props.originalValue, props.formValue) : [];
@@ -978,63 +882,75 @@ export function renderConfig(props: ConfigProps) {
       <main class="config-main">
         <div class="config-actions">
           <div class="config-actions__left">
-            ${showModeToggle
-              ? html`
-                  <div class="config-mode-toggle">
-                    <button
-                      class="config-mode-toggle__btn ${formMode === "form" ? "active" : ""}"
-                      ?disabled=${props.schemaLoading || !props.schema}
-                      title=${formUnsafe ? t("dashboard.config.mode.formUnsafeTitle") : ""}
-                      @click=${() => props.onFormModeChange("form")}
+            ${
+              showModeToggle
+                ? html`
+                    <div class="config-mode-toggle">
+                      <button
+                        class="config-mode-toggle__btn ${formMode === "form" ? "active" : ""}"
+                        ?disabled=${props.schemaLoading || !props.schema}
+                        title=${formUnsafe ? t("dashboard.config.mode.formUnsafeTitle") : ""}
+                        @click=${() => props.onFormModeChange("form")}
+                      >
+                        ${t("dashboard.config.mode.form")}
+                      </button>
+                      <button
+                        class="config-mode-toggle__btn ${formMode === "raw" ? "active" : ""}"
+                        ?disabled=${!rawAvailable}
+                        title=${rawAvailable
+                          ? t("dashboard.config.mode.rawTitle")
+                          : t("dashboard.config.mode.rawUnavailableTitle")}
+                        @click=${() => props.onFormModeChange("raw")}
+                      >
+                        ${t("dashboard.config.mode.raw")}
+                      </button>
+                    </div>
+                  `
+                : nothing
+            }
+            ${
+              hasChanges
+                ? html`
+                    <span class="config-changes-badge"
+                      >${formMode === "raw"
+                        ? t("dashboard.config.status.unsavedChanges")
+                        : t("dashboard.config.status.pendingChanges", {
+                            count: String(diff.length),
+                          })}</span
                     >
-                      ${t("dashboard.config.mode.form")}
-                    </button>
-                    <button
-                      class="config-mode-toggle__btn ${formMode === "raw" ? "active" : ""}"
-                      ?disabled=${!rawAvailable}
-                      title=${rawAvailable
-                        ? t("dashboard.config.mode.rawTitle")
-                        : t("dashboard.config.mode.rawUnavailableTitle")}
-                      @click=${() => props.onFormModeChange("raw")}
+                  `
+                : html`
+                    <span class="config-status muted"
+                      >${t("dashboard.config.status.noChanges")}</span
                     >
-                      ${t("dashboard.config.mode.raw")}
-                    </button>
-                  </div>
-                `
-              : nothing}
-            ${hasChanges
-              ? html`
-                  <span class="config-changes-badge"
-                    >${formMode === "raw"
-                      ? t("dashboard.config.status.unsavedChanges")
-                      : t("dashboard.config.status.pendingChanges", {
-                          count: String(diff.length),
-                        })}</span
-                  >
-                `
-              : html`
-                  <span class="config-status muted">${t("dashboard.config.status.noChanges")}</span>
-                `}
+                  `
+            }
           </div>
           <div class="config-actions__right">
-            ${!rawAvailable
-              ? html`
-                  <span class="config-status muted">${t("dashboard.config.mode.rawDisabled")}</span>
-                `
-              : nothing}
-            ${props.onOpenFile
-              ? html`
-                  <button
-                    class="btn btn--sm"
-                    title=${props.configPath
-                      ? t("dashboard.config.actions.openFileAt", { path: props.configPath })
-                      : t("dashboard.config.actions.openFile")}
-                    @click=${props.onOpenFile}
-                  >
-                    ${icons.fileText} ${t("dashboard.config.actions.open")}
-                  </button>
-                `
-              : nothing}
+            ${
+              !rawAvailable
+                ? html`
+                    <span class="config-status muted"
+                      >${t("dashboard.config.mode.rawDisabled")}</span
+                    >
+                  `
+                : nothing
+            }
+            ${
+              props.onOpenFile
+                ? html`
+                    <button
+                      class="btn btn--sm"
+                      title=${props.configPath
+                        ? t("dashboard.config.actions.openFileAt", { path: props.configPath })
+                        : t("dashboard.config.actions.openFile")}
+                      @click=${props.onOpenFile}
+                    >
+                      ${icons.fileText} ${t("dashboard.config.actions.open")}
+                    </button>
+                  `
+                : nothing
+            }
             <button class="btn btn--sm" ?disabled=${props.loading} @click=${props.onReload}>
               ${props.loading ? t("common.loading") : t("common.reload")}
             </button>
@@ -1042,21 +958,26 @@ export function renderConfig(props: ConfigProps) {
               ${props.saving ? t("common.saving") : t("common.save")}
             </button>
             <button class="btn btn--sm" ?disabled=${!canApply} @click=${props.onApply}>
-              ${props.applying
-                ? t("dashboard.config.actions.applying")
-                : t("dashboard.config.actions.apply")}
+              ${
+                props.applying
+                  ? t("dashboard.config.actions.applying")
+                  : t("dashboard.config.actions.apply")
+              }
             </button>
             <button class="btn btn--sm" ?disabled=${!canUpdate} @click=${props.onUpdate}>
-              ${props.updating
-                ? t("dashboard.config.actions.updating")
-                : t("dashboard.config.actions.update")}
+              ${
+                props.updating
+                  ? t("dashboard.config.actions.updating")
+                  : t("dashboard.config.actions.update")
+              }
             </button>
           </div>
         </div>
 
         <div class="config-top-tabs">
-          ${formMode === "form"
-            ? html`
+          ${
+            formMode === "form"
+              ? html`
                 <div class="config-search config-search--top">
                   <div class="config-search__input-row">
                     <svg
@@ -1078,40 +999,21 @@ export function renderConfig(props: ConfigProps) {
                       @input=${(e: Event) =>
                         props.onSearchChange((e.target as HTMLInputElement).value)}
                     />
-                    ${props.searchQuery
-                      ? html`
-                          <button
-                            class="config-search__clear"
-                            aria-label=${t("dashboard.config.search.clear")}
-                            @click=${() => props.onSearchChange("")}
-                          >
-                            <circle cx="11" cy="11" r="8"></circle>
-                            <path d="M21 21l-4.35-4.35"></path>
-                          </svg>
-                          <input
-                            type="text"
-                            class="config-search__input"
-                            placeholder="Search settings..."
-                            aria-label="Search settings"
-                            .value=${props.searchQuery}
-                            @input=${(e: Event) =>
-                              props.onSearchChange((e.target as HTMLInputElement).value)}
-                          />
-                          ${props.searchQuery
-                            ? html`
-                                <button
-                                  class="config-search__clear"
-                                  aria-label="Clear search"
-                                  @click=${() => props.onSearchChange("")}
-                                >
-                                  ×
-                                </button>
-                              `
-                            : nothing}
-                        </div>
-                      </div>
-                    `
-                  : nothing}
+                    ${
+                      props.searchQuery
+                        ? html`
+                            <button
+                              class="config-search__clear"
+                              aria-label=${t("dashboard.config.search.clear")}
+                              @click=${() => props.onSearchChange("")}
+                            >
+                              ×
+                            </button>
+                          `
+                        : nothing
+                    }
+                  </div>
+                </div>
 
                 <div
                   class="config-top-tabs__scroller"
@@ -1138,231 +1040,245 @@ export function renderConfig(props: ConfigProps) {
                   )}
                 </div>
               </div>
-            `}
-        ${validity === "invalid" && !cvs.validityDismissed
-          ? html`
-              <div class="config-validity-warning">
-                <svg
-                  class="config-validity-warning__icon"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="2"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  width="16"
-                  height="16"
-                >
-                  <path
-                    d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"
-                  ></path>
-                  <line x1="12" y1="9" x2="12" y2="13"></line>
-                  <line x1="12" y1="17" x2="12.01" y2="17"></line>
-                </svg>
-                <span class="config-validity-warning__text"
-                  >${t("dashboard.config.validity.warning")}</span
-                >
-                <button
-                  class="btn btn--sm"
-                  @click=${() => {
-                    cvs.validityDismissed = true;
-                    requestUpdate();
-                  }}
-                >
-                  ${t("dashboard.config.validity.dismiss")}
-                </button>
-              </div>
-            `
-          : nothing}
+	            `
+              : nothing
+          }
+	        ${
+            validity === "invalid" && !cvs.validityDismissed
+              ? html`
+                  <div class="config-validity-warning">
+                    <svg
+                      class="config-validity-warning__icon"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      width="16"
+                      height="16"
+                    >
+                      <path
+                        d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"
+                      ></path>
+                      <line x1="12" y1="9" x2="12" y2="13"></line>
+                      <line x1="12" y1="17" x2="12.01" y2="17"></line>
+                    </svg>
+                    <span class="config-validity-warning__text"
+                      >${t("dashboard.config.validity.warning")}</span
+                    >
+                    <button
+                      class="btn btn--sm"
+                      @click=${() => {
+                        cvs.validityDismissed = true;
+                        requestUpdate();
+                      }}
+                    >
+                      ${t("dashboard.config.validity.dismiss")}
+                    </button>
+                  </div>
+                `
+              : nothing
+          }
 
         <!-- Diff panel (form mode only - raw mode doesn't have granular diff) -->
-        ${hasChanges && formMode === "form"
-          ? html`
-              <details class="config-diff">
-                <summary class="config-diff__summary">
-                  <span>${t("dashboard.config.diff.summary", { count: String(diff.length) })}</span>
-                  <svg
-                    class="config-diff__chevron"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="2"
-                  >
-                    <polyline points="6 9 12 15 18 9"></polyline>
-                  </svg>
-                </summary>
-                <div class="config-diff__content">
-                  ${diff.map(
-                    (change) => html`
-                      <div class="config-diff__item">
-                        <div class="config-diff__path">${change.path}</div>
-                        <div class="config-diff__values">
-                          <span class="config-diff__from"
-                            >${renderDiffValue(change.path, change.from, props.uiHints)}</span
-                          >
-                          <span class="config-diff__arrow">→</span>
-                          <span class="config-diff__to"
-                            >${renderDiffValue(change.path, change.to, props.uiHints)}</span
-                          >
+        ${
+          hasChanges && formMode === "form"
+            ? html`
+                <details class="config-diff">
+                  <summary class="config-diff__summary">
+                    <span
+                      >${t("dashboard.config.diff.summary", { count: String(diff.length) })}</span
+                    >
+                    <svg
+                      class="config-diff__chevron"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                    >
+                      <polyline points="6 9 12 15 18 9"></polyline>
+                    </svg>
+                  </summary>
+                  <div class="config-diff__content">
+                    ${diff.map(
+                      (change) => html`
+                        <div class="config-diff__item">
+                          <div class="config-diff__path">${change.path}</div>
+                          <div class="config-diff__values">
+                            <span class="config-diff__from"
+                              >${renderDiffValue(change.path, change.from, props.uiHints)}</span
+                            >
+                            <span class="config-diff__arrow">→</span>
+                            <span class="config-diff__to"
+                              >${renderDiffValue(change.path, change.to, props.uiHints)}</span
+                            >
+                          </div>
                         </div>
-                      </div>
-                    `,
-                  )}
-                </div>
-              </details>
-            `
-          : nothing}
-        ${activeSectionMeta && formMode === "form"
-          ? html`
-              <div class="config-section-hero">
-                <div class="config-section-hero__icon">
-                  ${getSectionIcon(props.activeSection ?? "")}
-                </div>
-                <div class="config-section-hero__text">
-                  <div class="config-section-hero__title">${activeSectionMeta.label}</div>
-                  ${activeSectionMeta.description
-                    ? html`<div class="config-section-hero__desc">
-                        ${activeSectionMeta.description}
-                      </div>`
+                      `,
+                    )}
+                  </div>
+                </details>
+              `
+            : nothing
+        }
+        ${
+          activeSectionMeta && formMode === "form"
+            ? html`
+                <div class="config-section-hero">
+                  <div class="config-section-hero__icon">
+                    ${getSectionIcon(props.activeSection ?? "")}
+                  </div>
+                  <div class="config-section-hero__text">
+                    <div class="config-section-hero__title">${activeSectionMeta.label}</div>
+                    ${activeSectionMeta.description
+                      ? html`<div class="config-section-hero__desc">
+                          ${activeSectionMeta.description}
+                        </div>`
+                      : nothing}
+                  </div>
+                  ${props.activeSection === "env"
+                    ? html`
+                        <button
+                          class="config-env-peek-btn ${envSensitiveVisible
+                            ? "config-env-peek-btn--active"
+                            : ""}"
+                          title=${envSensitiveVisible
+                            ? t("dashboard.config.env.hideValues")
+                            : t("dashboard.config.env.revealValues")}
+                          @click=${() => {
+                            cvs.envRevealed = !cvs.envRevealed;
+                            requestUpdate();
+                          }}
+                        >
+                          <svg
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="2"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            width="16"
+                            height="16"
+                          >
+                            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                            <circle cx="12" cy="12" r="3"></circle>
+                          </svg>
+                          ${t("dashboard.config.env.peek")}
+                        </button>
+                      `
                     : nothing}
                 </div>
-                ${props.activeSection === "env"
-                  ? html`
-                      <button
-                        class="config-env-peek-btn ${envSensitiveVisible
-                          ? "config-env-peek-btn--active"
-                          : ""}"
-                        title=${envSensitiveVisible
-                          ? t("dashboard.config.env.hideValues")
-                          : t("dashboard.config.env.revealValues")}
-                        @click=${() => {
-                          cvs.envRevealed = !cvs.envRevealed;
-                          requestUpdate();
-                        }}
-                      >
-                        <svg
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          stroke-width="2"
-                          stroke-linecap="round"
-                          stroke-linejoin="round"
-                          width="16"
-                          height="16"
-                        >
-                          <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
-                          <circle cx="12" cy="12" r="3"></circle>
-                        </svg>
-                        ${t("dashboard.config.env.peek")}
-                      </button>
-                    `
-                  : nothing}
-              </div>
-            `
-          : nothing}
+              `
+            : nothing
+        }
         <!-- Form content -->
         <div class="config-content">
-          ${props.activeSection === "__appearance__"
-            ? includeVirtualSections
-              ? renderAppearanceSection(props)
-              : nothing
-            : formMode === "form"
-              ? html`
-                  ${showAppearanceOnRoot ? renderAppearanceSection(props) : nothing}
-                  ${props.schemaLoading
-                    ? html`
-                        <div class="config-loading">
-                          <div class="config-loading__spinner"></div>
-                          <span>${t("dashboard.config.loadingSchema")}</span>
-                        </div>
-                      `
-                    : renderConfigForm({
-                        schema: analysis.schema,
-                        uiHints: props.uiHints,
-                        value: props.formValue,
-                        rawAvailable,
-                        disabled: props.loading || !props.formValue,
-                        unsupportedPaths: analysis.unsupportedPaths,
-                        onPatch: props.onFormPatch,
-                        searchQuery: props.searchQuery,
-                        activeSection: props.activeSection,
-                        activeSubsection: effectiveSubsection,
-                        revealSensitive:
-                          props.activeSection === "env" ? envSensitiveVisible : false,
-                        isSensitivePathRevealed,
-                        onToggleSensitivePath: (path) => {
-                          toggleSensitivePathReveal(path);
-                          requestUpdate();
-                        },
-                      })}
-                `
-              : (() => {
-                  const sensitiveCount = countSensitiveConfigValues(
-                    props.formValue,
-                    [],
-                    props.uiHints,
-                  );
-                  const blurred = sensitiveCount > 0 && !cvs.rawRevealed;
-                  return html`
-                    ${formUnsafe
+          ${
+            props.activeSection === "__appearance__"
+              ? includeVirtualSections
+                ? renderAppearanceSection(props)
+                : nothing
+              : formMode === "form"
+                ? html`
+                    ${showAppearanceOnRoot ? renderAppearanceSection(props) : nothing}
+                    ${props.schemaLoading
                       ? html`
-                          <div class="callout info" style="margin-bottom: 12px">
-                            ${t("dashboard.config.raw.unsafeNotice")}
+                          <div class="config-loading">
+                            <div class="config-loading__spinner"></div>
+                            <span>${t("dashboard.config.loadingSchema")}</span>
                           </div>
                         `
-                      : nothing}
-                    <div class="field config-raw-field">
-                      <span style="display:flex;align-items:center;gap:8px;">
-                        ${t("dashboard.config.raw.title")}
-                        ${sensitiveCount > 0
-                          ? html`
-                              <span class="pill pill--sm"
-                                >${formatSensitiveCountBadge(sensitiveCount, blurred)}</span
-                              >
-                              <button
-                                class="btn btn--icon config-raw-toggle ${blurred ? "" : "active"}"
-                                title=${blurred
-                                  ? t("dashboard.config.raw.reveal")
-                                  : t("dashboard.config.raw.hide")}
-                                aria-label=${t("dashboard.config.raw.toggleRedaction")}
-                                aria-pressed=${!blurred}
-                                @click=${() => {
-                                  cvs.rawRevealed = !cvs.rawRevealed;
-                                  requestUpdate();
-                                }}
-                              >
-                                ${blurred ? icons.eyeOff : icons.eye}
-                              </button>
-                            `
-                          : nothing}
-                      </span>
-                      ${blurred
+                      : renderConfigForm({
+                          schema: analysis.schema,
+                          uiHints: props.uiHints,
+                          value: props.formValue,
+                          rawAvailable,
+                          disabled: props.loading || !props.formValue,
+                          unsupportedPaths: analysis.unsupportedPaths,
+                          onPatch: props.onFormPatch,
+                          searchQuery: props.searchQuery,
+                          activeSection: props.activeSection,
+                          activeSubsection: effectiveSubsection,
+                          revealSensitive:
+                            props.activeSection === "env" ? envSensitiveVisible : false,
+                          isSensitivePathRevealed,
+                          onToggleSensitivePath: (path) => {
+                            toggleSensitivePathReveal(path);
+                            requestUpdate();
+                          },
+                        })}
+                  `
+                : (() => {
+                    const sensitiveCount = countSensitiveConfigValues(
+                      props.formValue,
+                      [],
+                      props.uiHints,
+                    );
+                    const blurred = sensitiveCount > 0 && !cvs.rawRevealed;
+                    return html`
+                      ${formUnsafe
                         ? html`
-                            <div class="callout info" style="margin-top: 12px">
-                              ${t("dashboard.config.raw.hiddenNotice", {
-                                count: String(sensitiveCount),
-                              })}
+                            <div class="callout info" style="margin-bottom: 12px">
+                              ${t("dashboard.config.raw.unsafeNotice")}
                             </div>
                           `
-                        : html`
-                            <textarea
-                              placeholder=${t("dashboard.config.raw.placeholder")}
-                              .value=${props.raw}
-                              @input=${(e: Event) => {
-                                props.onRawChange((e.target as HTMLTextAreaElement).value);
-                              }}
-                            ></textarea>
-                          `}
-                    </div>
-                  `;
-                })()}
+                        : nothing}
+                      <div class="field config-raw-field">
+                        <span style="display:flex;align-items:center;gap:8px;">
+                          ${t("dashboard.config.raw.title")}
+                          ${sensitiveCount > 0
+                            ? html`
+                                <span class="pill pill--sm"
+                                  >${formatSensitiveCountBadge(sensitiveCount, blurred)}</span
+                                >
+                                <button
+                                  class="btn btn--icon config-raw-toggle ${blurred ? "" : "active"}"
+                                  title=${blurred
+                                    ? t("dashboard.config.raw.reveal")
+                                    : t("dashboard.config.raw.hide")}
+                                  aria-label=${t("dashboard.config.raw.toggleRedaction")}
+                                  aria-pressed=${!blurred}
+                                  @click=${() => {
+                                    cvs.rawRevealed = !cvs.rawRevealed;
+                                    requestUpdate();
+                                  }}
+                                >
+                                  ${blurred ? icons.eyeOff : icons.eye}
+                                </button>
+                              `
+                            : nothing}
+                        </span>
+                        ${blurred
+                          ? html`
+                              <div class="callout info" style="margin-top: 12px">
+                                ${t("dashboard.config.raw.hiddenNotice", {
+                                  count: String(sensitiveCount),
+                                })}
+                              </div>
+                            `
+                          : html`
+                              <textarea
+                                placeholder=${t("dashboard.config.raw.placeholder")}
+                                .value=${props.raw}
+                                @input=${(e: Event) => {
+                                  props.onRawChange((e.target as HTMLTextAreaElement).value);
+                                }}
+                              ></textarea>
+                            `}
+                      </div>
+                    `;
+                  })()
+          }
         </div>
 
-        ${props.issues.length > 0
-          ? html`<div class="callout danger" style="margin-top: 12px;">
-              <pre class="code-block">${JSON.stringify(props.issues, null, 2)}</pre>
-            </div>`
-          : nothing}
+        ${
+          props.issues.length > 0
+            ? html`<div class="callout danger" style="margin-top: 12px;">
+                <pre class="code-block">${JSON.stringify(props.issues, null, 2)}</pre>
+              </div>`
+            : nothing
+        }
       </main>
     </div>
   `;

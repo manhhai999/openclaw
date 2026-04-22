@@ -152,6 +152,7 @@ describe("createScopedVitestConfig", () => {
       });
 
       expect(config.test?.include).toEqual(["utils/utils-misc.test.ts"]);
+      expect(config.test?.passWithNoTests).toBe(true);
     } finally {
       fs.rmSync(tempDir, { recursive: true, force: true });
     }

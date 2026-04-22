@@ -5,6 +5,7 @@ import {
   formatChannelAllowFrom,
 } from "../channels/account-summary.js";
 import { listStatusChannelPlugins } from "../channels/plugins/status-read.js";
+import { formatChannelStatusState } from "../channels/plugins/status-state.js";
 import type { ChannelPlugin } from "../channels/plugins/types.plugin.js";
 import type { ChannelAccountSnapshot } from "../channels/plugins/types.public.js";
 import { type OpenClawConfig, loadConfig } from "../config/config.js";
