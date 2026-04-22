@@ -359,7 +359,7 @@ describe("cron view", () => {
     expect(container.textContent).toContain(t("cron.form.advanced"));
     expect(container.textContent).toContain(t("cron.form.exactTiming"));
     expect(container.textContent).toContain(t("cron.form.staggerWindow"));
-    expect(container.textContent).toContain("Light context");
+    expect(container.textContent).toContain(t("cron.form.lightContext"));
     expect(container.textContent).toContain(t("cron.form.model"));
     expect(container.textContent).toContain(t("cron.form.thinking"));
     expect(container.textContent).toContain(t("cron.form.bestEffortDelivery"));

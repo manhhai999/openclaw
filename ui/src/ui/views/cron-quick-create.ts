@@ -7,6 +7,7 @@
  */
 
 import { html, nothing } from "lit";
+import { t } from "../../i18n/index.ts";
 import { icons } from "../icons.ts";
 import type { CronFormState } from "../ui-types.ts";
 
@@ -51,8 +52,18 @@ type SchedulePreset = {
 };
 
 const SCHEDULE_PRESETS: SchedulePreset[] = [
-  { id: "every-morning", label: "Every morning", icon: "🌅", description: "Daily at 8:00 AM" },
-  { id: "every-evening", label: "Every evening", icon: "🌙", description: "Daily at 6:00 PM" },
+  {
+    id: "every-morning",
+    label: "Every morning",
+    icon: "🌅",
+    description: "Daily at 8:00 AM",
+  },
+  {
+    id: "every-evening",
+    label: "Every evening",
+    icon: "🌙",
+    description: "Daily at 6:00 PM",
+  },
   { id: "hourly", label: "Hourly", icon: "🔄", description: "Every hour" },
   { id: "weekdays", label: "Weekdays", icon: "📅", description: "Mon–Fri at 9:00 AM" },
   { id: "weekly", label: "Weekly", icon: "📆", description: "Every Monday at 9:00 AM" },
@@ -70,6 +81,72 @@ const DELIVERY_PRESETS: DeliveryPreset[] = [
   { id: "silent", label: "Silent", description: "Run without notification" },
   { id: "isolated", label: "Independent session", description: "Run in its own session" },
 ];
+
+function getSchedulePresetCopy(id: SchedulePresetId) {
+  if (id === "every-morning") {
+    return {
+      label: t("cron.quickCreate.schedules.everyMorning.label"),
+      description: t("cron.quickCreate.schedules.everyMorning.description"),
+    };
+  }
+  if (id === "every-evening") {
+    return {
+      label: t("cron.quickCreate.schedules.everyEvening.label"),
+      description: t("cron.quickCreate.schedules.everyEvening.description"),
+    };
+  }
+  if (id === "hourly") {
+    return {
+      label: t("cron.quickCreate.schedules.hourly.label"),
+      description: t("cron.quickCreate.schedules.hourly.description"),
+    };
+  }
+  if (id === "weekdays") {
+    return {
+      label: t("cron.quickCreate.schedules.weekdays.label"),
+      description: t("cron.quickCreate.schedules.weekdays.description"),
+    };
+  }
+  if (id === "weekly") {
+    return {
+      label: t("cron.quickCreate.schedules.weekly.label"),
+      description: t("cron.quickCreate.schedules.weekly.description"),
+    };
+  }
+  return {
+    label: t("cron.quickCreate.schedules.once.label"),
+    description: t("cron.quickCreate.schedules.once.description"),
+  };
+}
+
+function getDeliveryPresetCopy(id: DeliveryPresetId) {
+  if (id === "notify") {
+    return {
+      label: t("cron.quickCreate.delivery.notify.label"),
+      description: t("cron.quickCreate.delivery.notify.description"),
+    };
+  }
+  if (id === "silent") {
+    return {
+      label: t("cron.quickCreate.delivery.silent.label"),
+      description: t("cron.quickCreate.delivery.silent.description"),
+    };
+  }
+  return {
+    label: t("cron.quickCreate.delivery.isolated.label"),
+    description: t("cron.quickCreate.delivery.isolated.description"),
+  };
+}
+
+function getStepLabel(step: CronQuickCreateStep) {
+  if (step === "what") {
+    return t("cron.quickCreate.steps.what");
+  }
+  if (step === "when") {
+    return t("cron.quickCreate.steps.when");
+  }
+  return t("cron.quickCreate.steps.how");
+}
 
 // ── Default draft ──
 
@@ -97,7 +174,7 @@ function buildDefaultScheduleAt(now = new Date()): string {
 
 export function draftToCronFormPatch(draft: CronQuickCreateDraft): Partial<CronFormState> {
   const patch: Partial<CronFormState> = {
-    name: draft.name || "Automation",
+    name: draft.name || t("cron.quickCreate.defaultName"),
     payloadKind: "agentTurn",
     deleteAfterRun: false,
     scheduleAt: "",
@@ -162,11 +239,6 @@ export function draftToCronFormPatch(draft: CronQuickCreateDraft): Partial<CronF
 // ── Step indicators ──
 
 const STEPS: CronQuickCreateStep[] = ["what", "when", "how"];
-const STEP_LABELS: Record<CronQuickCreateStep, string> = {
-  what: "What",
-  when: "When",
-  how: "How",
-};
 
 function renderStepIndicator(current: CronQuickCreateStep) {
   const currentIdx = STEPS.indexOf(current);
@@ -177,7 +249,7 @@ function renderStepIndicator(current: CronQuickCreateStep) {
         return html`
           <div class="cqc-step cqc-step--${state}">
             <span class="cqc-step__dot">${state === "done" ? "✓" : idx + 1}</span>
-            <span class="cqc-step__label">${STEP_LABELS[step]}</span>
+            <span class="cqc-step__label">${getStepLabel(step)}</span>
           </div>
           ${idx < STEPS.length - 1
             ? html`<div class="cqc-step__line cqc-step__line--${state}"></div>`
@@ -193,24 +265,22 @@ function renderStepIndicator(current: CronQuickCreateStep) {
 function renderWhatStep(props: CronQuickCreateProps) {
   return html`
     <div class="cqc-body">
-      <h3 class="cqc-body__heading">What should it do?</h3>
-      <p class="cqc-body__hint muted">
-        Describe the task in natural language. The agent will run this prompt each time.
-      </p>
+      <h3 class="cqc-body__heading">${t("cron.quickCreate.whatTitle")}</h3>
+      <p class="cqc-body__hint muted">${t("cron.quickCreate.whatHint")}</p>
       <textarea
         class="cqc-textarea"
-        placeholder="e.g., Check my inbox for urgent emails and summarize them..."
+        placeholder=${t("cron.quickCreate.promptPlaceholder")}
         rows="4"
         .value=${props.draft.prompt}
         @input=${(e: Event) =>
           props.onDraftChange({ prompt: (e.target as HTMLTextAreaElement).value })}
       ></textarea>
       <div class="cqc-field">
-        <label class="cqc-field__label">Name (optional)</label>
+        <label class="cqc-field__label">${t("cron.quickCreate.nameLabel")}</label>
         <input
           class="cqc-input"
           type="text"
-          placeholder="e.g., Morning inbox check"
+          placeholder=${t("cron.quickCreate.namePlaceholder")}
           .value=${props.draft.name}
           @input=${(e: Event) =>
             props.onDraftChange({ name: (e.target as HTMLInputElement).value })}
@@ -218,13 +288,13 @@ function renderWhatStep(props: CronQuickCreateProps) {
       </div>
     </div>
     <div class="cqc-actions">
-      <button class="btn" @click=${props.onCancel}>Cancel</button>
+      <button class="btn" @click=${props.onCancel}>${t("common.cancel")}</button>
       <button
         class="btn primary"
         ?disabled=${!props.draft.prompt.trim()}
         @click=${() => props.onStepChange("when")}
       >
-        Next ${icons.chevronRight}
+        ${t("common.next")} ${icons.chevronRight}
       </button>
     </div>
   `;
@@ -233,11 +303,12 @@ function renderWhatStep(props: CronQuickCreateProps) {
 function renderWhenStep(props: CronQuickCreateProps) {
   return html`
     <div class="cqc-body">
-      <h3 class="cqc-body__heading">When should it run?</h3>
-      <p class="cqc-body__hint muted">Pick a schedule. You can fine-tune it later.</p>
+      <h3 class="cqc-body__heading">${t("cron.quickCreate.whenTitle")}</h3>
+      <p class="cqc-body__hint muted">${t("cron.quickCreate.whenHint")}</p>
       <div class="cqc-preset-grid">
-        ${SCHEDULE_PRESETS.map(
-          (preset) => html`
+        ${SCHEDULE_PRESETS.map((preset) => {
+          const copy = getSchedulePresetCopy(preset.id);
+          return html`
             <button
               class="cqc-preset-card ${props.draft.schedulePreset === preset.id
                 ? "cqc-preset-card--active"
@@ -245,17 +316,17 @@ function renderWhenStep(props: CronQuickCreateProps) {
               @click=${() => props.onDraftChange({ schedulePreset: preset.id })}
             >
               <span class="cqc-preset-card__icon">${preset.icon}</span>
-              <span class="cqc-preset-card__label">${preset.label}</span>
-              <span class="cqc-preset-card__desc muted">${preset.description}</span>
+              <span class="cqc-preset-card__label">${copy.label}</span>
+              <span class="cqc-preset-card__desc muted">${copy.description}</span>
             </button>
-          `,
-        )}
+          `;
+        })}
       </div>
     </div>
     <div class="cqc-actions">
-      <button class="btn" @click=${() => props.onStepChange("what")}>Back</button>
+      <button class="btn" @click=${() => props.onStepChange("what")}>${t("common.back")}</button>
       <button class="btn primary" @click=${() => props.onStepChange("how")}>
-        Next ${icons.chevronRight}
+        ${t("common.next")} ${icons.chevronRight}
       </button>
     </div>
   `;
@@ -264,11 +335,12 @@ function renderWhenStep(props: CronQuickCreateProps) {
 function renderHowStep(props: CronQuickCreateProps) {
   return html`
     <div class="cqc-body">
-      <h3 class="cqc-body__heading">How should it work?</h3>
-      <p class="cqc-body__hint muted">Choose how results are delivered.</p>
+      <h3 class="cqc-body__heading">${t("cron.quickCreate.howTitle")}</h3>
+      <p class="cqc-body__hint muted">${t("cron.quickCreate.howHint")}</p>
       <div class="cqc-delivery-options">
-        ${DELIVERY_PRESETS.map(
-          (preset) => html`
+        ${DELIVERY_PRESETS.map((preset) => {
+          const copy = getDeliveryPresetCopy(preset.id);
+          return html`
             <label
               class="cqc-radio-card ${props.draft.deliveryPreset === preset.id
                 ? "cqc-radio-card--active"
@@ -280,16 +352,18 @@ function renderHowStep(props: CronQuickCreateProps) {
                 .checked=${props.draft.deliveryPreset === preset.id}
                 @change=${() => props.onDraftChange({ deliveryPreset: preset.id })}
               />
-              <span class="cqc-radio-card__label">${preset.label}</span>
-              <span class="cqc-radio-card__desc muted">${preset.description}</span>
+              <span class="cqc-radio-card__label">${copy.label}</span>
+              <span class="cqc-radio-card__desc muted">${copy.description}</span>
             </label>
-          `,
-        )}
+          `;
+        })}
       </div>
     </div>
     <div class="cqc-actions">
-      <button class="btn" @click=${() => props.onStepChange("when")}>Back</button>
-      <button class="btn primary" @click=${props.onCreate}>Create ${icons.check}</button>
+      <button class="btn" @click=${() => props.onStepChange("when")}>${t("common.back")}</button>
+      <button class="btn primary" @click=${props.onCreate}>
+        ${t("common.create")} ${icons.check}
+      </button>
     </div>
   `;
 }
@@ -304,7 +378,7 @@ export function renderCronQuickCreate(props: CronQuickCreateProps) {
   return html`
     <div class="cqc-container">
       <div class="cqc-header">
-        <h2 class="cqc-header__title">${icons.zap} New Automation</h2>
+        <h2 class="cqc-header__title">${icons.zap} ${t("cron.quickCreate.title")}</h2>
         <button class="cqc-header__close" @click=${props.onCancel}>${icons.x}</button>
       </div>
 

@@ -397,8 +397,8 @@ export function renderChatMobileToggle(state: AppViewState) {
             }
           }
         }}
-        title="Chat settings"
-        aria-label="Chat settings"
+        title=${t("common.chatSettings")}
+        aria-label=${t("common.chatSettings")}
       >
         <svg
           width="18"
@@ -549,6 +549,16 @@ const THEME_MODE_OPTIONS: ThemeModeOption[] = [
   { id: "dark", label: "Dark", short: "DARK" },
 ];
 
+function getThemeModeLabel(mode: ThemeMode) {
+  if (mode === "light") {
+    return t("common.light");
+  }
+  if (mode === "dark") {
+    return t("common.dark");
+  }
+  return t("common.system");
+}
+
 function resolveSelectedLocale(state: AppViewState): Locale {
   return isSupportedLocale(state.settings.locale) ? state.settings.locale : i18n.getLocale();
 }
@@ -643,7 +653,7 @@ export function renderTopbarThemeModeToggle(state: AppViewState) {
   };
 
   return html`
-    <div class="topbar-theme-mode" role="group" aria-label="Color mode">
+    <div class="topbar-theme-mode" role="group" aria-label=${t("common.colorMode")}>
       ${THEME_MODE_OPTIONS.map(
         (opt) => html`
           <button
@@ -651,8 +661,8 @@ export function renderTopbarThemeModeToggle(state: AppViewState) {
             class="topbar-theme-mode__btn ${opt.id === state.themeMode
               ? "topbar-theme-mode__btn--active"
               : ""}"
-            title=${opt.label}
-            aria-label="Color mode: ${opt.label}"
+            title=${getThemeModeLabel(opt.id)}
+            aria-label="${t("common.colorMode")}: ${getThemeModeLabel(opt.id)}"
             aria-pressed=${opt.id === state.themeMode}
             @click=${(e: Event) => applyMode(opt.id, e)}
           >
@@ -675,8 +685,8 @@ export function renderSidebarConnectionStatus(state: AppViewState) {
       class="sidebar-version__status ${toneClass}"
       role="img"
       aria-live="polite"
-      aria-label="Gateway status: ${label}"
-      title="Gateway status: ${label}"
+      aria-label="${t("common.gatewayStatus")}: ${label}"
+      title="${t("common.gatewayStatus")}: ${label}"
     ></span>
   `;
 }

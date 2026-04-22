@@ -1,6 +1,6 @@
 import { render } from "lit";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { i18n } from "../../i18n/index.ts";
+import { i18n, t } from "../../i18n/index.ts";
 import type { ThemeMode, ThemeName } from "../theme.ts";
 import { renderConfig, type ConfigProps } from "./config.ts";
 
@@ -263,12 +263,12 @@ describe("config view", () => {
     const tabs = Array.from(container.querySelectorAll(".config-top-tabs__tab")).map((tab) =>
       tab.textContent?.trim(),
     );
-    expect(tabs).toContain("Settings");
-    expect(tabs).toContain("Agents");
-    expect(tabs).toContain("Gateway");
+    expect(tabs).toContain(t("dashboard.config.rootTab"));
+    expect(tabs).toContain(t("dashboard.config.sections.agents.label"));
+    expect(tabs).toContain(t("dashboard.config.sections.gateway.label"));
 
     const btn = Array.from(container.querySelectorAll("button")).find(
-      (b) => b.textContent?.trim() === "Gateway",
+      (b) => b.textContent?.trim() === t("dashboard.config.sections.gateway.label"),
     );
     expect(btn).toBeTruthy();
     btn?.click();
@@ -331,6 +331,47 @@ describe("config view", () => {
     expect(content.scrollTo).toHaveBeenCalledWith({ top: 0, left: 0, behavior: "auto" });
     expect(content.scrollTop).toBe(0);
     expect(content.scrollLeft).toBe(0);
+  });
+
+  it("keeps config content outside the top tab scroller container", () => {
+    const { container } = renderConfigView({
+      activeSection: "channels",
+      navRootLabel: "Communication",
+      includeSections: ["channels", "messages"],
+      schema: {
+        type: "object",
+        properties: {
+          channels: {
+            type: "object",
+            properties: {
+              telegram: { type: "string" },
+            },
+          },
+          messages: {
+            type: "object",
+            properties: {
+              inbox: { type: "string" },
+            },
+          },
+        },
+      },
+      formValue: {
+        channels: { telegram: "on" },
+        messages: { inbox: "smart" },
+      },
+      originalValue: {
+        channels: { telegram: "on" },
+        messages: { inbox: "smart" },
+      },
+    });
+
+    const topTabs = container.querySelector(".config-top-tabs");
+    const content = container.querySelector(".config-content");
+
+    expect(topTabs).not.toBeNull();
+    expect(content).not.toBeNull();
+    expect(topTabs?.querySelector(".config-content")).toBeNull();
+    expect(content?.closest(".config-top-tabs")).toBeNull();
   });
 
   it("renders and wires the search field controls", () => {

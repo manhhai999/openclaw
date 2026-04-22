@@ -293,7 +293,7 @@ describe("dreaming view", () => {
       "Use the BA request-a-receipt flow first.",
     );
     expect(container.querySelector(".dreams-diary__explainer")?.textContent).toContain(
-      "imported insights clustered from external history",
+      t("dreaming.diary.explainers.insights"),
     );
     setDreamDiarySubTab("dreams");
     setDreamSubTab("scene");
@@ -343,7 +343,7 @@ describe("dreaming view", () => {
     await Promise.resolve();
 
     expect(container.querySelector(".dreams-diary__preview-hint")?.textContent).toContain(
-      "6001 total lines",
+      t("dreaming.preview.firstChunkWithLines", { count: "6001" }),
     );
 
     container
@@ -361,9 +361,11 @@ describe("dreaming view", () => {
     expect(container.querySelector(".dreams-diary__insight-card")?.textContent).toContain(
       "Travel system",
     );
-    expect(container.querySelector(".dreams-diary__insight-card")?.textContent).toContain("Claims");
+    expect(container.querySelector(".dreams-diary__insight-card")?.textContent).toContain(
+      t("dreaming.palace.claimsTitle"),
+    );
     expect(container.querySelector(".dreams-diary__explainer")?.textContent).toContain(
-      "compiled memory wiki surface",
+      t("dreaming.diary.explainers.palace"),
     );
     setDreamDiarySubTab("dreams");
     setDreamSubTab("scene");
@@ -379,8 +381,9 @@ describe("dreaming view", () => {
         onOpenConfig,
       }),
     );
-    expect(container.textContent).toContain("Memory Wiki is not enabled");
-    expect(container.textContent).toContain("plugins.entries.memory-wiki.enabled = true");
+    expect(container.textContent).toContain(t("dreaming.wikiDisabled.title"));
+    expect(container.textContent).toContain(t("dreaming.wikiDisabled.pluginHint"));
+    expect(container.textContent).toContain(t("dreaming.wikiDisabled.enableHint"));
 
     container
       .querySelector<HTMLButtonElement>(".dreams-diary__empty-actions .btn")
@@ -541,6 +544,27 @@ describe("dreaming view", () => {
     );
     expect(container.textContent).not.toContain("Signal Hotspots");
     setDreamAdvancedWaitingSort("recent");
+    setDreamSubTab("scene");
+  });
+
+  it("localizes the archive-copy action inside advanced status messages", () => {
+    setDreamSubTab("advanced");
+    const onCopyDreamingArchivePath = vi.fn();
+    const container = renderInto(
+      buildProps({
+        dreamDiaryActionMessage: { kind: "success", text: "done" },
+        dreamDiaryActionArchivePath: "/tmp/archive",
+        onCopyDreamingArchivePath,
+      }),
+    );
+
+    const button = Array.from(container.querySelectorAll("button")).find(
+      (node) => node.textContent?.trim() === t("dreaming.advanced.copyArchivePath"),
+    );
+    expect(button).toBeTruthy();
+    button?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    expect(onCopyDreamingArchivePath).toHaveBeenCalledTimes(1);
+
     setDreamSubTab("scene");
   });
 

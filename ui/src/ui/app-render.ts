@@ -441,7 +441,7 @@ const KNOWN_PROVIDER_KEYS = [
 function formatQuickSettingsLabel(id: string): string {
   const trimmed = id.trim();
   if (!trimmed) {
-    return "Unknown";
+    return t("common.unknown");
   }
   return trimmed
     .split(/[-_]+/)
@@ -478,7 +478,7 @@ function extractQuickSettingsChannels(state: AppViewState): QuickSettingsChannel
       id,
       label: knownLabels.get(id) ?? formatQuickSettingsLabel(id),
       connected: hasConfig,
-      detail: hasConfig ? "Configured" : undefined,
+      detail: hasConfig ? t("common.configured") : undefined,
     });
   }
   return channels;
@@ -594,14 +594,16 @@ async function applyQuickSettingsPreset(state: AppViewState, presetId: ConfigPre
     }
     const baseHash = state.configSnapshot?.hash?.trim();
     if (!baseHash) {
-      throw new Error("Config base hash unavailable. Reload config and retry.");
+      throw new Error(t("dashboard.quickSettings.errors.baseHashUnavailable"));
     }
     const baseConfig = cloneConfigObject(state.configForm ?? state.configSnapshot?.config ?? {});
     const merged = applyMergePatch(baseConfig, preset.patch) as Record<string, unknown>;
     await state.client.request("config.patch", { raw: serializeConfigForm(merged), baseHash });
     await loadConfig(state);
   } catch (err) {
-    state.lastError = `Failed to apply preset: ${String(err)}`;
+    state.lastError = t("dashboard.quickSettings.errors.applyPresetFailed", {
+      error: String(err),
+    });
   } finally {
     state.configApplying = false;
   }
