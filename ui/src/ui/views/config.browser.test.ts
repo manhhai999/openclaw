@@ -222,6 +222,26 @@ describe("config view", () => {
     expect(onFormModeChange).not.toHaveBeenCalled();
   });
 
+  it("keeps Raw mode available for derived snapshots", () => {
+    const { container } = renderConfigView({
+      formMode: "raw",
+      rawAvailable: true,
+      raw: '{\n  "gateway": { "mode": "local" }\n}\n',
+      originalRaw: "{\n}\n",
+      formValue: { gateway: { mode: "local" } },
+      originalValue: {},
+    });
+
+    const rawButton = Array.from(container.querySelectorAll("button")).find(
+      (btn) => btn.textContent?.trim() === "Raw",
+    );
+    expect(rawButton?.disabled).toBe(false);
+    expect(normalizedText(container)).not.toContain(
+      "Raw mode disabled (snapshot cannot safely round-trip raw text).",
+    );
+    expect(container.querySelector(".config-raw-field")).not.toBeNull();
+  });
+
   it("renders section tabs and switches sections from the sidebar", () => {
     const container = document.createElement("div");
     const onSectionChange = vi.fn();

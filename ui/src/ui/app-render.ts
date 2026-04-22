@@ -14,7 +14,7 @@ import {
   renderChatControls,
   renderChatMobileToggle,
   renderChatSessionSelect,
-  renderTopbarLanguageToggle,
+  renderTopbarLanguagePicker,
   renderTab,
   resolveAssistantAttachmentAuthToken,
   renderSidebarConnectionStatus,
@@ -874,7 +874,9 @@ export function renderApp(state: AppViewState) {
     gatewayUrl: state.settings.gatewayUrl,
     assistantName: state.assistantName,
     configPath: state.configSnapshot?.path ?? null,
-    rawAvailable: typeof state.configSnapshot?.raw === "string",
+    rawAvailable:
+      typeof state.configSnapshot?.raw === "string" ||
+      (typeof state.configSnapshot?.raw !== "string" && state.configValid === true),
   } satisfies Omit<
     ConfigProps,
     | "formMode"
@@ -1256,7 +1258,7 @@ export function renderApp(state: AppViewState) {
             </button>
             <div class="topbar-status">
               ${isChat ? renderChatMobileToggle(state) : nothing}
-              ${renderTopbarLanguageToggle(state)} ${renderTopbarThemeModeToggle(state)}
+              ${renderTopbarLanguagePicker(state)} ${renderTopbarThemeModeToggle(state)}
             </div>
           </div>
         </div>

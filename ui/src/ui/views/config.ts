@@ -978,29 +978,28 @@ export function renderConfig(props: ConfigProps) {
           ${
             formMode === "form"
               ? html`
-                <div class="config-search config-search--top">
-                  <div class="config-search__input-row">
-                    <svg
-                      class="config-search__icon"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      stroke-width="2"
-                    >
-                      <circle cx="11" cy="11" r="8"></circle>
-                      <path d="M21 21l-4.35-4.35"></path>
-                    </svg>
-                    <input
-                      type="text"
-                      class="config-search__input"
-                      placeholder=${t("dashboard.config.search.placeholder")}
-                      aria-label=${t("dashboard.config.search.aria")}
-                      .value=${props.searchQuery}
-                      @input=${(e: Event) =>
-                        props.onSearchChange((e.target as HTMLInputElement).value)}
-                    />
-                    ${
-                      props.searchQuery
+                  <div class="config-search config-search--top">
+                    <div class="config-search__input-row">
+                      <svg
+                        class="config-search__icon"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"
+                      >
+                        <circle cx="11" cy="11" r="8"></circle>
+                        <path d="M21 21l-4.35-4.35"></path>
+                      </svg>
+                      <input
+                        type="text"
+                        class="config-search__input"
+                        placeholder=${t("dashboard.config.search.placeholder")}
+                        aria-label=${t("dashboard.config.search.aria")}
+                        .value=${props.searchQuery}
+                        @input=${(e: Event) =>
+                          props.onSearchChange((e.target as HTMLInputElement).value)}
+                      />
+                      ${props.searchQuery
                         ? html`
                             <button
                               class="config-search__clear"
@@ -1010,37 +1009,35 @@ export function renderConfig(props: ConfigProps) {
                               ×
                             </button>
                           `
-                        : nothing
-                    }
+                        : nothing}
+                    </div>
                   </div>
-                </div>
 
-                <div
-                  class="config-top-tabs__scroller"
-                  role="tablist"
-                  aria-label="${t("common.settingsSections")}"
-                >
-                  ${topTabs.map(
-                    (tab) => html`
-                      <button
-                        class="config-top-tabs__tab ${props.activeSection === tab.key
-                          ? "active"
-                          : ""}"
-                        role="tab"
-                        aria-selected=${props.activeSection === tab.key}
-                        @click=${(e: Event) => {
-                          props.onSectionChange(tab.key);
-                          resetContentScroll(e.currentTarget);
-                        }}
-                        title=${tab.label}
-                      >
-                        ${tab.label}
-                      </button>
-                    `,
-                  )}
-                </div>
-              </div>
-	            `
+                  <div
+                    class="config-top-tabs__scroller"
+                    role="tablist"
+                    aria-label="${t("common.settingsSections")}"
+                  >
+                    ${topTabs.map(
+                      (tab) => html`
+                        <button
+                          class="config-top-tabs__tab ${props.activeSection === tab.key
+                            ? "active"
+                            : ""}"
+                          role="tab"
+                          aria-selected=${props.activeSection === tab.key}
+                          @click=${(e: Event) => {
+                            props.onSectionChange(tab.key);
+                            resetContentScroll(e.currentTarget);
+                          }}
+                          title=${tab.label}
+                        >
+                          ${tab.label}
+                        </button>
+                      `,
+                    )}
+                  </div>
+                `
               : nothing
           }
 	        ${
