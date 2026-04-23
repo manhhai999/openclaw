@@ -553,6 +553,27 @@ function isSafeRelativePath(relPath: string) {
   return true;
 }
 
+function resolveAutoDetectedControlUiRootState(): ControlUiRootState | undefined {
+  const resolvedRoot = resolveControlUiRootSync({
+    moduleUrl: import.meta.url,
+    argv1: process.argv[1],
+    cwd: process.cwd(),
+  });
+  if (!resolvedRoot) {
+    return undefined;
+  }
+  return {
+    kind: isPackageProvenControlUiRootSync(resolvedRoot, {
+      moduleUrl: import.meta.url,
+      argv1: process.argv[1],
+      cwd: process.cwd(),
+    })
+      ? "bundled"
+      : "resolved",
+    path: resolvedRoot,
+  };
+}
+
 export function handleControlUiHttpRequest(
   req: IncomingMessage,
   res: ServerResponse,
@@ -627,7 +648,10 @@ export function handleControlUiHttpRequest(
     return true;
   }
 
-  const rootState = opts?.root;
+  const rootState =
+    opts?.root?.kind === "resolved" || opts?.root?.kind === "bundled"
+      ? opts.root
+      : (resolveAutoDetectedControlUiRootState() ?? opts?.root);
   if (rootState?.kind === "invalid") {
     respondControlUiAssetsUnavailable(res, { configuredRootPath: rootState.path });
     return true;
@@ -636,15 +660,7 @@ export function handleControlUiHttpRequest(
     respondControlUiAssetsUnavailable(res);
     return true;
   }
-
-  const root =
-    rootState?.kind === "resolved" || rootState?.kind === "bundled"
-      ? rootState.path
-      : resolveControlUiRootSync({
-          moduleUrl: import.meta.url,
-          argv1: process.argv[1],
-          cwd: process.cwd(),
-        });
+  const root = rootState?.path;
   if (!root) {
     respondControlUiAssetsUnavailable(res);
     return true;
@@ -690,14 +706,7 @@ export function handleControlUiHttpRequest(
     return true;
   }
 
-  const isBundledRoot =
-    rootState?.kind === "bundled" ||
-    (rootState === undefined &&
-      isPackageProvenControlUiRootSync(root, {
-        moduleUrl: import.meta.url,
-        argv1: process.argv[1],
-        cwd: process.cwd(),
-      }));
+  const isBundledRoot = rootState?.kind === "bundled";
   const rejectHardlinks = !isBundledRoot;
   const safeFile = resolveSafeControlUiFile(rootReal, filePath, rejectHardlinks);
   if (safeFile) {
