@@ -269,7 +269,9 @@ function tmPath(entry: LocaleEntry): string {
 
 async function importLocaleModule<T>(filePath: string): Promise<T> {
   const stats = await stat(filePath);
-  const href = `${pathToFileURL(filePath).href}?ts=${stats.mtimeMs}`;
+  // `tsx` can reuse a prior transformed module within the same process even
+  // when we need a fresh read for sequential locale comparisons.
+  const href = `${pathToFileURL(filePath).href}?ts=${stats.mtimeMs}&nonce=${Date.now()}-${Math.random()}`;
   return (await import(href)) as T;
 }
 
@@ -1191,6 +1193,12 @@ async function syncLocale(
     currentMeta !== expectedMeta ||
     currentGlossary !== expectedGlossary ||
     currentTm !== expectedTm;
+
+  if (changed && process.env.OPENCLAW_CONTROL_UI_I18N_DEBUG_LOCALE === entry.locale) {
+    logProgress(
+      `${localeLabel}: debug locale=${currentLocale === expectedLocale} meta=${currentMeta === expectedMeta} glossary=${currentGlossary === expectedGlossary} tm=${currentTm === expectedTm}`,
+    );
+  }
 
   if (
     !changed ||

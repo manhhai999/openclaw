@@ -7,6 +7,7 @@ import {
   SUPPORTED_LOCALES,
   isSupportedLocale,
   loadLazyLocaleTranslation,
+  resolveNavigatorLocale,
 } from "./registry.ts";
 import type { Locale, TranslationMap } from "./types.ts";
 
@@ -55,7 +56,9 @@ class I18nManager {
     if (isSupportedLocale(saved)) {
       return saved;
     }
-    return DEFAULT_APP_LOCALE;
+    const language =
+      typeof globalThis.navigator?.language === "string" ? globalThis.navigator.language : "";
+    return resolveNavigatorLocale(language);
   }
 
   private loadLocale() {

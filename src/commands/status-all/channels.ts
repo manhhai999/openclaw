@@ -60,6 +60,8 @@ function buildGatewayChannelRow(params: {
   const anyConfigured =
     params.accounts.some((account) => account.configured === true) ||
     params.summary?.configured === true;
+  const statusState =
+    typeof params.summary?.statusState === "string" ? params.summary.statusState : null;
   const linked = typeof params.summary?.linked === "boolean" ? params.summary.linked : null;
   const firstError = enabledAccounts.find(
     (account) => typeof account.lastError === "string" && account.lastError.trim(),
@@ -85,7 +87,17 @@ function buildGatewayChannelRow(params: {
     };
   }
 
-  if (linked === true) {
+  if (statusState === "unstable") {
+    return {
+      id: params.id as ChannelId,
+      label: params.label,
+      enabled: true,
+      state: "warn",
+      detail: formatChannelStatusState(statusState),
+    };
+  }
+
+  if (statusState === "linked" || linked === true) {
     return {
       id: params.id as ChannelId,
       label: params.label,
@@ -95,7 +107,7 @@ function buildGatewayChannelRow(params: {
     };
   }
 
-  if (linked === false) {
+  if (statusState === "not-linked" || linked === false) {
     return {
       id: params.id as ChannelId,
       label: params.label,
