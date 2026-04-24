@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { withEnvAsync } from "../test-utils/env.js";
 import { __resetContainerCacheForTest } from "./net.js";
 import { resolveGatewayRuntimeConfig } from "./server-runtime-config.js";
 
@@ -13,6 +14,16 @@ const TOKEN_AUTH = {
   mode: "token" as const,
   token: "test-token-123",
 };
+
+async function withClearedGatewayAuthEnv<T>(fn: () => Promise<T>): Promise<T> {
+  return await withEnvAsync(
+    {
+      OPENCLAW_GATEWAY_TOKEN: undefined,
+      OPENCLAW_GATEWAY_PASSWORD: undefined,
+    },
+    fn,
+  );
+}
 
 describe("resolveGatewayRuntimeConfig", () => {
   describe("trusted-proxy auth mode", () => {
@@ -63,7 +74,9 @@ describe("resolveGatewayRuntimeConfig", () => {
         expectedBindHost: "127.0.0.1",
       },
     ])("allows $name", async ({ cfg, expectedBindHost }) => {
-      const result = await resolveGatewayRuntimeConfig({ cfg, port: 18789 });
+      const result = await withClearedGatewayAuthEnv(async () =>
+        resolveGatewayRuntimeConfig({ cfg, port: 18789 }),
+      );
       expect(result.authMode).toBe("trusted-proxy");
       expect(result.bindHost).toBe(expectedBindHost);
     });
@@ -91,22 +104,26 @@ describe("resolveGatewayRuntimeConfig", () => {
           "gateway auth mode=trusted-proxy requires gateway.trustedProxies to be configured",
       },
     ])("rejects $name", async ({ cfg, expectedMessage }) => {
-      await expect(resolveGatewayRuntimeConfig({ cfg, port: 18789 })).rejects.toThrow(
-        expectedMessage,
-      );
+      await withClearedGatewayAuthEnv(async () => {
+        await expect(resolveGatewayRuntimeConfig({ cfg, port: 18789 })).rejects.toThrow(
+          expectedMessage,
+        );
+      });
     });
 
     it("allows loopback binding with non-loopback trusted proxies", async () => {
-      const result = await resolveGatewayRuntimeConfig({
-        cfg: {
-          gateway: {
-            bind: "loopback",
-            auth: TRUSTED_PROXY_AUTH,
-            trustedProxies: ["10.0.0.1"],
+      const result = await withClearedGatewayAuthEnv(async () =>
+        resolveGatewayRuntimeConfig({
+          cfg: {
+            gateway: {
+              bind: "loopback",
+              auth: TRUSTED_PROXY_AUTH,
+              trustedProxies: ["10.0.0.1"],
+            },
           },
-        },
-        port: 18789,
-      });
+          port: 18789,
+        }),
+      );
 
       expect(result.authMode).toBe("trusted-proxy");
       expect(result.bindHost).toBe("127.0.0.1");

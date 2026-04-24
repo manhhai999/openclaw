@@ -1,10 +1,11 @@
 import { render } from "lit";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { i18n, t } from "../../i18n/index.ts";
 import type { ThemeMode, ThemeName } from "../theme.ts";
-import { renderConfig, resetConfigViewStateForTests, type ConfigProps } from "./config.ts";
+import { renderConfig, type ConfigProps } from "./config.ts";
 
 describe("config view", () => {
-  const baseProps = () => ({
+  const baseProps = (): ConfigProps => ({
     raw: "{\n}\n",
     originalRaw: "{\n}\n",
     valid: true,
@@ -57,18 +58,18 @@ describe("config view", () => {
     onOpenCustomThemeImport: vi.fn(),
     borderRadius: 50,
     setBorderRadius: vi.fn(),
+    textScale: 110,
+    setTextScale: vi.fn(),
     gatewayUrl: "",
     assistantName: "OpenClaw",
   });
 
   function findActionButtons(container: HTMLElement): {
-    clearButton?: HTMLButtonElement;
     saveButton?: HTMLButtonElement;
     applyButton?: HTMLButtonElement;
   } {
     const buttons = Array.from(container.querySelectorAll("button"));
     return {
-      clearButton: buttons.find((btn) => btn.textContent?.trim() === "Clear"),
       saveButton: buttons.find((btn) => btn.textContent?.trim() === "Save"),
       applyButton: buttons.find((btn) => btn.textContent?.trim() === "Apply"),
     };
@@ -99,8 +100,23 @@ describe("config view", () => {
     return container.textContent?.replace(/\s+/g, " ").trim() ?? "";
   }
 
-  beforeEach(() => {
-    resetConfigViewStateForTests();
+  function resetRawRevealState() {
+    const { container } = renderConfigView({
+      formMode: "raw",
+      raw: '{\n  "openai": { "apiKey": "supersecret" }\n}\n',
+      originalRaw: '{\n  "openai": { "apiKey": "supersecret" }\n}\n',
+      formValue: {
+        openai: {
+          apiKey: "supersecret",
+        },
+      },
+    });
+    container.querySelector<HTMLButtonElement>(".config-raw-toggle.active")?.click();
+  }
+
+  beforeEach(async () => {
+    await i18n.setLocale("en");
+    resetRawRevealState();
   });
 
   it("updates save/apply disabled state from form safety and raw dirtiness", () => {
@@ -144,31 +160,22 @@ describe("config view", () => {
       raw: "{\n}\n",
       originalRaw: "{\n}\n",
     });
-    let clearButton: HTMLButtonElement | undefined;
-    ({ clearButton, saveButton, applyButton } = findActionButtons(container));
-    expect(clearButton).not.toBeUndefined();
+    ({ saveButton, applyButton } = findActionButtons(container));
     expect(saveButton).not.toBeUndefined();
     expect(applyButton).not.toBeUndefined();
-    expect(clearButton?.disabled).toBe(true);
     expect(saveButton?.disabled).toBe(true);
     expect(applyButton?.disabled).toBe(true);
 
-    const onReset = vi.fn();
     renderCase({
       formMode: "raw",
       raw: '{\n  gateway: { mode: "local" }\n}\n',
       originalRaw: "{\n}\n",
-      onReset,
     });
-    ({ clearButton, saveButton, applyButton } = findActionButtons(container));
+    ({ saveButton, applyButton } = findActionButtons(container));
     expect(saveButton).not.toBeUndefined();
     expect(applyButton).not.toBeUndefined();
-    expect(clearButton?.disabled).toBe(false);
     expect(saveButton?.disabled).toBe(false);
     expect(applyButton?.disabled).toBe(false);
-
-    clearButton?.click();
-    expect(onReset).toHaveBeenCalledTimes(1);
   });
 
   it("switches mode via the sidebar toggle", () => {
@@ -234,6 +241,26 @@ describe("config view", () => {
     expect(onFormModeChange).not.toHaveBeenCalled();
   });
 
+  it("keeps Raw mode available for derived snapshots", () => {
+    const { container } = renderConfigView({
+      formMode: "raw",
+      rawAvailable: true,
+      raw: '{\n  "gateway": { "mode": "local" }\n}\n',
+      originalRaw: "{\n}\n",
+      formValue: { gateway: { mode: "local" } },
+      originalValue: {},
+    });
+
+    const rawButton = Array.from(container.querySelectorAll("button")).find(
+      (btn) => btn.textContent?.trim() === "Raw",
+    );
+    expect(rawButton?.disabled).toBe(false);
+    expect(normalizedText(container)).not.toContain(
+      "Raw mode disabled (snapshot cannot safely round-trip raw text).",
+    );
+    expect(container.querySelector(".config-raw-field")).not.toBeNull();
+  });
+
   it("renders section tabs and switches sections from the sidebar", () => {
     const container = document.createElement("div");
     const onSectionChange = vi.fn();
@@ -255,12 +282,12 @@ describe("config view", () => {
     const tabs = Array.from(container.querySelectorAll(".config-top-tabs__tab")).map((tab) =>
       tab.textContent?.trim(),
     );
-    expect(tabs).toContain("Settings");
-    expect(tabs).toContain("Agents");
-    expect(tabs).toContain("Gateway");
+    expect(tabs).toContain(t("dashboard.config.rootTab"));
+    expect(tabs).toContain(t("dashboard.config.sections.agents.label"));
+    expect(tabs).toContain(t("dashboard.config.sections.gateway.label"));
 
     const btn = Array.from(container.querySelectorAll("button")).find(
-      (b) => b.textContent?.trim() === "Gateway",
+      (b) => b.textContent?.trim() === t("dashboard.config.sections.gateway.label"),
     );
     expect(btn).toBeTruthy();
     btn?.click();
@@ -323,6 +350,47 @@ describe("config view", () => {
     expect(content.scrollTo).toHaveBeenCalledWith({ top: 0, left: 0, behavior: "auto" });
     expect(content.scrollTop).toBe(0);
     expect(content.scrollLeft).toBe(0);
+  });
+
+  it("keeps config content outside the top tab scroller container", () => {
+    const { container } = renderConfigView({
+      activeSection: "channels",
+      navRootLabel: "Communication",
+      includeSections: ["channels", "messages"],
+      schema: {
+        type: "object",
+        properties: {
+          channels: {
+            type: "object",
+            properties: {
+              telegram: { type: "string" },
+            },
+          },
+          messages: {
+            type: "object",
+            properties: {
+              inbox: { type: "string" },
+            },
+          },
+        },
+      },
+      formValue: {
+        channels: { telegram: "on" },
+        messages: { inbox: "smart" },
+      },
+      originalValue: {
+        channels: { telegram: "on" },
+        messages: { inbox: "smart" },
+      },
+    });
+
+    const topTabs = container.querySelector(".config-top-tabs");
+    const content = container.querySelector(".config-content");
+
+    expect(topTabs).not.toBeNull();
+    expect(content).not.toBeNull();
+    expect(topTabs?.querySelector(".config-content")).toBeNull();
+    expect(content?.closest(".config-top-tabs")).toBeNull();
   });
 
   it("renders and wires the search field controls", () => {

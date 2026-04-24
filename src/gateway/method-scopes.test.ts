@@ -35,7 +35,6 @@ describe("method scope resolution", () => {
     ["sessions.abort", ["operator.write"]],
     ["sessions.messages.subscribe", ["operator.read"]],
     ["sessions.messages.unsubscribe", ["operator.read"]],
-    ["diagnostics.stability", ["operator.read"]],
     ["node.pair.approve", ["operator.pairing"]],
     ["poll", ["operator.write"]],
     ["config.patch", ["operator.admin"]],
@@ -175,6 +174,19 @@ describe("plugin approval method registration", () => {
     expect(isGatewayMethodClassified("plugin.approval.request")).toBe(true);
     expect(isGatewayMethodClassified("plugin.approval.waitDecision")).toBe(true);
     expect(isGatewayMethodClassified("plugin.approval.resolve")).toBe(true);
+  });
+});
+
+describe("sessions inspect/control method registration", () => {
+  it("lists sessions inspect/control methods for hello-ok method advertising", () => {
+    const methods = listGatewayMethods();
+    expect(methods).toContain("sessions.inspect");
+    expect(methods).toContain("sessions.control");
+  });
+
+  it("classifies sessions inspect/control methods", () => {
+    expect(isGatewayMethodClassified("sessions.inspect")).toBe(true);
+    expect(isGatewayMethodClassified("sessions.control")).toBe(true);
   });
 });
 

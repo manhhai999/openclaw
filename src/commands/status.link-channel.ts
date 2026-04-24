@@ -1,4 +1,4 @@
-import { listReadOnlyChannelPluginsForConfig } from "../channels/plugins/read-only.js";
+import { listStatusChannelPlugins } from "../channels/plugins/status-read.js";
 import type { ChannelPlugin } from "../channels/plugins/types.plugin.js";
 import type { ChannelAccountSnapshot } from "../channels/plugins/types.public.js";
 import type { OpenClawConfig } from "../config/types.openclaw.js";
@@ -17,9 +17,7 @@ export async function resolveLinkChannelContext(
   options: { sourceConfig?: OpenClawConfig } = {},
 ): Promise<LinkChannelContext | null> {
   const sourceConfig = options.sourceConfig ?? cfg;
-  for (const plugin of listReadOnlyChannelPluginsForConfig(cfg, {
-    activationSourceConfig: sourceConfig,
-  })) {
+  for (const plugin of listStatusChannelPlugins({ cfg, sourceConfig })) {
     const { defaultAccountId, account, enabled, configured } =
       await resolveDefaultChannelAccountContext(plugin, cfg, {
         mode: "read_only",

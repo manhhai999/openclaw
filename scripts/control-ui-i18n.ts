@@ -84,6 +84,7 @@ const ENV_BATCH_CHAR_BUDGET = "OPENCLAW_CONTROL_UI_I18N_BATCH_CHAR_BUDGET";
 const ENV_PROMPT_TIMEOUT = "OPENCLAW_CONTROL_UI_I18N_PROMPT_TIMEOUT";
 
 const LOCALE_ENTRIES: readonly LocaleEntry[] = [
+  { locale: "vi", fileName: "vi.ts", exportName: "vi", languageKey: "vi" },
   { locale: "zh-CN", fileName: "zh-CN.ts", exportName: "zh_CN", languageKey: "zhCN" },
   { locale: "zh-TW", fileName: "zh-TW.ts", exportName: "zh_TW", languageKey: "zhTW" },
   { locale: "pt-BR", fileName: "pt-BR.ts", exportName: "pt_BR", languageKey: "ptBR" },
@@ -167,6 +168,8 @@ function prettyLanguageLabel(locale: string): string {
   switch (locale) {
     case "en":
       return "English";
+    case "vi":
+      return "Vietnamese";
     case "zh-CN":
       return "Simplified Chinese";
     case "zh-TW":
@@ -269,7 +272,9 @@ function tmPath(entry: LocaleEntry): string {
 
 async function importLocaleModule<T>(filePath: string): Promise<T> {
   const stats = await stat(filePath);
-  const href = `${pathToFileURL(filePath).href}?ts=${stats.mtimeMs}`;
+  // `tsx` can reuse a prior transformed module within the same process even
+  // when we need a fresh read for sequential locale comparisons.
+  const href = `${pathToFileURL(filePath).href}?ts=${stats.mtimeMs}&nonce=${Date.now()}-${Math.random()}`;
   return (await import(href)) as T;
 }
 
@@ -1191,6 +1196,12 @@ async function syncLocale(
     currentMeta !== expectedMeta ||
     currentGlossary !== expectedGlossary ||
     currentTm !== expectedTm;
+
+  if (changed && process.env.OPENCLAW_CONTROL_UI_I18N_DEBUG_LOCALE === entry.locale) {
+    logProgress(
+      `${localeLabel}: debug locale=${currentLocale === expectedLocale} meta=${currentMeta === expectedMeta} glossary=${currentGlossary === expectedGlossary} tm=${currentTm === expectedTm}`,
+    );
+  }
 
   if (
     !changed ||

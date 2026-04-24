@@ -1,7 +1,8 @@
 /* @vitest-environment jsdom */
 
 import { render } from "lit";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { i18n } from "../../i18n/lib/translate.ts";
 import type { SkillStatusEntry, SkillStatusReport } from "../types.ts";
 import { renderSkills, type SkillsProps } from "./skills.ts";
 
@@ -91,11 +92,16 @@ function createProps(overrides: Partial<SkillsProps> = {}): SkillsProps {
 }
 
 describe("renderSkills", () => {
-  afterEach(() => {
+  beforeEach(async () => {
+    await i18n.setLocale("en");
+  });
+
+  afterEach(async () => {
     vi.restoreAllMocks();
     while (dialogRestores.length > 0) {
       dialogRestores.pop()?.();
     }
+    await i18n.setLocale("vi");
   });
 
   it("opens detail dialogs and routes ClawHub actions", async () => {

@@ -68,7 +68,6 @@ const SCOPED_PROJECT_GROUP_ORDER_BY_NAME = new Map(
     "extension-line",
     "extension-mattermost",
     "extension-matrix",
-    "extension-media",
     "extension-memory",
     "extension-messaging",
     "extension-msteams",
@@ -206,7 +205,7 @@ export function createScopedVitestConfig(
               groupOrder: scopedGroupOrder,
             },
           }),
-      ...(options?.passWithNoTests !== undefined || cliInclude !== null
+      ...(options?.passWithNoTests !== undefined || includeFromEnv !== null || cliInclude !== null
         ? { passWithNoTests: options?.passWithNoTests ?? true }
         : {}),
     },

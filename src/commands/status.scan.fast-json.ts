@@ -1,5 +1,4 @@
-import type { OpenClawConfig } from "../config/types.js";
-import { hasConfiguredChannelsForReadOnlyScope } from "../plugins/channel-plugin-ids.js";
+import { hasPotentialConfiguredChannels } from "../channels/config-presence.js";
 import type { RuntimeEnv } from "../runtime.js";
 import { executeStatusScanFromOverview } from "./status.scan-execute.ts";
 import {
@@ -12,8 +11,9 @@ import type { StatusScanResult } from "./status.scan-result.ts";
 type StatusJsonScanPolicy = {
   commandName: string;
   allowMissingConfigFastPath?: boolean;
-  includeChannelSummary?: boolean;
-  resolveHasConfiguredChannels: (cfg: OpenClawConfig, sourceConfig: OpenClawConfig) => boolean;
+  resolveHasConfiguredChannels: (
+    cfg: Parameters<typeof hasPotentialConfiguredChannels>[0],
+  ) => boolean;
   resolveMemory: Parameters<typeof executeStatusScanFromOverview>[0]["resolveMemory"];
 };
 
@@ -37,9 +37,6 @@ export async function scanStatusJsonWithPolicy(
   return await executeStatusScanFromOverview({
     overview,
     runtime,
-    summary: {
-      includeChannelSummary: policy.includeChannelSummary,
-    },
     resolveMemory: policy.resolveMemory,
     channelIssues: [],
     channels: { rows: [], details: [] },
@@ -57,12 +54,8 @@ export async function scanStatusJsonFast(
   return await scanStatusJsonWithPolicy(opts, runtime, {
     commandName: "status --json",
     allowMissingConfigFastPath: true,
-    includeChannelSummary: false,
-    resolveHasConfiguredChannels: (cfg, sourceConfig) =>
-      hasConfiguredChannelsForReadOnlyScope({
-        config: cfg,
-        activationSourceConfig: sourceConfig,
-        env: process.env,
+    resolveHasConfiguredChannels: (cfg) =>
+      hasPotentialConfiguredChannels(cfg, process.env, {
         includePersistedAuthState: false,
       }),
     resolveMemory: async ({ cfg, agentStatus, memoryPlugin }) =>

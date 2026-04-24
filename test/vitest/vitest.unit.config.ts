@@ -40,6 +40,7 @@ export function createUnitVitestConfigWithOptions(
   const isolate = resolveVitestIsolation(env);
   const unitFastTestFiles = getUnitFastTestFiles();
   const defaultIncludePatterns = options.includePatterns ?? unitTestIncludePatterns;
+  const includeFromEnv = loadIncludePatternsFromEnv(env);
   const cliIncludePatterns = narrowIncludePatternsForCli(defaultIncludePatterns, options.argv);
   const protectedIncludeFiles = new Set(
     defaultIncludePatterns.filter((pattern) => isBundledPluginDependentUnitTestFile(pattern)),
@@ -65,7 +66,7 @@ export function createUnitVitestConfigWithOptions(
           ),
         ),
       ],
-      include: loadIncludePatternsFromEnv(env) ?? cliIncludePatterns ?? defaultIncludePatterns,
+      include: includeFromEnv ?? cliIncludePatterns ?? defaultIncludePatterns,
       exclude: [
         ...new Set([
           ...exclude,
@@ -85,7 +86,7 @@ export function createUnitVitestConfigWithOptions(
           ]),
         ],
       },
-      ...(cliIncludePatterns !== null ? { passWithNoTests: true } : {}),
+      ...(includeFromEnv !== null || cliIncludePatterns !== null ? { passWithNoTests: true } : {}),
     },
   });
 }

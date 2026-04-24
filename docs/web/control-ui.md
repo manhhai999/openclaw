@@ -97,7 +97,7 @@ The Control UI can localize itself on first load based on your browser locale.
 To override it later, open **Overview -> Gateway Access -> Language**. The
 locale picker lives in the Gateway Access card, not under Appearance.
 
-- Supported locales: `en`, `zh-CN`, `zh-TW`, `pt-BR`, `de`, `es`, `ja-JP`, `ko`, `fr`, `tr`, `uk`, `id`, `pl`, `th`
+- Supported locales: `en`, `vi`, `zh-CN`, `zh-TW`, `pt-BR`, `de`, `es`, `ja-JP`, `ko`, `fr`, `tr`, `uk`, `id`, `pl`
 - Non-English translations are lazy-loaded in the browser.
 - The selected locale is saved in browser storage and reused on future visits.
 - Missing translation keys fall back to English.
@@ -129,7 +129,6 @@ locale picker lives in the Gateway Access card, not under Appearance.
   plus plugin + channel schemas when available); Raw JSON editor is
   available only when the snapshot has a safe raw round-trip
 - If a snapshot cannot safely round-trip raw text, Control UI forces Form mode and disables Raw mode for that snapshot
-- Raw JSON editor "Reset to saved" preserves the raw-authored shape (formatting, comments, `$include` layout) instead of re-rendering a flattened snapshot, so external edits survive a reset when the snapshot can safely round-trip
 - Structured SecretRef object values are rendered read-only in form text inputs to prevent accidental object-to-string corruption
 - Debug: status/health/models snapshots + event log + manual RPC calls (`status`, `health`, `models.list`)
 - Logs: live tail of gateway file logs with filter/export (`logs.tail`)
@@ -321,28 +320,6 @@ Trusted-proxy note:
   [Trusted proxy auth](/gateway/trusted-proxy-auth)
 
 See [Tailscale](/gateway/tailscale) for HTTPS setup guidance.
-
-## Content Security Policy
-
-The Control UI ships with a tight `img-src` policy: only **same-origin** assets and `data:` URLs are allowed. Remote `http(s)` and protocol-relative image URLs are rejected by the browser and do not issue network fetches.
-
-What this means in practice:
-
-- Avatars and images served under relative paths (for example `/avatars/<id>`) still render.
-- Inline `data:image/...` URLs still render (useful for in-protocol payloads).
-- Remote avatar URLs emitted by channel metadata are stripped at the Control UI's avatar helpers and replaced with the built-in logo/badge, so a compromised or malicious channel cannot force arbitrary remote image fetches from an operator browser.
-
-You do not need to change anything to get this behavior — it is always on and not configurable.
-
-## Avatar route auth
-
-When gateway auth is configured, the Control UI avatar endpoint requires the same gateway token as the rest of the API:
-
-- `GET /avatar/<agentId>` returns the avatar image only to authenticated callers. `GET /avatar/<agentId>?meta=1` returns the avatar metadata under the same rule.
-- Unauthenticated requests to either route are rejected (matching the sibling assistant-media route). This prevents the avatar route from leaking agent identity on hosts that are otherwise protected.
-- The Control UI itself forwards the gateway token as a bearer header when fetching avatars, and uses authenticated blob URLs so the image still renders in dashboards.
-
-If you disable gateway auth (not recommended on shared hosts), the avatar route also becomes unauthenticated, in line with the rest of the gateway.
 
 ## Building the UI
 

@@ -4,7 +4,6 @@ import {
   applyConfig,
   ensureAgentConfigEntry,
   findAgentConfigEntryIndex,
-  resetConfigPendingChanges,
   runUpdate,
   saveConfig,
   updateConfigFormValue,
@@ -112,7 +111,22 @@ describe("applyConfigSnapshot", () => {
     expect(state.configFormOriginal).toEqual({ original: true });
   });
 
-  it("forces form mode when the snapshot does not include raw text", () => {
+  it("forces form mode when an invalid snapshot does not include raw text", () => {
+    const state = createState();
+    state.configFormMode = "raw";
+
+    applyConfigSnapshot(state, {
+      config: { gateway: { mode: "local" } },
+      valid: false,
+      issues: [],
+      raw: null,
+    });
+
+    expect(state.configFormMode).toBe("form");
+    expect(state.configRaw).toBe('{\n  "gateway": {\n    "mode": "local"\n  }\n}\n');
+  });
+
+  it("keeps raw mode when a valid snapshot can derive raw text", () => {
     const state = createState();
     state.configFormMode = "raw";
 
@@ -123,7 +137,7 @@ describe("applyConfigSnapshot", () => {
       raw: null,
     });
 
-    expect(state.configFormMode).toBe("form");
+    expect(state.configFormMode).toBe("raw");
     expect(state.configRaw).toBe('{\n  "gateway": {\n    "mode": "local"\n  }\n}\n');
   });
 });
@@ -161,50 +175,6 @@ describe("updateConfigFormValue", () => {
     expect(state.configRaw).toBe(
       '{\n  "gateway": {\n    "mode": "local",\n    "port": 18789\n  }\n}\n',
     );
-  });
-});
-
-describe("resetConfigPendingChanges", () => {
-  it("restores the original form and raw config snapshot", () => {
-    const state = createState();
-    state.configSnapshot = {
-      config: { gateway: { mode: "local" } },
-      valid: true,
-      issues: [],
-      raw: '{\n  "gateway": { "mode": "local" }\n}\n',
-    };
-    state.configFormOriginal = { gateway: { mode: "local" } };
-    state.configRawOriginal = '{\n  "gateway": { "mode": "local" }\n}\n';
-    state.configForm = { gateway: { mode: "remote", port: 3000 } };
-    state.configRaw = '{\n  "gateway": { "mode": "remote", "port": 3000 }\n}\n';
-    state.configFormDirty = true;
-
-    resetConfigPendingChanges(state);
-
-    expect(state.configFormDirty).toBe(false);
-    expect(state.configForm).toEqual({ gateway: { mode: "local" } });
-    expect(state.configRaw).toBe('{\n  "gateway": { "mode": "local" }\n}\n');
-  });
-
-  it("preserves an intentionally empty original raw config", () => {
-    const state = createState();
-    state.configSnapshot = {
-      config: {},
-      valid: true,
-      issues: [],
-      raw: "",
-    };
-    state.configFormOriginal = {};
-    state.configRawOriginal = "";
-    state.configForm = { gateway: { mode: "remote" } };
-    state.configRaw = '{\n  "gateway": { "mode": "remote" }\n}\n';
-    state.configFormDirty = true;
-
-    resetConfigPendingChanges(state);
-
-    expect(state.configFormDirty).toBe(false);
-    expect(state.configForm).toEqual({});
-    expect(state.configRaw).toBe("");
   });
 });
 
@@ -311,6 +281,30 @@ describe("applyConfig", () => {
       raw: '{\n  agent: { workspace: "~/openclaw" }\n}\n',
       baseHash: "hash-123",
       sessionKey: "agent:main:whatsapp:dm:+15555550123",
+    });
+  });
+
+  it("sends derived raw text when editing raw mode without a native snapshot", async () => {
+    const request = vi.fn().mockResolvedValue({});
+    const state = createState();
+    state.connected = true;
+    state.client = { request } as unknown as ConfigState["client"];
+    state.applySessionKey = "main";
+    state.configFormMode = "raw";
+    state.configRaw = '{\n  "gateway": {\n    "mode": "local"\n  }\n}\n';
+    state.configSnapshot = {
+      hash: "hash-derived",
+      raw: null,
+      valid: true,
+      config: { gateway: { mode: "local" } },
+    };
+
+    await applyConfig(state);
+
+    expect(request).toHaveBeenCalledWith("config.apply", {
+      raw: '{\n  "gateway": {\n    "mode": "local"\n  }\n}\n',
+      baseHash: "hash-derived",
+      sessionKey: "main",
     });
   });
 

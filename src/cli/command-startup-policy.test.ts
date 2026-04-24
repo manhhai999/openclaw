@@ -34,7 +34,7 @@ describe("command-startup-policy", () => {
         commandPath: ["status"],
         suppressDoctorStdout: false,
       }),
-    ).toBe(false);
+    ).toBe(true);
   });
 
   it("matches plugin preload policy", () => {
@@ -48,24 +48,6 @@ describe("command-startup-policy", () => {
       shouldLoadPluginsForCommandPath({
         commandPath: ["status"],
         jsonOutputMode: true,
-      }),
-    ).toBe(false);
-    expect(
-      shouldLoadPluginsForCommandPath({
-        commandPath: ["health"],
-        jsonOutputMode: false,
-      }),
-    ).toBe(false);
-    expect(
-      shouldLoadPluginsForCommandPath({
-        commandPath: ["channels", "status"],
-        jsonOutputMode: false,
-      }),
-    ).toBe(false);
-    expect(
-      shouldLoadPluginsForCommandPath({
-        commandPath: ["channels", "list"],
-        jsonOutputMode: false,
       }),
     ).toBe(false);
     expect(
@@ -124,6 +106,19 @@ describe("command-startup-policy", () => {
       }),
     ).toEqual({
       suppressDoctorStdout: true,
+      hideBanner: false,
+      skipConfigGuard: true,
+      loadPlugins: false,
+    });
+
+    expect(
+      resolveCliStartupPolicy({
+        commandPath: ["status"],
+        jsonOutputMode: false,
+        routeMode: true,
+      }),
+    ).toEqual({
+      suppressDoctorStdout: false,
       hideBanner: false,
       skipConfigGuard: true,
       loadPlugins: false,

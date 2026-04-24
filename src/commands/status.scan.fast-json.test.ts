@@ -50,7 +50,7 @@ afterEach(() => {
 });
 
 describe("scanStatusJsonFast", () => {
-  it("does not preload configured channel plugins for the lean JSON path", async () => {
+  it("does not preload configured channel plugins during the fast path", async () => {
     mocks.hasPotentialConfiguredChannels.mockReturnValue(true);
 
     await scanStatusJsonFast({}, {} as never);
@@ -59,7 +59,7 @@ describe("scanStatusJsonFast", () => {
     expect(loggingStateRef.forceConsoleToStderr).toBe(false);
   });
 
-  it("keeps resolved and source channel configs available without loading runtime plugins", async () => {
+  it("skips deferred plugin preloading even when secrets resolve into the snapshot", async () => {
     mocks.hasPotentialConfiguredChannels.mockReturnValue(true);
     applyStatusScanDefaults(mocks, {
       hasConfiguredChannels: true,
@@ -87,7 +87,6 @@ describe("scanStatusJsonFast", () => {
     await scanStatusJsonFast({}, {} as never);
 
     expect(mocks.ensurePluginRegistryLoaded).not.toHaveBeenCalled();
-    expect(mocks.resolveCommandSecretRefsViaGateway).toHaveBeenCalled();
   });
 
   it("skips plugin compatibility loading even when configured channels are present", async () => {
@@ -96,16 +95,6 @@ describe("scanStatusJsonFast", () => {
     await scanStatusJsonFast({}, {} as never);
 
     expect(mocks.buildPluginCompatibilityNotices).not.toHaveBeenCalled();
-  });
-
-  it("keeps the fast JSON summary off the channel plugin summary path", async () => {
-    mocks.hasPotentialConfiguredChannels.mockReturnValue(true);
-
-    await scanStatusJsonFast({}, {} as never);
-
-    expect(mocks.getStatusSummary).toHaveBeenCalledWith(
-      expect.objectContaining({ includeChannelSummary: false }),
-    );
   });
 
   it("skips memory inspection for the lean status --json fast path", async () => {

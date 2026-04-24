@@ -5,7 +5,7 @@ describe("command-path-policy", () => {
   it("resolves status policy with shared startup semantics", () => {
     expect(resolveCliCommandPathPolicy(["status"])).toEqual({
       bypassConfigGuard: false,
-      routeConfigGuard: "when-suppressed",
+      routeConfigGuard: "always",
       loadPlugins: "never",
       hideBanner: false,
       ensureCliPath: false,
@@ -27,30 +27,9 @@ describe("command-path-policy", () => {
       hideBanner: false,
       ensureCliPath: true,
     });
-    expect(resolveCliCommandPathPolicy(["channels", "status"])).toEqual({
-      bypassConfigGuard: false,
-      routeConfigGuard: "never",
-      loadPlugins: "never",
-      hideBanner: false,
-      ensureCliPath: true,
-    });
-    expect(resolveCliCommandPathPolicy(["channels", "list"])).toEqual({
-      bypassConfigGuard: false,
-      routeConfigGuard: "never",
-      loadPlugins: "never",
-      hideBanner: false,
-      ensureCliPath: true,
-    });
   });
 
   it("resolves mixed startup-only rules", () => {
-    expect(resolveCliCommandPathPolicy(["configure"])).toEqual({
-      bypassConfigGuard: true,
-      routeConfigGuard: "never",
-      loadPlugins: "never",
-      hideBanner: false,
-      ensureCliPath: true,
-    });
     expect(resolveCliCommandPathPolicy(["config", "validate"])).toEqual({
       bypassConfigGuard: true,
       routeConfigGuard: "never",

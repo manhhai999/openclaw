@@ -9,6 +9,7 @@ import {
   renderChatControls,
   renderChatMobileToggle,
   renderChatSessionSelect,
+  renderTopbarLanguagePicker,
   renderTab,
   resolveAssistantAttachmentAuthToken,
   renderSidebarConnectionStatus,
@@ -440,7 +441,7 @@ const KNOWN_PROVIDER_KEYS = [
 function formatQuickSettingsLabel(id: string): string {
   const trimmed = id.trim();
   if (!trimmed) {
-    return "Unknown";
+    return t("common.unknown");
   }
   return trimmed
     .split(/[-_]+/)
@@ -477,7 +478,7 @@ function extractQuickSettingsChannels(state: AppViewState): QuickSettingsChannel
       id,
       label: knownLabels.get(id) ?? formatQuickSettingsLabel(id),
       connected: hasConfig,
-      detail: hasConfig ? "Configured" : undefined,
+      detail: hasConfig ? t("common.configured") : undefined,
     });
   }
   return channels;
@@ -593,14 +594,16 @@ async function applyQuickSettingsPreset(state: AppViewState, presetId: ConfigPre
     }
     const baseHash = state.configSnapshot?.hash?.trim();
     if (!baseHash) {
-      throw new Error("Config base hash unavailable. Reload config and retry.");
+      throw new Error(t("dashboard.quickSettings.errors.baseHashUnavailable"));
     }
     const baseConfig = cloneConfigObject(state.configForm ?? state.configSnapshot?.config ?? {});
     const merged = applyMergePatch(baseConfig, preset.patch) as Record<string, unknown>;
     await state.client.request("config.patch", { raw: serializeConfigForm(merged), baseHash });
     await loadConfig(state);
   } catch (err) {
-    state.lastError = `Failed to apply preset: ${String(err)}`;
+    state.lastError = t("dashboard.quickSettings.errors.applyPresetFailed", {
+      error: String(err),
+    });
   } finally {
     state.configApplying = false;
   }
@@ -881,10 +884,14 @@ export function renderApp(state: AppViewState) {
     onClearCustomTheme: () => state.clearCustomTheme(),
     borderRadius: state.settings.borderRadius,
     setBorderRadius: (value) => state.setBorderRadius(value),
+    textScale: state.settings.textScale,
+    setTextScale: (value) => state.setTextScale(value),
     gatewayUrl: state.settings.gatewayUrl,
     assistantName: state.assistantName,
     configPath: state.configSnapshot?.path ?? null,
-    rawAvailable: typeof state.configSnapshot?.raw === "string",
+    rawAvailable:
+      typeof state.configSnapshot?.raw === "string" ||
+      (typeof state.configSnapshot?.raw !== "string" && state.configValid === true),
   } satisfies Omit<
     ConfigProps,
     | "formMode"
@@ -1094,7 +1101,7 @@ export function renderApp(state: AppViewState) {
             state.communicationsActiveSubsection = null;
           },
           onSubsectionChange: (section) => (state.communicationsActiveSubsection = section),
-          navRootLabel: "Communication",
+          navRootLabel: t("tabs.communications"),
           includeSections: [...COMMUNICATION_SECTION_KEYS],
         });
       case "appearance":
@@ -1127,7 +1134,7 @@ export function renderApp(state: AppViewState) {
             state.automationActiveSubsection = null;
           },
           onSubsectionChange: (section) => (state.automationActiveSubsection = section),
-          navRootLabel: "Automation",
+          navRootLabel: t("tabs.automation"),
           includeSections: [...AUTOMATION_SECTION_KEYS],
         });
       case "infrastructure":
@@ -1143,7 +1150,7 @@ export function renderApp(state: AppViewState) {
             state.infrastructureActiveSubsection = null;
           },
           onSubsectionChange: (section) => (state.infrastructureActiveSubsection = section),
-          navRootLabel: "Infrastructure",
+          navRootLabel: t("tabs.infrastructure"),
           includeSections: [...INFRASTRUCTURE_SECTION_KEYS],
         });
       case "aiAgents":
@@ -1159,7 +1166,7 @@ export function renderApp(state: AppViewState) {
             state.aiAgentsActiveSubsection = null;
           },
           onSubsectionChange: (section) => (state.aiAgentsActiveSubsection = section),
-          navRootLabel: "AI & Agents",
+          navRootLabel: t("tabs.aiAgents"),
           includeSections: [...AI_AGENTS_SECTION_KEYS],
         });
       default:
@@ -1277,15 +1284,15 @@ export function renderApp(state: AppViewState) {
               @click=${() => {
                 state.paletteOpen = !state.paletteOpen;
               }}
-              title="Search or jump to… (⌘K)"
-              aria-label="Open command palette"
+              title="${t("commandPalette.launchTitle")}"
+              aria-label="${t("commandPalette.openAria")}"
             >
               <span class="topbar-search__label">${t("common.search")}</span>
               <kbd class="topbar-search__kbd">⌘K</kbd>
             </button>
             <div class="topbar-status">
               ${isChat ? renderChatMobileToggle(state) : nothing}
-              ${renderTopbarThemeModeToggle(state)}
+              ${renderTopbarLanguagePicker(state)} ${renderTopbarThemeModeToggle(state)}
             </div>
           </div>
         </div>
@@ -1372,7 +1379,7 @@ export function renderApp(state: AppViewState) {
                   href="https://docs.openclaw.ai"
                   target=${EXTERNAL_LINK_TARGET}
                   rel=${buildExternalLinkRel()}
-                  title="${t("common.docs")} (opens in new tab)"
+                  title="${t("common.docs")} (${t("common.opensInNewTab")})"
                 >
                   <span class="nav-item__icon" aria-hidden="true">${icons.book}</span>
                   ${!navCollapsed
@@ -1409,20 +1416,23 @@ export function renderApp(state: AppViewState) {
         state.updateAvailable.latestVersion !== state.updateAvailable.currentVersion &&
         !isUpdateBannerDismissed(state.updateAvailable)
           ? html`<div class="update-banner callout danger" role="alert">
-              <strong>Update available:</strong> v${state.updateAvailable.latestVersion} (running
-              v${state.updateAvailable.currentVersion}).
+              <strong>${t("updateBanner.available")}</strong>
+              ${t("updateBanner.version", {
+                latest: state.updateAvailable.latestVersion,
+                current: state.updateAvailable.currentVersion,
+              })}
               <button
                 class="btn btn--sm update-banner__btn"
                 ?disabled=${state.updateRunning || !state.connected}
                 @click=${() => runUpdate(state)}
               >
-                ${state.updateRunning ? "Updating…" : "Update now"}
+                ${state.updateRunning ? t("updateBanner.updating") : t("updateBanner.updateNow")}
               </button>
               <button
                 class="update-banner__close"
                 type="button"
-                title="Dismiss"
-                aria-label="Dismiss update banner"
+                title=${t("updateBanner.dismiss")}
+                aria-label=${t("updateBanner.dismissAria")}
                 @click=${() => {
                   dismissUpdateBanner(state.updateAvailable);
                   state.updateAvailable = null;

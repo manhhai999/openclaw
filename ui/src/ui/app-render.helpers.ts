@@ -1,5 +1,5 @@
 import { html, nothing } from "lit";
-import { t } from "../i18n/index.ts";
+import { SUPPORTED_LOCALES, i18n, isSupportedLocale, t, type Locale } from "../i18n/index.ts";
 import { refreshChat, refreshChatAvatar } from "./app-chat.ts";
 import { syncUrlWithSessionKey } from "./app-settings.ts";
 import type { AppViewState } from "./app-view-state.ts";
@@ -415,8 +415,8 @@ export function renderChatMobileToggle(state: AppViewState) {
             }
           }
         }}
-        title="Chat settings"
-        aria-label="Chat settings"
+        title=${t("common.chatSettings")}
+        aria-label=${t("common.chatSettings")}
       >
         <svg
           width="18"
@@ -567,6 +567,91 @@ const THEME_MODE_OPTIONS: ThemeModeOption[] = [
   { id: "dark", label: "Dark", short: "DARK" },
 ];
 
+function getThemeModeLabel(mode: ThemeMode) {
+  if (mode === "light") {
+    return t("common.light");
+  }
+  if (mode === "dark") {
+    return t("common.dark");
+  }
+  return t("common.system");
+}
+
+function resolveSelectedLocale(state: AppViewState): Locale {
+  return isSupportedLocale(state.settings.locale) ? state.settings.locale : i18n.getLocale();
+}
+
+async function applyLocale(state: AppViewState, locale: Locale) {
+  if (!SUPPORTED_LOCALES.includes(locale)) {
+    return;
+  }
+  if (resolveSelectedLocale(state) === locale) {
+    return;
+  }
+  await i18n.setLocale(locale);
+  state.applySettings({
+    ...state.settings,
+    locale,
+  });
+}
+
+function localeLabelKey(locale: Locale): string {
+  return locale.replace(/-([a-zA-Z])/g, (_, char: string) => char.toUpperCase());
+}
+
+function localeLabel(locale: Locale): string {
+  return t(`languages.${localeLabelKey(locale)}`);
+}
+
+function localeTriggerLabel(locale: Locale): string {
+  return locale.toUpperCase();
+}
+
+export function renderTopbarLanguagePicker(state: AppViewState) {
+  const currentLocale = resolveSelectedLocale(state);
+  const currentLabel = localeLabel(currentLocale);
+
+  const handleLocaleChange = async (locale: Locale, event: Event) => {
+    event.preventDefault();
+    const details = (event.currentTarget as HTMLElement | null)?.closest("details");
+    if (locale !== currentLocale) {
+      await applyLocale(state, locale);
+    }
+    details?.removeAttribute("open");
+  };
+
+  return html`
+    <details class="topbar-language-menu">
+      <summary
+        class="topbar-language-menu__trigger"
+        title="${t("overview.access.language")}: ${currentLabel}"
+        aria-label="${t("overview.access.language")}: ${currentLabel}"
+      >
+        <span class="topbar-language-menu__icon" aria-hidden="true">${icons.globe}</span>
+        <span class="topbar-language-menu__current">${localeTriggerLabel(currentLocale)}</span>
+        <span class="topbar-language-menu__chevron" aria-hidden="true">${icons.chevronDown}</span>
+      </summary>
+      <div class="topbar-language-menu__panel">
+        ${SUPPORTED_LOCALES.map(
+          (locale) => html`
+            <button
+              type="button"
+              class="topbar-language-menu__option ${locale === currentLocale
+                ? "topbar-language-menu__option--active"
+                : ""}"
+              data-locale=${locale}
+              @click=${(event: Event) => void handleLocaleChange(locale, event)}
+            >
+              <span class="topbar-language-menu__option-code"> ${localeTriggerLabel(locale)} </span>
+              <span class="topbar-language-menu__option-label">${localeLabel(locale)}</span>
+            </button>
+          `,
+        )}
+      </div>
+    </details>
+  `;
+}
+
 export function renderTopbarThemeModeToggle(state: AppViewState) {
   const modeIcon = (mode: ThemeMode) => {
     if (mode === "system") {
@@ -586,7 +671,7 @@ export function renderTopbarThemeModeToggle(state: AppViewState) {
   };
 
   return html`
-    <div class="topbar-theme-mode" role="group" aria-label="Color mode">
+    <div class="topbar-theme-mode" role="group" aria-label=${t("common.colorMode")}>
       ${THEME_MODE_OPTIONS.map(
         (opt) => html`
           <button
@@ -594,8 +679,8 @@ export function renderTopbarThemeModeToggle(state: AppViewState) {
             class="topbar-theme-mode__btn ${opt.id === state.themeMode
               ? "topbar-theme-mode__btn--active"
               : ""}"
-            title=${opt.label}
-            aria-label="Color mode: ${opt.label}"
+            title=${getThemeModeLabel(opt.id)}
+            aria-label="${t("common.colorMode")}: ${getThemeModeLabel(opt.id)}"
             aria-pressed=${opt.id === state.themeMode}
             @click=${(e: Event) => applyMode(opt.id, e)}
           >
@@ -618,8 +703,8 @@ export function renderSidebarConnectionStatus(state: AppViewState) {
       class="sidebar-version__status ${toneClass}"
       role="img"
       aria-live="polite"
-      aria-label="Gateway status: ${label}"
-      title="Gateway status: ${label}"
+      aria-label="${t("common.gatewayStatus")}: ${label}"
+      title="${t("common.gatewayStatus")}: ${label}"
     ></span>
   `;
 }

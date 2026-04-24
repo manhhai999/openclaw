@@ -4,6 +4,7 @@ import {
   buildChannelAccountSnapshot,
   formatChannelAllowFrom,
 } from "../channels/account-summary.js";
+import { listStatusChannelPlugins } from "../channels/plugins/status-read.js";
 import { formatChannelStatusState } from "../channels/plugins/status-state.js";
 import type { ChannelPlugin } from "../channels/plugins/types.plugin.js";
 import type { ChannelAccountSnapshot } from "../channels/plugins/types.public.js";
@@ -47,16 +48,6 @@ const accountLine = (label: string, details: string[]) =>
 async function loadChannelSummaryConfig(): Promise<OpenClawConfig> {
   const { loadConfig } = await import("../config/config.js");
   return loadConfig();
-}
-
-async function listChannelSummaryPlugins(params: {
-  cfg: OpenClawConfig;
-  sourceConfig: OpenClawConfig;
-}): Promise<ChannelPlugin[]> {
-  const { listReadOnlyChannelPluginsForConfig } = await import("../channels/plugins/read-only.js");
-  return listReadOnlyChannelPluginsForConfig(params.cfg, {
-    activationSourceConfig: params.sourceConfig,
-  });
 }
 
 const buildAccountDetails = (params: {
@@ -128,9 +119,12 @@ export async function buildChannelSummary(
   const tint = (value: string, color?: (input: string) => string) =>
     resolved.colorize && color ? color(value) : value;
   const sourceConfig = options?.sourceConfig ?? effective;
-
   const plugins =
-    options?.plugins ?? (await listChannelSummaryPlugins({ cfg: effective, sourceConfig }));
+    options?.plugins ??
+    listStatusChannelPlugins({
+      cfg: effective,
+      sourceConfig,
+    });
   for (const plugin of plugins) {
     const accountIds = plugin.config.listAccountIds(effective);
     const defaultAccountId =

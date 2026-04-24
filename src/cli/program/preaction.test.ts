@@ -196,7 +196,7 @@ describe("registerPreActionHooks", () => {
     await preActionHook(program, actionCommand);
   }
 
-  it("handles debug mode and plugin-required command preaction", async () => {
+  it("handles debug mode and command preaction without forcing status plugin preload", async () => {
     const processTitleSetSpy = vi.spyOn(process, "title", "set");
     await runPreAction({
       parseArgv: ["status"],
@@ -263,16 +263,6 @@ describe("registerPreActionHooks", () => {
       runtime: runtimeMock,
       commandPath: ["channels", "add"],
     });
-    expect(ensurePluginRegistryLoadedMock).not.toHaveBeenCalled();
-  });
-
-  it("lets configure own config validation and plugin loading", async () => {
-    await runPreAction({
-      parseArgv: ["configure"],
-      processArgv: ["node", "openclaw", "configure"],
-    });
-
-    expect(ensureConfigReadyMock).not.toHaveBeenCalled();
     expect(ensurePluginRegistryLoadedMock).not.toHaveBeenCalled();
   });
 

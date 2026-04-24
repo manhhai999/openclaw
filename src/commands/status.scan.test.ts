@@ -1,3 +1,4 @@
+import { join } from "node:path";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   applyStatusScanDefaults,
@@ -160,6 +161,19 @@ describe("scanStatus", () => {
     expect(mocks.probeGateway).not.toHaveBeenCalled();
   });
 
+  it("keeps plain status update checks on the local fast path", async () => {
+    configureScanStatus();
+    mocks.resolveConfigPath.mockReturnValue(join(process.cwd(), "package.json"));
+
+    await scanStatus({ json: false }, {} as never);
+
+    expect(mocks.getUpdateCheckResult).toHaveBeenCalledWith({
+      timeoutMs: 2500,
+      fetchGit: false,
+      includeRegistry: false,
+    });
+  });
+
   it("skips memory backend inspection for default memory-core with no existing store", async () => {
     configureScanStatus();
 
@@ -186,7 +200,7 @@ describe("scanStatus", () => {
     });
   });
 
-  it("keeps status --json on read-only channel metadata when channel config exists", async () => {
+  it("keeps status --json on the no-preload channel fast path when channel config exists", async () => {
     configureScanStatus({
       hasConfiguredChannels: true,
       sourceConfig: createStatusScanConfig({
@@ -205,7 +219,6 @@ describe("scanStatus", () => {
     await scanStatus({ json: true }, {} as never);
 
     expect(mocks.ensurePluginRegistryLoaded).not.toHaveBeenCalled();
-    // Verify plugin logs were routed to stderr during loading and restored after
     expect(loggingStateRef.forceConsoleToStderr).toBe(false);
     expect(mocks.probeGateway).toHaveBeenCalledWith(
       expect.objectContaining({ detailLevel: "presence" }),
@@ -215,7 +228,7 @@ describe("scanStatus", () => {
     );
   });
 
-  it("keeps status --json on read-only channel metadata when channel auth is env-only", async () => {
+  it("keeps status --json on the no-preload path when channel auth is env-only", async () => {
     configureScanStatus({
       hasConfiguredChannels: true,
       sourceConfig: createStatusScanConfig({
@@ -234,5 +247,17 @@ describe("scanStatus", () => {
     });
 
     expect(mocks.ensurePluginRegistryLoaded).not.toHaveBeenCalled();
+  });
+
+  it("restores live update checks for status --json --all", async () => {
+    configureScanStatus();
+
+    await scanStatus({ json: true, all: true }, {} as never);
+
+    expect(mocks.getUpdateCheckResult).toHaveBeenCalledWith({
+      timeoutMs: 6500,
+      fetchGit: true,
+      includeRegistry: true,
+    });
   });
 });

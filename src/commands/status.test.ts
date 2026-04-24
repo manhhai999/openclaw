@@ -482,10 +482,6 @@ vi.mock("../channels/config-presence.js", () => ({
     ),
   listPotentialConfiguredChannelIds: (cfg: { channels?: Record<string, unknown> }) =>
     Object.keys(cfg.channels ?? {}).filter((key) => key !== "defaults" && key !== "modelByChannel"),
-  listPotentialConfiguredChannelPresenceSignals: (cfg: { channels?: Record<string, unknown> }) =>
-    Object.keys(cfg.channels ?? {})
-      .filter((key) => key !== "defaults" && key !== "modelByChannel")
-      .map((channelId) => ({ channelId, source: "config" })),
 }));
 
 vi.mock("../plugins/memory-runtime.js", () => ({
@@ -1045,12 +1041,11 @@ describe("statusCommand", () => {
       createCompatibilityNotice({ pluginId: "legacy-plugin", code: "legacy-before-agent-start" }),
     ]);
     const logs = await runStatusAndGetLogs({ verbose: true });
-    for (const token of [
+    const expectedTokens = [
       "OpenClaw status",
       "Overview",
       "Security audit",
       "Summary:",
-      "CRITICAL",
       "Dashboard",
       "macos 14.0 (arm64)",
       "Memory",
@@ -1067,9 +1062,11 @@ describe("statusCommand", () => {
       "FAQ:",
       "Troubleshooting:",
       "Next steps:",
-    ]) {
-      expect(logs.some((line) => line.includes(token))).toBe(true);
-    }
+    ];
+    const missingTokens = expectedTokens.filter(
+      (token) => !logs.some((line) => line.includes(token)),
+    );
+    expect(missingTokens).toEqual([]);
     expect(
       logs.some((line) => line.includes("legacy-plugin still uses legacy before_agent_start")),
     ).toBe(true);

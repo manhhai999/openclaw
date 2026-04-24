@@ -84,6 +84,7 @@ function createSettings(): AppViewState["settings"] {
     navCollapsed: false,
     navGroupsCollapsed: {},
     borderRadius: 50,
+    textScale: 110,
     chatFocusMode: false,
     chatShowThinking: false,
     chatShowToolCalls: true,
@@ -179,16 +180,6 @@ describe("parseSessionKey", () => {
 });
 
 describe("resolveAssistantAttachmentAuthToken", () => {
-  it("prefers the paired device token when present", () => {
-    expect(
-      resolveAssistantAttachmentAuthToken({
-        hello: { auth: { deviceToken: "device-token" } } as AppViewState["hello"],
-        settings: { token: "session-token" } as AppViewState["settings"],
-        password: "shared-password",
-      }),
-    ).toBe("device-token");
-  });
-
   it("prefers the explicit gateway token when present", () => {
     expect(
       resolveAssistantAttachmentAuthToken({

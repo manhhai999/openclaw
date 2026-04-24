@@ -118,6 +118,8 @@ type SessionDefaultsSnapshot = {
 
 type GatewayHostWithShutdownMessage = GatewayHost & {
   pendingShutdownMessage?: string | null;
+  pendingRunIdForReconnect?: string | null;
+  rehydrateApprovalQueueAfterReconnect?: boolean;
   resumeChatQueueAfterReconnect?: boolean;
 };
 
@@ -142,6 +144,25 @@ function removeResolvedApprovalRequest(host: GatewayHost, payload: unknown) {
   const resolved = parseExecApprovalResolved(payload);
   if (resolved) {
     host.execApprovalQueue = removeExecApproval(host.execApprovalQueue, resolved.id);
+  }
+}
+
+async function rehydrateApprovalQueue(host: GatewayHost, client: GatewayBrowserClient) {
+  const [execApprovals, pluginApprovals] = await Promise.all([
+    client.request("exec.approval.list", {}).catch(() => []),
+    client.request("plugin.approval.list", {}).catch(() => []),
+  ]);
+  if (host.client !== client) {
+    return;
+  }
+  host.execApprovalQueue = [];
+  const execEntries = Array.isArray(execApprovals) ? execApprovals : [];
+  for (const entry of execEntries) {
+    enqueueApprovalRequest(host, parseExecApprovalRequested(entry));
+  }
+  const pluginEntries = Array.isArray(pluginApprovals) ? pluginApprovals : [];
+  for (const entry of pluginEntries) {
+    enqueueApprovalRequest(host, parsePluginApprovalRequested(entry));
   }
 }
 
@@ -258,8 +279,10 @@ function applySessionDefaults(host: GatewayHost, defaults?: SessionDefaultsSnaps
 export function connectGateway(host: GatewayHost, options?: ConnectGatewayOptions) {
   const shutdownHost = host as GatewayHostWithShutdownMessage;
   const reconnectReason = options?.reason ?? "initial";
+  const previousClient = host.client;
   shutdownHost.pendingShutdownMessage = null;
   shutdownHost.resumeChatQueueAfterReconnect = false;
+  shutdownHost.rehydrateApprovalQueueAfterReconnect = false;
   host.lastError = null;
   host.lastErrorCode = null;
   host.hello = null;
@@ -271,12 +294,15 @@ export function connectGateway(host: GatewayHost, options?: ConnectGatewayOption
       host.chatRunId ?? undefined,
     );
     shutdownHost.resumeChatQueueAfterReconnect = true;
+    shutdownHost.pendingRunIdForReconnect = host.chatRunId ?? null;
   } else {
-    host.execApprovalQueue = pruneExecApprovalQueue(host.execApprovalQueue);
+    host.execApprovalQueue = previousClient ? [] : pruneExecApprovalQueue(host.execApprovalQueue);
+    shutdownHost.pendingRunIdForReconnect = host.chatRunId ?? null;
+    shutdownHost.rehydrateApprovalQueueAfterReconnect = Boolean(previousClient);
+    shutdownHost.resumeChatQueueAfterReconnect = Boolean(host.chatRunId);
   }
   host.execApprovalError = null;
 
-  const previousClient = host.client;
   const clientVersion = resolveControlUiClientVersion({
     gatewayUrl: host.settings.gatewayUrl,
     serverVersion: host.serverVersion,
@@ -293,7 +319,9 @@ export function connectGateway(host: GatewayHost, options?: ConnectGatewayOption
       if (host.client !== client) {
         return;
       }
+      const interruptedRunId = host.chatRunId ?? shutdownHost.pendingRunIdForReconnect ?? null;
       shutdownHost.pendingShutdownMessage = null;
+      shutdownHost.pendingRunIdForReconnect = null;
       host.connected = true;
       host.lastError = null;
       host.lastErrorCode = null;
@@ -324,13 +352,24 @@ export function connectGateway(host: GatewayHost, options?: ConnectGatewayOption
       (host as unknown as { chatStreamStartedAt: number | null }).chatStreamStartedAt = null;
       (host as GatewayHostWithSideResults).chatSideResultTerminalRuns?.clear();
       resetToolStream(host as unknown as Parameters<typeof resetToolStream>[0]);
-      if (shutdownHost.resumeChatQueueAfterReconnect) {
+      if (interruptedRunId) {
+        clearPendingQueueItemsForRun(
+          host as unknown as Parameters<typeof clearPendingQueueItemsForRun>[0],
+          interruptedRunId,
+        );
+      }
+      if (shutdownHost.resumeChatQueueAfterReconnect || interruptedRunId) {
         // The interrupted run will never emit its terminal event now that the
-        // old client is gone, so resume any deferred commands after hello.
+        // old client is gone, so resume any deferred commands after hello for
+        // both seq-gap reconnects and ordinary socket reconnects.
         shutdownHost.resumeChatQueueAfterReconnect = false;
         void flushChatQueueForEvent(
           host as unknown as Parameters<typeof flushChatQueueForEvent>[0],
         );
+      }
+      if (shutdownHost.rehydrateApprovalQueueAfterReconnect) {
+        shutdownHost.rehydrateApprovalQueueAfterReconnect = false;
+        void rehydrateApprovalQueue(host, client);
       }
       void subscribeSessions(host as unknown as SessionsState);
       void loadAssistantIdentity(host as unknown as AssistantIdentityState);
@@ -344,6 +383,9 @@ export function connectGateway(host: GatewayHost, options?: ConnectGatewayOption
       if (host.client !== client) {
         return;
       }
+      shutdownHost.pendingRunIdForReconnect = host.chatRunId ?? null;
+      shutdownHost.resumeChatQueueAfterReconnect = Boolean(shutdownHost.pendingRunIdForReconnect);
+      shutdownHost.rehydrateApprovalQueueAfterReconnect = true;
       host.connected = false;
       // Code 1012 = Service Restart (expected during config saves, don't show as error)
       host.lastErrorCode =

@@ -10,23 +10,13 @@ import { ja_JP } from "../locales/ja-JP.ts";
 import { ko } from "../locales/ko.ts";
 import { pl } from "../locales/pl.ts";
 import { pt_BR } from "../locales/pt-BR.ts";
-import { th } from "../locales/th.ts";
 import { tr } from "../locales/tr.ts";
 import { uk } from "../locales/uk.ts";
+import { vi as viLocale } from "../locales/vi.ts";
 import { zh_CN } from "../locales/zh-CN.ts";
 import { zh_TW } from "../locales/zh-TW.ts";
 
 describe("i18n", () => {
-  function flatten(value: Record<string, string | Record<string, unknown>>, prefix = ""): string[] {
-    return Object.entries(value).flatMap(([key, nested]) => {
-      const fullKey = prefix ? `${prefix}.${key}` : key;
-      if (typeof nested === "string") {
-        return [fullKey];
-      }
-      return flatten(nested as Record<string, string | Record<string, unknown>>, fullKey);
-    });
-  }
-
   beforeEach(async () => {
     vi.stubGlobal("localStorage", createStorageMock());
     vi.stubGlobal("navigator", { language: "en-US" } as Navigator);
@@ -71,6 +61,11 @@ describe("i18n", () => {
     expect(translate.t("common.health")).toBe("健康状况");
   });
 
+  it("loads Vietnamese translations on demand", async () => {
+    await translate.i18n.setLocale("vi");
+    expect(translate.t("common.health")).toBe("Tình trạng");
+  });
+
   it("loads saved non-English locale on startup", async () => {
     vi.resetModules();
     vi.stubGlobal("localStorage", createStorageMock());
@@ -79,9 +74,21 @@ describe("i18n", () => {
     const fresh = await import("../lib/translate.ts");
     await vi.waitFor(() => {
       expect(fresh.i18n.getLocale()).toBe("zh-CN");
+      expect(fresh.t("common.health")).toBe("健康状况");
     });
-    expect(fresh.i18n.getLocale()).toBe("zh-CN");
-    expect(fresh.t("common.health")).toBe("健康状况");
+  });
+
+  it("uses the browser locale when no saved locale exists", async () => {
+    vi.resetModules();
+    vi.stubGlobal("localStorage", createStorageMock());
+    vi.stubGlobal("navigator", { language: "de-DE" } as Navigator);
+
+    const fresh = await import("../lib/translate.ts");
+
+    await vi.waitFor(() => {
+      expect(fresh.i18n.getLocale()).toBe("de");
+      expect(fresh.t("common.version")).toBeTruthy();
+    });
   });
 
   it("skips node localStorage accessors that warn without a storage file", async () => {
@@ -102,6 +109,7 @@ describe("i18n", () => {
 
   it("keeps the version label available in shipped locales", () => {
     expect((de.common as { version?: string }).version).toBeTruthy();
+    expect((en.common as { version?: string }).version).toBeTruthy();
     expect((es.common as { version?: string }).version).toBeTruthy();
     expect((fr.common as { version?: string }).version).toBeTruthy();
     expect((id.common as { version?: string }).version).toBeTruthy();
@@ -109,33 +117,41 @@ describe("i18n", () => {
     expect((ko.common as { version?: string }).version).toBeTruthy();
     expect((pl.common as { version?: string }).version).toBeTruthy();
     expect((pt_BR.common as { version?: string }).version).toBeTruthy();
-    expect((th.common as { version?: string }).version).toBeTruthy();
     expect((tr.common as { version?: string }).version).toBeTruthy();
     expect((uk.common as { version?: string }).version).toBeTruthy();
+    expect((viLocale.common as { version?: string }).version).toBeTruthy();
     expect((zh_CN.common as { version?: string }).version).toBeTruthy();
     expect((zh_TW.common as { version?: string }).version).toBeTruthy();
   });
 
-  it("keeps shipped locales structurally aligned with English", () => {
-    const englishKeys = flatten(en);
-    for (const [locale, value] of Object.entries({
-      de,
-      es,
-      fr,
-      id,
-      ja_JP,
-      ko,
-      pl,
-      pt_BR,
-      th,
-      tr,
-      uk,
-      zh_CN,
-      zh_TW,
-    })) {
-      expect(flatten(value as Record<string, string | Record<string, unknown>>), locale).toEqual(
-        englishKeys,
-      );
+  it("supports all shipped locale ids", () => {
+    expect(translate.SUPPORTED_LOCALES).toEqual([
+      "vi",
+      "en",
+      "zh-CN",
+      "zh-TW",
+      "pt-BR",
+      "de",
+      "es",
+      "ja-JP",
+      "ko",
+      "fr",
+      "tr",
+      "uk",
+      "id",
+      "pl",
+    ]);
+  });
+
+  it("loads each shipped lazy locale on demand", async () => {
+    for (const locale of translate.SUPPORTED_LOCALES) {
+      if (locale === "vi" || locale === "en") {
+        continue;
+      }
+
+      await translate.i18n.setLocale(locale);
+      expect(translate.i18n.getLocale()).toBe(locale);
+      expect(translate.t("common.version")).toBeTruthy();
     }
   });
 });

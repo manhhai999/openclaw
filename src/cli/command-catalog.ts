@@ -42,7 +42,7 @@ export const cliCommandCatalog: readonly CliCommandCatalogEntry[] = [
     commandPath: ["status"],
     policy: {
       loadPlugins: "never",
-      routeConfigGuard: "when-suppressed",
+      routeConfigGuard: "always",
       ensureCliPath: false,
     },
     route: { id: "status" },

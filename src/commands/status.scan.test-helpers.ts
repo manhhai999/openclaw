@@ -9,6 +9,7 @@ export type StatusScanSharedMocks = {
   resolveConfigPath: ResolveConfigPathMock;
   hasPotentialConfiguredChannels: UnknownMock;
   readBestEffortConfig: UnknownMock;
+  readSourceConfigBestEffort: UnknownMock;
   resolveCommandSecretRefsViaGateway: UnknownMock;
   getUpdateCheckResult: UnknownMock;
   getAgentLocalStatuses: UnknownMock;
@@ -27,6 +28,7 @@ export function createStatusScanSharedMocks(configPathLabel: string): StatusScan
     resolveConfigPath: vi.fn(() => `/tmp/openclaw-${configPathLabel}-missing-${process.pid}.json`),
     hasPotentialConfiguredChannels: vi.fn(),
     readBestEffortConfig: vi.fn(),
+    readSourceConfigBestEffort: vi.fn(),
     resolveCommandSecretRefsViaGateway: vi.fn(),
     getUpdateCheckResult: vi.fn(),
     getAgentLocalStatuses: vi.fn(),
@@ -109,13 +111,9 @@ export function createStatusPluginRegistryModuleMock(
 
 export function createStatusPluginStatusModuleMock(
   mocks: Pick<StatusScanSharedMocks, "buildPluginCompatibilityNotices">,
-): {
-  buildPluginCompatibilityNotices: StatusScanSharedMocks["buildPluginCompatibilityNotices"];
-  buildPluginCompatibilitySnapshotNotices: StatusScanSharedMocks["buildPluginCompatibilityNotices"];
-} {
+): { buildPluginCompatibilityNotices: StatusScanSharedMocks["buildPluginCompatibilityNotices"] } {
   return {
     buildPluginCompatibilityNotices: mocks.buildPluginCompatibilityNotices,
-    buildPluginCompatibilitySnapshotNotices: mocks.buildPluginCompatibilityNotices,
   };
 }
 
@@ -179,45 +177,23 @@ export async function loadStatusScanModuleForTest(
   const resolveMemorySearchConfig =
     mocks.resolveMemorySearchConfig ?? vi.fn(() => ({ store: { path: "/tmp/main.sqlite" } }));
 
-  vi.doMock("../channels/config-presence.js", () => ({
-    hasPotentialConfiguredChannels: mocks.hasPotentialConfiguredChannels,
-  }));
-  vi.doMock("../plugins/channel-plugin-ids.js", () => ({
-    hasConfiguredChannelsForReadOnlyScope: (params: {
-      config: OpenClawConfig;
-      env?: NodeJS.ProcessEnv;
-      includePersistedAuthState?: boolean;
-    }) =>
-      Boolean(
-        mocks.hasPotentialConfiguredChannels(
-          params.config,
-          params.env,
-          params.includePersistedAuthState === undefined
-            ? undefined
-            : { includePersistedAuthState: params.includePersistedAuthState },
-        ),
-      ),
-    listConfiguredChannelIdsForReadOnlyScope: (params: {
-      config: OpenClawConfig;
-      env?: NodeJS.ProcessEnv;
-      includePersistedAuthState?: boolean;
-    }) =>
-      mocks.hasPotentialConfiguredChannels(
-        params.config,
-        params.env,
-        params.includePersistedAuthState === undefined
-          ? undefined
-          : { includePersistedAuthState: params.includePersistedAuthState },
-      )
-        ? ["mock-channel"]
-        : [],
-  }));
+  vi.doMock("../channels/config-presence.js", async () => {
+    const actual = await vi.importActual<typeof import("../channels/config-presence.js")>(
+      "../channels/config-presence.js",
+    );
+    return {
+      ...actual,
+      hasPotentialConfiguredChannels: mocks.hasPotentialConfiguredChannels,
+    };
+  });
 
   vi.doMock("../config/io.js", () => ({
     readBestEffortConfig: mocks.readBestEffortConfig,
+    readSourceConfigBestEffort: mocks.readSourceConfigBestEffort,
   }));
   vi.doMock("../config/config.js", () => ({
     readBestEffortConfig: mocks.readBestEffortConfig,
+    readSourceConfigBestEffort: mocks.readSourceConfigBestEffort,
   }));
   vi.doMock("../cli/command-secret-targets.js", () => ({
     getStatusCommandSecretTargetIds,
@@ -410,6 +386,7 @@ export function applyStatusScanDefaults(
 
   mocks.hasPotentialConfiguredChannels.mockReturnValue(options.hasConfiguredChannels ?? false);
   mocks.readBestEffortConfig.mockResolvedValue(sourceConfig);
+  mocks.readSourceConfigBestEffort.mockResolvedValue(sourceConfig);
   mocks.resolveCommandSecretRefsViaGateway.mockResolvedValue({
     resolvedConfig,
     diagnostics: [],
