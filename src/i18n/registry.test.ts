@@ -35,6 +35,7 @@ describe("ui i18n locale registry", () => {
       "uk",
       "id",
       "pl",
+      "th",
     ]);
     expect(DEFAULT_LOCALE).toBe("en");
   });
@@ -53,6 +54,7 @@ describe("ui i18n locale registry", () => {
     expect(resolveNavigatorLocale("uk-UA")).toBe("uk");
     expect(resolveNavigatorLocale("id-ID")).toBe("id");
     expect(resolveNavigatorLocale("pl-PL")).toBe("pl");
+    expect(resolveNavigatorLocale("th-TH")).toBe("th");
     expect(resolveNavigatorLocale("vi-VN")).toBe("vi");
   });
 

@@ -6,6 +6,7 @@ import { connectGateway, resolveControlUiClientVersion } from "./app-gateway.ts"
 import type { GatewayHelloOk } from "./gateway.ts";
 
 const loadChatHistoryMock = vi.hoisted(() => vi.fn(async () => undefined));
+const loadControlUiBootstrapConfigMock = vi.hoisted(() => vi.fn(async () => undefined));
 
 type GatewayClientMock = {
   start: ReturnType<typeof vi.fn>;
@@ -102,6 +103,10 @@ vi.mock("./controllers/chat.ts", async (importOriginal) => {
     loadChatHistory: loadChatHistoryMock,
   };
 });
+
+vi.mock("./controllers/control-ui-bootstrap.ts", () => ({
+  loadControlUiBootstrapConfig: loadControlUiBootstrapConfigMock,
+}));
 
 type TestGatewayHost = Parameters<typeof connectGateway>[0] & {
   chatSideResult: unknown;
@@ -235,8 +240,28 @@ describe("connectGateway", () => {
     gatewayClientInstances.length = 0;
     loadChatHistoryMock.mockClear();
     loadControlUiBootstrapConfigMock.mockClear();
+    const scrollingElement = {
+      clientHeight: 100,
+      scrollHeight: 100,
+      scrollTop: 0,
+      scrollTo: vi.fn(),
+    };
     vi.stubGlobal("window", {
       setTimeout: globalThis.setTimeout,
+      requestAnimationFrame: globalThis.requestAnimationFrame,
+      cancelAnimationFrame: globalThis.cancelAnimationFrame,
+      matchMedia: vi.fn(() => ({ matches: false })),
+    });
+    vi.stubGlobal("document", {
+      documentElement: scrollingElement,
+      scrollingElement,
+    });
+    vi.stubGlobal(
+      "requestAnimationFrame",
+      vi.fn(() => 0),
+    );
+    vi.stubGlobal("cancelAnimationFrame", (handle: number) => {
+      clearTimeout(handle);
     });
   });
 
