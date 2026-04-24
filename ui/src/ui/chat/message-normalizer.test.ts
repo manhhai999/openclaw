@@ -72,6 +72,29 @@ describe("message-normalizer", () => {
       });
     });
 
+    it("strips assistant internal memory and async system scaffolding before rendering", () => {
+      const result = normalizeMessage({
+        role: "assistant",
+        content: [
+          {
+            type: "text",
+            text: [
+              "<relevant-memories>",
+              "The following OpenViking memories may be relevant:",
+              "- [] User basic info: Mạnh Hải, prefers Vietnamese interaction",
+              "</relevant-memories>",
+              "System (untrusted): [2026-04-25 00:09:53 GMT+9] Exec failed (lucky-sa, signal SIGKILL)",
+              "An async command you ran earlier has completed. The result is shown in the system messages above.",
+              "Handle the result internally. Do not relay it to the user unless explicitly requested.",
+              "Visible answer",
+            ].join("\n"),
+          },
+        ],
+      });
+
+      expect(result.content).toEqual([{ type: "text", text: "Visible answer" }]);
+    });
+
     it("does not reinterpret directive-like user text blocks inside array content", () => {
       const result = normalizeMessage({
         role: "user",

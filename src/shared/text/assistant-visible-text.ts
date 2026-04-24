@@ -9,6 +9,14 @@ import {
 
 const MEMORY_TAG_RE = /<\s*(\/?)\s*relevant[-_]memories\b[^<>]*>/gi;
 const MEMORY_TAG_QUICK_RE = /<\s*\/?\s*relevant[-_]memories\b/i;
+const SYSTEM_EVENT_SCAFFOLDING_QUICK_RE =
+  /(?:^|\n)\s*(?:System \(untrusted\):|An async command you ran earlier has completed\.)/i;
+const SYSTEM_EVENT_SCAFFOLDING_LINE_RE =
+  /^\s*System \(untrusted\):\s*\[[^\]\r\n]+\]\s*(?:Exec (?:completed|failed|finished)\b|An async command\b)/i;
+const ASYNC_COMMAND_PROMPT_LINE_RE =
+  /^\s*An async command you ran earlier has completed\.\s*(?:The result is shown in the system messages above\.)?/i;
+const ASYNC_COMMAND_INTERNAL_INSTRUCTION_RE =
+  /^\s*Handle the result internally\.\s*Do not relay it to the user unless explicitly requested\.?\s*$/i;
 
 /**
  * Strip XML-style tool call tags that models sometimes emit as plain text.
@@ -519,6 +527,42 @@ function stripRelevantMemoriesTags(text: string): string {
   return result;
 }
 
+function stripInjectedSystemEventScaffolding(text: string): string {
+  if (!text || !SYSTEM_EVENT_SCAFFOLDING_QUICK_RE.test(text)) {
+    return text;
+  }
+
+  const codeRegions = findCodeRegions(text);
+  const lines = text.split(/(\r?\n)/);
+  let offset = 0;
+  let removedAny = false;
+  const kept: string[] = [];
+
+  for (let index = 0; index < lines.length; index += 2) {
+    const line = lines[index] ?? "";
+    const newline = lines[index + 1] ?? "";
+    const lineStart = offset;
+    const lineEnd = lineStart + line.length;
+    offset = lineEnd + newline.length;
+
+    const isInsideFencedCode = isInsideCode(lineStart, codeRegions);
+    const shouldStrip =
+      !isInsideFencedCode &&
+      (SYSTEM_EVENT_SCAFFOLDING_LINE_RE.test(line) ||
+        ASYNC_COMMAND_PROMPT_LINE_RE.test(line) ||
+        ASYNC_COMMAND_INTERNAL_INSTRUCTION_RE.test(line));
+
+    if (shouldStrip) {
+      removedAny = true;
+      continue;
+    }
+
+    kept.push(line, newline);
+  }
+
+  return removedAny ? kept.join("") : text;
+}
+
 export type AssistantVisibleTextSanitizerProfile = "delivery" | "history" | "internal-scaffolding";
 
 type AssistantVisibleTextPipelineOptions = {
@@ -585,6 +629,7 @@ function applyAssistantVisibleTextStagePipeline(
     }
     cleaned = stripModelSpecialTokens(cleaned);
     cleaned = stripRelevantMemoriesTags(cleaned);
+    cleaned = stripInjectedSystemEventScaffolding(cleaned);
     cleaned = stripToolCallXmlTags(cleaned);
     if (!options.preserveDowngradedToolText) {
       cleaned = stripDowngradedToolCallText(cleaned);

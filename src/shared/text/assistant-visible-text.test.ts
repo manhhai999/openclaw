@@ -502,6 +502,21 @@ describe("sanitizeAssistantVisibleText", () => {
 
     expect(sanitizeAssistantVisibleText(input)).toBe("Visible answer");
   });
+
+  it("strips leaked async system-event scaffolding from assistant-visible text", () => {
+    const input = [
+      "<relevant-memories>",
+      "The following OpenViking memories may be relevant:",
+      "- [] User basic info: Mạnh Hải, prefers Vietnamese interaction",
+      "</relevant-memories>",
+      "System (untrusted): [2026-04-25 00:09:53 GMT+9] Exec failed (lucky-sa, signal SIGKILL)",
+      "An async command you ran earlier has completed. The result is shown in the system messages above.",
+      "Handle the result internally. Do not relay it to the user unless explicitly requested.",
+      "Visible answer",
+    ].join("\n");
+
+    expect(sanitizeAssistantVisibleText(input)).toBe("Visible answer");
+  });
 });
 
 describe("sanitizeAssistantVisibleTextWithProfile", () => {
