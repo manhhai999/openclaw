@@ -564,6 +564,23 @@ describe("sanitizeChatSendMessageInput", () => {
       input: "Cafe\u0301",
       expected: { ok: true as const, message: "Café" },
     },
+    {
+      name: "strips injected relevant memories and sender metadata from chat.send text",
+      input: [
+        "<relevant-memories>",
+        "The following OpenViking memories may be relevant:",
+        "- [] User basic info: Mạnh Hải, prefers Vietnamese interaction",
+        "</relevant-memories>",
+        "",
+        "Sender (untrusted metadata):",
+        "```json",
+        '{"label":"openclaw-control-ui","id":"openclaw-control-ui"}',
+        "```",
+        "",
+        "[Sat 2026-04-25 03:14 GMT+9] Để anh xem",
+      ].join("\n"),
+      expected: { ok: true as const, message: "Để anh xem" },
+    },
   ])("$name", ({ input, expected }) => {
     expect(sanitizeChatSendMessageInput(input)).toEqual(expected);
   });

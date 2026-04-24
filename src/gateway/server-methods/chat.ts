@@ -9,6 +9,7 @@ import { resolveAgentTimeoutMs } from "../../agents/timeout.js";
 import { dispatchInboundMessage } from "../../auto-reply/dispatch.js";
 import type { ReplyPayload } from "../../auto-reply/reply-payload.js";
 import { createReplyDispatcher } from "../../auto-reply/reply/reply-dispatcher.js";
+import { stripInboundMetadata } from "../../auto-reply/reply/strip-inbound-meta.js";
 import type { MsgContext } from "../../auto-reply/templating.js";
 import { extractCanvasFromText } from "../../chat/canvas-render.js";
 import { resolveSessionFilePath } from "../../config/sessions.js";
@@ -638,7 +639,8 @@ export function sanitizeChatSendMessageInput(
   if (normalized.includes("\u0000")) {
     return { ok: false, error: "message must not contain null bytes" };
   }
-  return { ok: true, message: stripDisallowedChatControlChars(normalized) };
+  const withoutControlChars = stripDisallowedChatControlChars(normalized);
+  return { ok: true, message: stripInboundMetadata(withoutControlChars) };
 }
 
 function normalizeOptionalChatSystemReceipt(
