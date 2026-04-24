@@ -1120,19 +1120,37 @@ function sanitizeChatHistoryMessage(
   }
 
   if (typeof entry.content === "string") {
-    const stripped = stripInlineDirectiveTagsForDisplay(entry.content);
+    const originalContent = entry.content;
+    const inboundStripped =
+      role === "user" ? stripInboundMetadata(originalContent) : originalContent;
+    const stripped = stripInlineDirectiveTagsForDisplay(inboundStripped);
     if (preserveExactToolPayload) {
       entry.content = stripped.text;
-      changed ||= stripped.changed;
+      changed ||= stripped.changed || inboundStripped !== originalContent;
     } else {
       const res = truncateChatHistoryText(stripped.text, maxChars);
       entry.content = res.text;
-      changed ||= stripped.changed || res.truncated;
+      changed ||= stripped.changed || inboundStripped !== originalContent || res.truncated;
     }
   } else if (Array.isArray(entry.content)) {
-    const updated = entry.content.map((block) =>
-      sanitizeChatHistoryContentBlock(block, { preserveExactToolPayload, maxChars }),
-    );
+    const updated = entry.content.map((block) => {
+      const maybeInboundStripped = (() => {
+        if (role !== "user" || !block || typeof block !== "object") {
+          return block;
+        }
+        const contentBlock = block as Record<string, unknown>;
+        if (contentBlock.type !== "text" || typeof contentBlock.text !== "string") {
+          return block;
+        }
+        const strippedText = stripInboundMetadata(contentBlock.text);
+        return strippedText === contentBlock.text ? block : { ...contentBlock, text: strippedText };
+      })();
+      const sanitized = sanitizeChatHistoryContentBlock(maybeInboundStripped, {
+        preserveExactToolPayload,
+        maxChars,
+      });
+      return { ...sanitized, changed: sanitized.changed || maybeInboundStripped !== block };
+    });
     if (updated.some((item) => item.changed)) {
       entry.content = updated.map((item) => item.block);
       changed = true;
@@ -1147,14 +1165,16 @@ function sanitizeChatHistoryMessage(
   }
 
   if (typeof entry.text === "string") {
-    const stripped = stripInlineDirectiveTagsForDisplay(entry.text);
+    const originalText = entry.text;
+    const inboundStripped = role === "user" ? stripInboundMetadata(originalText) : originalText;
+    const stripped = stripInlineDirectiveTagsForDisplay(inboundStripped);
     if (preserveExactToolPayload) {
       entry.text = stripped.text;
-      changed ||= stripped.changed;
+      changed ||= stripped.changed || inboundStripped !== originalText;
     } else {
       const res = truncateChatHistoryText(stripped.text, maxChars);
       entry.text = res.text;
-      changed ||= stripped.changed || res.truncated;
+      changed ||= stripped.changed || inboundStripped !== originalText || res.truncated;
     }
   }
 

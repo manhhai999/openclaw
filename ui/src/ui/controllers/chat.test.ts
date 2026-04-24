@@ -624,6 +624,35 @@ describe("loadChatHistory", () => {
 });
 
 describe("sendChatMessage", () => {
+  it("strips injected relevant memories before optimistic display and chat.send", async () => {
+    const request = vi.fn().mockResolvedValue({ runId: "run-1", status: "started" });
+    const state = createState({
+      connected: true,
+      client: { request } as unknown as ChatState["client"],
+    });
+
+    const input = [
+      "<relevant-memories>",
+      "The following OpenViking memories may be relevant:",
+      "- [] User basic info: Mạnh Hải, prefers Vietnamese interaction",
+      "</relevant-memories>",
+      "",
+      "[Sat 2026-04-25 03:14 GMT+9] Để anh xem",
+    ].join("\n");
+
+    const result = await sendChatMessage(state, input);
+
+    expect(result).toBeTruthy();
+    expect(request).toHaveBeenCalledWith(
+      "chat.send",
+      expect.objectContaining({ message: "Để anh xem" }),
+    );
+    expect(state.chatMessages[0]).toMatchObject({
+      role: "user",
+      content: [{ type: "text", text: "Để anh xem" }],
+    });
+  });
+
   it("formats structured non-auth connect failures for chat send", async () => {
     const request = vi.fn().mockRejectedValue(
       new GatewayRequestError({

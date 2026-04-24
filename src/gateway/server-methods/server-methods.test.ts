@@ -376,6 +376,50 @@ describe("injectTimestamp", () => {
 });
 
 describe("sanitizeChatHistoryMessages", () => {
+  it("strips injected relevant memories from user string content before history/SSE delivery", () => {
+    const result = sanitizeChatHistoryMessages([
+      {
+        role: "user",
+        content: [
+          "<relevant-memories>",
+          "The following OpenViking memories may be relevant:",
+          "- [] User basic info: Mạnh Hải, prefers Vietnamese interaction",
+          "</relevant-memories>",
+          "",
+          "[Sat 2026-04-25 03:14 GMT+9] Để anh xem",
+        ].join("\n"),
+        timestamp: 1,
+      },
+    ]);
+
+    expect(result).toEqual([{ role: "user", content: "Để anh xem", timestamp: 1 }]);
+  });
+
+  it("strips injected relevant memories from user text blocks before history/SSE delivery", () => {
+    const result = sanitizeChatHistoryMessages([
+      {
+        role: "user",
+        content: [
+          {
+            type: "text",
+            text: [
+              "<relevant-memories>",
+              "The following OpenViking memories may be relevant:",
+              "- [] User basic info: Mạnh Hải, prefers Vietnamese interaction",
+              "</relevant-memories>",
+              "Để anh xem",
+            ].join("\n"),
+          },
+        ],
+        timestamp: 1,
+      },
+    ]);
+
+    expect(result).toEqual([
+      { role: "user", content: [{ type: "text", text: "Để anh xem" }], timestamp: 1 },
+    ]);
+  });
+
   it("redacts base64 audio content blocks from chat history", () => {
     const data = Buffer.from("voice-bytes").toString("base64");
     const result = sanitizeChatHistoryMessages([
