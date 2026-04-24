@@ -46,6 +46,23 @@ describe("message-normalizer", () => {
       expect(result.audioAsVoice).toBeUndefined();
     });
 
+    it("strips injected relevant memories from user messages before rendering", () => {
+      const result = normalizeMessage({
+        role: "user",
+        content: [
+          "<relevant-memories>",
+          "The following OpenViking memories may be relevant:",
+          "- [] OpenClaw system: User's workspace environment",
+          "- [] User basic info: Mạnh Hải, prefers Vietnamese interaction",
+          "</relevant-memories>",
+          "",
+          "[Sat 2026-04-25 03:14 GMT+9] Để anh xem",
+        ].join("\n"),
+      });
+
+      expect(result.content).toEqual([{ type: "text", text: "Để anh xem" }]);
+    });
+
     it("normalizes message with array content", () => {
       const result = normalizeMessage({
         role: "assistant",

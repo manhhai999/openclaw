@@ -13,6 +13,9 @@
  */
 
 const LEADING_TIMESTAMP_PREFIX_RE = /^\[[A-Za-z]{3} \d{4}-\d{2}-\d{2} \d{2}:\d{2}[^\]]*\] */;
+const LEADING_RELEVANT_MEMORIES_BLOCK_RE =
+  /^\s*<\s*relevant[-_]memories\b[^>]*>[\s\S]*?<\s*\/\s*relevant[-_]memories\s*>\s*/i;
+const RELEVANT_MEMORIES_FAST_RE = /<\s*relevant[-_]memories\b/i;
 
 /**
  * Sentinel strings that identify the start of an injected metadata block.
@@ -185,9 +188,12 @@ export function stripInboundMetadata(text: string): string {
     return text;
   }
 
-  const withoutTimestamp = text.replace(LEADING_TIMESTAMP_PREFIX_RE, "");
+  const withoutRelevantMemories = RELEVANT_MEMORIES_FAST_RE.test(text)
+    ? text.replace(LEADING_RELEVANT_MEMORIES_BLOCK_RE, "")
+    : text;
+  const withoutTimestamp = withoutRelevantMemories.replace(LEADING_TIMESTAMP_PREFIX_RE, "");
   if (!SENTINEL_FAST_RE.test(withoutTimestamp)) {
-    return withoutTimestamp;
+    return withoutTimestamp.replace(LEADING_TIMESTAMP_PREFIX_RE, "");
   }
 
   const lines = withoutTimestamp.split("\n");
@@ -248,11 +254,17 @@ export function stripInboundMetadata(text: string): string {
 }
 
 export function stripLeadingInboundMetadata(text: string): string {
-  if (!text || !SENTINEL_FAST_RE.test(text)) {
+  if (!text) {
     return text;
   }
+  const withoutRelevantMemories = RELEVANT_MEMORIES_FAST_RE.test(text)
+    ? text.replace(LEADING_RELEVANT_MEMORIES_BLOCK_RE, "")
+    : text;
+  if (!SENTINEL_FAST_RE.test(withoutRelevantMemories)) {
+    return withoutRelevantMemories;
+  }
 
-  const lines = stripActiveMemoryPromptPrefixBlocks(text.split("\n"));
+  const lines = stripActiveMemoryPromptPrefixBlocks(withoutRelevantMemories.split("\n"));
   let index = 0;
 
   while (index < lines.length && lines[index] === "") {
