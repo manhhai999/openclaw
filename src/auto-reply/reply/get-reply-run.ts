@@ -340,11 +340,16 @@ export async function runPreparedReply(
       })
     : "";
   const groupSystemPrompt = normalizeOptionalString(sessionCtx.GroupSystemPrompt) ?? "";
+  const internalControlPrompt = (sessionCtx.InternalControlInstructions ?? [])
+    .map((entry) => entry.text.trim())
+    .filter(Boolean)
+    .join("\n\n");
   const inboundMetaPrompt = buildInboundMetaSystemPrompt(
     isNewSession ? sessionCtx : { ...sessionCtx, ThreadStarterBody: undefined },
     { includeFormattingHints: !useFastReplyRuntime },
   );
   const extraSystemPromptParts = [
+    internalControlPrompt,
     inboundMetaPrompt,
     directChatContext,
     groupChatContext,

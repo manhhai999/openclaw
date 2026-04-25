@@ -22,6 +22,7 @@ import {
   resolveEffectiveChatHistoryMaxChars,
   sanitizeChatHistoryMessages,
   sanitizeChatSendMessageInput,
+  sanitizeChatSendMessageInputWithInternalControls,
 } from "./chat.js";
 import { createExecApprovalHandlers } from "./exec-approval.js";
 import { logsHandlers } from "./logs.js";
@@ -625,8 +626,37 @@ describe("sanitizeChatSendMessageInput", () => {
       ].join("\n"),
       expected: { ok: true as const, message: "Để anh xem" },
     },
+    {
+      name: "strips ingest reply assist control block from chat.send text",
+      input: [
+        "<ingest-reply-assist>",
+        "Reply with 1-2 concise sentences.",
+        "</ingest-reply-assist>",
+        "",
+        "Speaker A: hello",
+      ].join("\n"),
+      expected: { ok: true as const, message: "Speaker A: hello" },
+    },
   ])("$name", ({ input, expected }) => {
     expect(sanitizeChatSendMessageInput(input)).toEqual(expected);
+  });
+
+  it("extracts ingest reply assist as internal control metadata", () => {
+    const input = [
+      "<ingest-reply-assist>",
+      "Reply with 1-2 concise sentences.",
+      "</ingest-reply-assist>",
+      "",
+      "Speaker A: hello",
+    ].join("\n");
+
+    expect(sanitizeChatSendMessageInputWithInternalControls(input)).toEqual({
+      ok: true,
+      message: "Speaker A: hello",
+      internalControlInstructions: [
+        { source: "ingest-reply-assist", text: "Reply with 1-2 concise sentences." },
+      ],
+    });
   });
 });
 

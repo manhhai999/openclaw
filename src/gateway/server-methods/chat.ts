@@ -9,7 +9,10 @@ import { resolveAgentTimeoutMs } from "../../agents/timeout.js";
 import { dispatchInboundMessage } from "../../auto-reply/dispatch.js";
 import type { ReplyPayload } from "../../auto-reply/reply-payload.js";
 import { createReplyDispatcher } from "../../auto-reply/reply/reply-dispatcher.js";
-import { stripInboundMetadata } from "../../auto-reply/reply/strip-inbound-meta.js";
+import {
+  extractInternalControlBlocks,
+  stripInboundMetadata,
+} from "../../auto-reply/reply/strip-inbound-meta.js";
 import type { MsgContext } from "../../auto-reply/templating.js";
 import { extractCanvasFromText } from "../../chat/canvas-render.js";
 import { resolveSessionFilePath } from "../../config/sessions.js";
@@ -635,12 +638,36 @@ function stripDisallowedChatControlChars(message: string): string {
 export function sanitizeChatSendMessageInput(
   message: string,
 ): { ok: true; message: string } | { ok: false; error: string } {
+  const sanitized = sanitizeChatSendMessageInputWithInternalControls(message);
+  if (!sanitized.ok) {
+    return sanitized;
+  }
+  return { ok: true, message: sanitized.message };
+}
+
+export function sanitizeChatSendMessageInputWithInternalControls(
+  message: string,
+):
+  | {
+      ok: true;
+      message: string;
+      internalControlInstructions: Array<{ source: string; text: string }>;
+    }
+  | { ok: false; error: string } {
   const normalized = message.normalize("NFC");
   if (normalized.includes("\u0000")) {
     return { ok: false, error: "message must not contain null bytes" };
   }
   const withoutControlChars = stripDisallowedChatControlChars(normalized);
-  return { ok: true, message: stripInboundMetadata(withoutControlChars) };
+  const internalControlResult = extractInternalControlBlocks(withoutControlChars);
+  return {
+    ok: true,
+    message: stripInboundMetadata(internalControlResult.text),
+    internalControlInstructions: internalControlResult.blocks.map((block) => ({
+      source: block.tag,
+      text: block.text,
+    })),
+  };
 }
 
 function normalizeOptionalChatSystemReceipt(
@@ -2114,7 +2141,7 @@ export const chatHandlers: GatewayRequestHandlers = {
       );
       return;
     }
-    const sanitizedMessageResult = sanitizeChatSendMessageInput(p.message);
+    const sanitizedMessageResult = sanitizeChatSendMessageInputWithInternalControls(p.message);
     if (!sanitizedMessageResult.ok) {
       respond(
         false,
@@ -2129,6 +2156,7 @@ export const chatHandlers: GatewayRequestHandlers = {
       return;
     }
     const inboundMessage = sanitizedMessageResult.message;
+    const internalControlInstructions = sanitizedMessageResult.internalControlInstructions;
     const systemInputProvenance = normalizeInputProvenance(p.systemInputProvenance);
     const systemProvenanceReceipt = systemReceiptResult.receipt;
     const stopCommand = isChatStopCommandText(inboundMessage);
@@ -2339,6 +2367,9 @@ export const chatHandlers: GatewayRequestHandlers = {
         ChatType: "direct",
         CommandAuthorized: true,
         MessageSid: clientRunId,
+        ...(internalControlInstructions.length > 0
+          ? { InternalControlInstructions: internalControlInstructions }
+          : {}),
         SenderId: clientInfo?.id,
         SenderName: clientInfo?.displayName,
         SenderUsername: clientInfo?.displayName,

@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import type { TemplateContext } from "../templating.js";
 import { buildInboundUserContextPrefix } from "./inbound-meta.js";
 import {
+  extractInternalControlBlocks,
   extractInboundSenderLabel,
   stripInboundMetadata,
   stripLeadingInboundMetadata,
@@ -264,5 +265,44 @@ describe("builder compatibility", () => {
     } as TemplateContext)}\n\nActual user message`;
 
     expect(stripInboundMetadata(input)).toBe("Actual user message");
+  });
+});
+
+describe("internal control block stripping", () => {
+  it("extracts ingest-reply-assist while removing it from visible user text", () => {
+    const input = [
+      "<ingest-reply-assist>",
+      "Reply with 1-2 concise sentences and ask no follow-up questions.",
+      "</ingest-reply-assist>",
+      "",
+      "Speaker A: hello",
+      "Speaker B: hi",
+    ].join("\n");
+
+    expect(extractInternalControlBlocks(input)).toEqual({
+      changed: true,
+      blocks: [
+        {
+          tag: "ingest-reply-assist",
+          text: "Reply with 1-2 concise sentences and ask no follow-up questions.",
+        },
+      ],
+      text: "Speaker A: hello\nSpeaker B: hi",
+    });
+    expect(stripInboundMetadata(input)).toBe("Speaker A: hello\nSpeaker B: hi");
+  });
+
+  it("strips ingest-reply-assist even when it appears after user transcript text", () => {
+    const input = [
+      "Speaker A: first",
+      "",
+      "<ingest-reply-assist>",
+      "Do not render this helper.",
+      "</ingest-reply-assist>",
+      "",
+      "Speaker B: second",
+    ].join("\n");
+
+    expect(stripInboundMetadata(input)).toBe("Speaker A: first\n\nSpeaker B: second");
   });
 });

@@ -28,6 +28,11 @@ export type UntrustedStructuredContextEntry = {
   payload: unknown;
 };
 
+export type InternalControlInstruction = {
+  source: string;
+  text: string;
+};
+
 export type MsgContext = {
   Body?: string;
   /**
@@ -146,6 +151,8 @@ export type MsgContext = {
   UntrustedContext?: string[];
   /** Structured untrusted metadata rendered by prompt assembly as fenced JSON. */
   UntrustedStructuredContext?: UntrustedStructuredContextEntry[];
+  /** Trusted internal routing/control instructions extracted from hidden control blocks. */
+  InternalControlInstructions?: InternalControlInstruction[];
   /** System-attached provenance for the current inbound message. */
   InputProvenance?: InputProvenance;
   /** Explicit owner allowlist overrides (trusted, configuration-derived). */

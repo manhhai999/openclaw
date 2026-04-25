@@ -16,6 +16,17 @@ const LEADING_TIMESTAMP_PREFIX_RE = /^\[[A-Za-z]{3} \d{4}-\d{2}-\d{2} \d{2}:\d{2
 const LEADING_RELEVANT_MEMORIES_BLOCK_RE =
   /^\s*<\s*relevant[-_]memories\b[^>]*>[\s\S]*?<\s*\/\s*relevant[-_]memories\s*>\s*/i;
 const RELEVANT_MEMORIES_FAST_RE = /<\s*relevant[-_]memories\b/i;
+const INTERNAL_CONTROL_BLOCK_TAGS = ["ingest-reply-assist"] as const;
+const INTERNAL_CONTROL_BLOCK_FAST_RE = /<\s*ingest-reply-assist\b/i;
+const INTERNAL_CONTROL_BLOCK_RE = new RegExp(
+  `<\\s*(${INTERNAL_CONTROL_BLOCK_TAGS.join("|")})\\b[^>]*>([\\s\\S]*?)<\\s*\\/\\s*\\1\\s*>`,
+  "gi",
+);
+
+export type InternalControlBlock = {
+  tag: (typeof INTERNAL_CONTROL_BLOCK_TAGS)[number];
+  text: string;
+};
 
 /**
  * Sentinel strings that identify the start of an injected metadata block.
@@ -168,6 +179,43 @@ function stripActiveMemoryPromptPrefixBlocks(lines: string[]): string[] {
   return result;
 }
 
+function normalizeAfterControlBlockRemoval(text: string): string {
+  return text
+    .replace(/[ \t]+\n/g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .replace(/^\n+/, "")
+    .replace(/\n+$/, "");
+}
+
+export function extractInternalControlBlocks(text: string): {
+  text: string;
+  blocks: InternalControlBlock[];
+  changed: boolean;
+} {
+  if (!text || !INTERNAL_CONTROL_BLOCK_FAST_RE.test(text)) {
+    return { text, blocks: [], changed: false };
+  }
+
+  const blocks: InternalControlBlock[] = [];
+  const stripped = text.replace(
+    INTERNAL_CONTROL_BLOCK_RE,
+    (_match, rawTag: string, body: string) => {
+      const tag = rawTag.toLowerCase() as InternalControlBlock["tag"];
+      const controlText = body.trim();
+      if (controlText) {
+        blocks.push({ tag, text: controlText });
+      }
+      return "\n";
+    },
+  );
+  const normalized = normalizeAfterControlBlockRemoval(stripped);
+  return { text: normalized, blocks, changed: normalized !== text || blocks.length > 0 };
+}
+
+export function stripInternalControlBlocks(text: string): string {
+  return extractInternalControlBlocks(text).text;
+}
+
 /**
  * Remove all injected inbound metadata prefix blocks from `text`.
  *
@@ -188,9 +236,11 @@ export function stripInboundMetadata(text: string): string {
     return text;
   }
 
-  const withoutRelevantMemories = RELEVANT_MEMORIES_FAST_RE.test(text)
-    ? text.replace(LEADING_RELEVANT_MEMORIES_BLOCK_RE, "")
-    : text;
+  const withoutInternalControls = stripInternalControlBlocks(text);
+
+  const withoutRelevantMemories = RELEVANT_MEMORIES_FAST_RE.test(withoutInternalControls)
+    ? withoutInternalControls.replace(LEADING_RELEVANT_MEMORIES_BLOCK_RE, "")
+    : withoutInternalControls;
   const withoutTimestamp = withoutRelevantMemories.replace(LEADING_TIMESTAMP_PREFIX_RE, "");
   if (!SENTINEL_FAST_RE.test(withoutTimestamp)) {
     return withoutTimestamp.replace(LEADING_TIMESTAMP_PREFIX_RE, "");
@@ -257,9 +307,10 @@ export function stripLeadingInboundMetadata(text: string): string {
   if (!text) {
     return text;
   }
-  const withoutRelevantMemories = RELEVANT_MEMORIES_FAST_RE.test(text)
-    ? text.replace(LEADING_RELEVANT_MEMORIES_BLOCK_RE, "")
-    : text;
+  const withoutInternalControls = stripInternalControlBlocks(text);
+  const withoutRelevantMemories = RELEVANT_MEMORIES_FAST_RE.test(withoutInternalControls)
+    ? withoutInternalControls.replace(LEADING_RELEVANT_MEMORIES_BLOCK_RE, "")
+    : withoutInternalControls;
   if (!SENTINEL_FAST_RE.test(withoutRelevantMemories)) {
     return withoutRelevantMemories;
   }

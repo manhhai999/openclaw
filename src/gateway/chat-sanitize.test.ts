@@ -90,4 +90,18 @@ describe("stripEnvelopeFromMessage", () => {
     const result = stripEnvelopeFromMessage(input) as { content?: string };
     expect(result.content).toBe("hello");
   });
+
+  test("strips ingest reply assist control blocks from user history", () => {
+    const input = {
+      role: "user",
+      content: [
+        "Speaker A: hello",
+        "<ingest-reply-assist>",
+        "Reply with 1-2 concise sentences.",
+        "</ingest-reply-assist>",
+      ].join("\n"),
+    };
+    const result = stripEnvelopeFromMessage(input) as { content?: string };
+    expect(result.content).toBe("Speaker A: hello");
+  });
 });

@@ -266,6 +266,30 @@ describe("runPreparedReply media-only handling", () => {
     );
   });
 
+  it("passes extracted internal control instructions through extra system prompt", async () => {
+    await runPreparedReply(
+      baseParams({
+        sessionCtx: {
+          ...baseParams().sessionCtx,
+          Body: "Speaker A: hello",
+          BodyStripped: "Speaker A: hello",
+          InternalControlInstructions: [
+            {
+              source: "ingest-reply-assist",
+              text: "Reply with 1-2 concise sentences.",
+            },
+          ],
+        },
+      }),
+    );
+
+    const call = vi.mocked(runReplyAgent).mock.calls[0]?.[0];
+    expect(call?.followupRun.prompt).toContain("Speaker A: hello");
+    expect(call?.followupRun.prompt).not.toContain("ingest-reply-assist");
+    expect(call?.followupRun.run.extraSystemPrompt).toContain("Reply with 1-2 concise sentences.");
+    expect(call?.followupRun.run.extraSystemPrompt).not.toContain("<ingest-reply-assist>");
+  });
+
   it("allows media-only prompts and preserves thread context in queued followups", async () => {
     const result = await runPreparedReply(baseParams());
     expect(result).toEqual({ text: "ok" });
