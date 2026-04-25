@@ -857,12 +857,16 @@ describe("runPreparedReply media-only handling", () => {
 
     await expect(runPromise).resolves.toEqual({ text: "ok" });
     const call = vi.mocked(runReplyAgent).mock.calls.at(-1)?.[0];
-    expect(call?.commandBody).toContain("System: [t] Initial event.");
+    expect(call?.commandBody).not.toContain("System: [t] Initial event.");
     expect(call?.commandBody).not.toContain("System: [t] Post-compaction context.");
     expect(call?.transcriptCommandBody).not.toContain("System: [t] Initial event.");
-    expect(call?.followupRun.prompt).toContain("System: [t] Initial event.");
-    expect(call?.followupRun.prompt).not.toContain("System: [t] Post-compaction context.");
     expect(call?.followupRun.transcriptPrompt).not.toContain("System: [t] Initial event.");
+    expect(call?.followupRun.prompt).not.toContain("System: [t] Initial event.");
+    expect(call?.followupRun.prompt).not.toContain("System: [t] Post-compaction context.");
+    expect(call?.followupRun.run.extraSystemPrompt).toContain("System: [t] Initial event.");
+    expect(call?.followupRun.run.extraSystemPrompt).not.toContain(
+      "System: [t] Post-compaction context.",
+    );
   });
   it("uses inbound origin channel for run messageProvider", async () => {
     await runPreparedReply(
@@ -970,15 +974,43 @@ describe("runPreparedReply media-only handling", () => {
     expect(call?.suppressTyping).toBe(true);
   });
 
-  it("routes queued system events into user prompt text, not system prompt context", async () => {
+  it("routes queued system events into internal system prompt, not user prompt text", async () => {
     vi.mocked(drainFormattedSystemEvents).mockResolvedValueOnce("System: [t] Model switched.");
 
     await runPreparedReply(baseParams());
 
     const call = vi.mocked(runReplyAgent).mock.calls[0]?.[0];
     expect(call).toBeTruthy();
-    expect(call?.commandBody).toContain("System: [t] Model switched.");
-    expect(call?.followupRun.run.extraSystemPrompt ?? "").not.toContain("Runtime System Events");
+    expect(call?.commandBody).not.toContain("System: [t] Model switched.");
+    expect(call?.followupRun.prompt).not.toContain("System: [t] Model switched.");
+    expect(call?.followupRun.run.extraSystemPrompt ?? "").toContain(
+      "Runtime system events for this run.",
+    );
+    expect(call?.followupRun.run.extraSystemPrompt ?? "").toContain("System: [t] Model switched.");
+  });
+
+  it("keeps async exec completion notices out of user-visible prompt text", async () => {
+    vi.mocked(drainFormattedSystemEvents).mockResolvedValueOnce(
+      [
+        "System (untrusted): [t] Exec completed (node=lucky-sa id=run-1, code 0) :: done",
+        "An async command you ran earlier has completed. The result is shown in the system messages above.",
+        "Handle the result internally. Do not relay it to the user unless explicitly requested.",
+      ].join("\n"),
+    );
+
+    await runPreparedReply(baseParams());
+
+    const call = vi.mocked(runReplyAgent).mock.calls[0]?.[0];
+    expect(call).toBeTruthy();
+    expect(call?.commandBody).not.toContain("Exec completed");
+    expect(call?.commandBody).not.toContain("An async command you ran earlier");
+    expect(call?.followupRun.prompt).not.toContain("Exec completed");
+    expect(call?.followupRun.prompt).not.toContain("An async command you ran earlier");
+    expect(call?.followupRun.run.extraSystemPrompt).toContain("Exec completed");
+    expect(call?.followupRun.run.extraSystemPrompt).toContain(
+      "Runtime system events for this run.",
+    );
+    expect(call?.followupRun.run.senderIsOwner).toBe(false);
   });
 
   it("downgrades sender ownership when drained system events include untrusted lines", async () => {
@@ -1036,20 +1068,22 @@ describe("runPreparedReply media-only handling", () => {
     // The stripped user text (no "low" token) must still appear after the event block.
     expect(call?.commandBody).toContain("tell me about cats");
     expect(call?.commandBody).not.toMatch(/^low\b/);
-    // System events are still present in the body.
-    expect(call?.commandBody).toContain("System: [t] Node connected.");
+    // System events stay internal and must not become user prompt text.
+    expect(call?.commandBody).not.toContain("System: [t] Node connected.");
+    expect(call?.followupRun.run.extraSystemPrompt).toContain("System: [t] Node connected.");
   });
 
-  it("carries system events into followupRun.prompt for deferred turns", async () => {
-    // drainFormattedSystemEvents returns the events block; the caller prepends it to
-    // effectiveBaseBody for the queue path so deferred turns see events.
+  it("keeps system events out of followupRun.prompt for deferred turns", async () => {
+    // Runtime events should be available to the agent via system prompt only;
+    // followupRun.prompt is user-visible/persistable prompt text.
     vi.mocked(drainFormattedSystemEvents).mockResolvedValueOnce("System: [t] Node connected.");
 
     await runPreparedReply(baseParams());
 
     const call = vi.mocked(runReplyAgent).mock.calls[0]?.[0];
     expect(call).toBeTruthy();
-    expect(call?.followupRun.prompt).toContain("System: [t] Node connected.");
+    expect(call?.followupRun.prompt).not.toContain("System: [t] Node connected.");
+    expect(call?.followupRun.run.extraSystemPrompt).toContain("System: [t] Node connected.");
   });
 
   it("does not strip think-hint token from deferred queue body", async () => {
