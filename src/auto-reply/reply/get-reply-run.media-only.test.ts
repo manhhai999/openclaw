@@ -1013,6 +1013,45 @@ describe("runPreparedReply media-only handling", () => {
     expect(call?.followupRun.run.senderIsOwner).toBe(false);
   });
 
+  it("keeps tail-only async exec completion envelope out of user-visible prompt text", async () => {
+    vi.mocked(drainFormattedSystemEvents).mockResolvedValueOnce(undefined);
+    const tailOnlyEnvelope = [
+      "An async command you ran earlier has completed. The result is shown in the system messages above.",
+      "Handle the result internally. Do not relay it to the user unless explicitly requested.",
+      "Current time: Saturday, April 25th, 2026 - 11:50 PM (Asia/Seoul) / 2026-04-25 14:50 UTC",
+    ].join("\n");
+
+    await runPreparedReply(
+      baseParams({
+        ctx: {
+          Body: tailOnlyEnvelope,
+          RawBody: tailOnlyEnvelope,
+          CommandBody: tailOnlyEnvelope,
+          Provider: "exec-event",
+        },
+        sessionCtx: {
+          Body: tailOnlyEnvelope,
+          BodyStripped: tailOnlyEnvelope,
+          Provider: "exec-event",
+        },
+      }),
+    );
+
+    const call = vi.mocked(runReplyAgent).mock.calls[0]?.[0];
+    expect(call).toBeTruthy();
+    expect(call?.commandBody).not.toContain("An async command you ran earlier");
+    expect(call?.commandBody).not.toContain("Handle the result internally");
+    expect(call?.commandBody).not.toContain("Current time:");
+    expect(call?.followupRun.prompt).not.toContain("An async command you ran earlier");
+    expect(call?.followupRun.prompt).not.toContain("Handle the result internally");
+    expect(call?.followupRun.prompt).not.toContain("Current time:");
+    expect(call?.followupRun.run.extraSystemPrompt).toContain(
+      "Async exec completion event for this run.",
+    );
+    expect(call?.followupRun.run.extraSystemPrompt).toContain("An async command you ran earlier");
+    expect(call?.followupRun.run.extraSystemPrompt).toContain("Current time:");
+  });
+
   it("downgrades sender ownership when drained system events include untrusted lines", async () => {
     vi.mocked(drainFormattedSystemEvents).mockResolvedValueOnce(
       "System (untrusted): [t] External webhook payload.",

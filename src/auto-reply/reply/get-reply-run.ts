@@ -344,12 +344,29 @@ export async function runPreparedReply(
     .map((entry) => entry.text.trim())
     .filter(Boolean)
     .join("\n\n");
+  const isInternalExecEvent =
+    ctx.Provider === "exec-event" ||
+    ctx.Surface === "exec-event" ||
+    sessionCtx.Provider === "exec-event" ||
+    sessionCtx.Surface === "exec-event";
+  const execEventInternalPrompt = isInternalExecEvent
+    ? (sessionCtx.BodyStripped ?? sessionCtx.Body ?? ctx.Body ?? "").trim()
+    : "";
   const inboundMetaPrompt = buildInboundMetaSystemPrompt(
     isNewSession ? sessionCtx : { ...sessionCtx, ThreadStarterBody: undefined },
     { includeFormattingHints: !useFastReplyRuntime },
   );
   const extraSystemPromptParts = [
     internalControlPrompt,
+    execEventInternalPrompt
+      ? [
+          "Async exec completion event for this run.",
+          "This envelope is internal runtime/tool context, not user chat text.",
+          "Handle the result internally and do not relay this raw wrapper/timestamp unless the user explicitly asks.",
+          "",
+          execEventInternalPrompt,
+        ].join("\n")
+      : "",
     inboundMetaPrompt,
     directChatContext,
     groupChatContext,
@@ -376,9 +393,12 @@ export async function runPreparedReply(
     }),
   ].filter(Boolean);
   const baseBody = sessionCtx.BodyStripped ?? sessionCtx.Body ?? "";
+  const userVisibleBaseBody = isInternalExecEvent ? "" : baseBody;
   // Use CommandBody/RawBody for bare reset detection (clean message without structural context).
-  const rawBodyTrimmed = (ctx.CommandBody ?? ctx.RawBody ?? ctx.Body ?? "").trim();
-  const baseBodyTrimmedRaw = baseBody.trim();
+  const rawBodyTrimmed = (
+    isInternalExecEvent ? "" : (ctx.CommandBody ?? ctx.RawBody ?? ctx.Body ?? "")
+  ).trim();
+  const baseBodyTrimmedRaw = userVisibleBaseBody.trim();
   const normalizedCommandBody = command.commandBodyNormalized.trim();
   const softResetTriggered = command.softResetTriggered === true;
   const softResetTail = command.softResetTail?.trim() ?? "";
@@ -436,7 +456,7 @@ export async function runPreparedReply(
       : null;
   const baseBodyFinal = isBareSessionReset
     ? (bareResetPromptState?.prompt ?? "")
-    : stripPromptThinkingDirectives(baseBody);
+    : stripPromptThinkingDirectives(userVisibleBaseBody);
   const envelopeOptions = resolveEnvelopeFormatOptions(cfg);
   const inboundUserContext = buildInboundUserContextPrefix(
     isNewSession
@@ -460,7 +480,10 @@ export async function runPreparedReply(
         .filter(Boolean)
         .join("\n\n")
     : [inboundUserContext, baseBodyFinal].filter(Boolean).join("\n\n");
-  const hasUserBody = baseBodyFinal.trim().length > 0 || softResetTail.length > 0;
+  const hasUserBody =
+    baseBodyFinal.trim().length > 0 ||
+    softResetTail.length > 0 ||
+    execEventInternalPrompt.length > 0;
   const hasMediaAttachment = hasInboundMedia(sessionCtx) || (opts?.images?.length ?? 0) > 0;
   if (!hasUserBody && !hasMediaAttachment) {
     // Skip onReplyStart when typing is suppressed (e.g. sendPolicy deny) —
