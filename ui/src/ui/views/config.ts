@@ -1,7 +1,12 @@
 import { html, nothing, type TemplateResult } from "lit";
 import { t } from "../../i18n/index.ts";
 import { icons } from "../icons.ts";
-import { BORDER_RADIUS_STOPS, type BorderRadiusStop } from "../storage.ts";
+import {
+  BORDER_RADIUS_STOPS,
+  TEXT_SCALE_STOPS,
+  type BorderRadiusStop,
+  type TextScaleStop,
+} from "../storage.ts";
 import type { ThemeTransitionContext } from "../theme-transition.ts";
 import type { ThemeMode, ThemeName } from "../theme.ts";
 import type { ConfigUiHints } from "../types.ts";
@@ -10,7 +15,7 @@ import {
   humanize,
   isSensitiveConfigPath,
   pathKey,
-  REDACTED_PLACEHOLDER,
+  redactedPlaceholder,
   schemaType,
   type JsonSchema,
 } from "./config-form.shared.ts";
@@ -23,6 +28,18 @@ const BORDER_RADIUS_LABELS: Record<BorderRadiusStop, string> = {
   75: "Round",
   100: "Full",
 };
+
+function getTextScaleLabel(stop: TextScaleStop): string {
+  switch (stop) {
+    case 100:
+      return t("dashboard.config.appearance.textScale.compact");
+    case 110:
+      return t("dashboard.config.appearance.textScale.comfort");
+    case 120:
+      return t("dashboard.config.appearance.textScale.large");
+  }
+  return t("dashboard.config.appearance.textScale.comfort");
+}
 
 export type ConfigProps = {
   raw: string;
@@ -76,6 +93,8 @@ export type ConfigProps = {
   onOpenCustomThemeImport?: () => void;
   borderRadius: number;
   setBorderRadius: (value: number) => void;
+  textScale: number;
+  setTextScale: (value: number) => void;
   gatewayUrl: string;
   assistantName: string;
   configPath?: string | null;
@@ -575,7 +594,7 @@ function truncateValue(value: unknown, maxLen = 40): string {
 
 function renderDiffValue(path: string, value: unknown, _uiHints: ConfigUiHints): string {
   if (isSensitiveConfigPath(path) && value != null && truncateValue(value).trim() !== "") {
-    return REDACTED_PLACEHOLDER;
+    return redactedPlaceholder();
   }
   return truncateValue(value);
 }
@@ -763,6 +782,33 @@ function renderAppearanceSection(props: ConfigProps) {
                     style="border-radius: ${Math.round(10 * (stop / 50))}px"
                   ></span>
                   <span class="settings-roundness__label">${BORDER_RADIUS_LABELS[stop]}</span>
+                </button>
+              `,
+            )}
+          </div>
+        </div>
+      </div>
+
+      <div class="settings-appearance__section">
+        <h3 class="settings-appearance__heading">
+          ${t("dashboard.config.appearance.textSizeTitle")}
+        </h3>
+        <p class="settings-appearance__hint">${t("dashboard.config.appearance.textSizeHint")}</p>
+        <div class="settings-text-scale">
+          <div class="settings-text-scale__options">
+            ${TEXT_SCALE_STOPS.map(
+              (stop) => html`
+                <button
+                  type="button"
+                  class="settings-text-scale__btn ${stop === props.textScale ? "active" : ""}"
+                  @click=${() => props.setTextScale(stop)}
+                >
+                  <span
+                    class="settings-text-scale__preview"
+                    style="font-size: ${Math.round((stop / 100) * 16)}px"
+                    >Aa</span
+                  >
+                  <span class="settings-text-scale__label">${getTextScaleLabel(stop)}</span>
                 </button>
               `,
             )}

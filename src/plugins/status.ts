@@ -153,6 +153,7 @@ function buildCompatibilityNoticesFromReport(
       commandCount: plugin.commands.length,
       cliCount: plugin.cliCommands.length,
       serviceCount: plugin.services.length,
+      gatewayDiscoveryServiceCount: plugin.gatewayDiscoveryServiceIds.length,
       gatewayMethodCount: plugin.gatewayMethods.length,
       httpRouteCount: plugin.httpRoutes,
     });
