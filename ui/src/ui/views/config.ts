@@ -697,7 +697,10 @@ function computeRawDiff(original: string, current: string): ConfigDiffEntry[] {
 
 function truncateValue(value: unknown, maxLen = 40): string {
   if (Array.isArray(value)) {
-    return `[${value.length} item${value.length === 1 ? "" : "s"}]`;
+    return uiText(
+      `[${value.length} item${value.length === 1 ? "" : "s"}]`,
+      `[${value.length} mục]`,
+    );
   }
   let str: string;
   try {
@@ -1893,7 +1896,7 @@ export function renderConfig(props: ConfigProps) {
                                 <span class="pill pill--sm"
                                   >${uiText(
                                     `${sensitiveCount} secret${sensitiveCount === 1 ? "" : "s"} ${blurred ? "redacted" : "visible"}`,
-                                    `${sensitiveCount} secret ${blurred ? "đã che" : "đang hiển thị"}`,
+                                    `${sensitiveCount} giá trị nhạy cảm ${blurred ? "đã che" : "đang hiển thị"}`,
                                   )}</span
                                 >
                                 <button
