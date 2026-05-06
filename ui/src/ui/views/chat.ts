@@ -50,6 +50,7 @@ import { detectTextDirection } from "../text-direction.ts";
 import type { SessionsListResult } from "../types.ts";
 import type { ChatAttachment, ChatQueueItem } from "../ui-types.ts";
 import { resolveLocalUserName } from "../user-identity.ts";
+import { viDashboardText as uiText } from "../vi-dashboard-text.ts";
 import { renderMarkdownSidebar } from "./markdown-sidebar.ts";
 import "../components/resizable-divider.ts";
 
@@ -450,19 +451,25 @@ function renderAttachmentPreview(props: ChatProps): TemplateResult | typeof noth
               .join(" ")}
           >
             ${isImageAttachment(att) && getChatAttachmentPreviewUrl(att)
-              ? html`<img src=${getChatAttachmentPreviewUrl(att)!} alt="Attachment preview" />`
+              ? html`<img
+                  src=${getChatAttachmentPreviewUrl(att)!}
+                  alt=${uiText("Attachment preview", "Xem trước tệp đính kèm")}
+                />`
               : html`
-                  <div class="chat-attachment-file" title=${att.fileName ?? "Attached file"}>
+                  <div
+                    class="chat-attachment-file"
+                    title=${att.fileName ?? uiText("Attached file", "Tệp đính kèm")}
+                  >
                     <span class="chat-attachment-file__icon">${icons.paperclip}</span>
                     <span class="chat-attachment-file__name"
-                      >${att.fileName ?? "Attached file"}</span
+                      >${att.fileName ?? uiText("Attached file", "Tệp đính kèm")}</span
                     >
                   </div>
                 `}
             <button
               class="chat-attachment-remove"
               type="button"
-              aria-label="Remove attachment"
+              aria-label=${uiText("Remove attachment", "Xóa tệp đính kèm")}
               @click=${() => {
                 const next = (props.attachments ?? []).filter((a) => a.id !== att.id);
                 releaseChatAttachmentPayload(att.id);
@@ -682,8 +689,8 @@ function renderSearchBar(requestUpdate: () => void): TemplateResult | typeof not
       ${icons.search}
       <input
         type="text"
-        placeholder="Search messages..."
-        aria-label="Search messages"
+        placeholder=${uiText("Search messages...", "Tìm tin nhắn...")}
+        aria-label=${uiText("Search messages", "Tìm tin nhắn")}
         .value=${vs.searchQuery}
         @input=${(e: Event) => {
           vs.searchQuery = (e.target as HTMLInputElement).value;
@@ -692,7 +699,7 @@ function renderSearchBar(requestUpdate: () => void): TemplateResult | typeof not
       />
       <button
         class="btn btn--ghost"
-        aria-label="Close search"
+        aria-label=${uiText("Close search", "Đóng tìm kiếm")}
         @click=${() => {
           vs.searchOpen = false;
           vs.searchQuery = "";
@@ -738,7 +745,7 @@ function renderPinnedSection(
           requestUpdate();
         }}
       >
-        ${icons.bookmark} ${entries.length} pinned
+        ${icons.bookmark} ${uiText(`${entries.length} pinned`, `${entries.length} đã ghim`)}
         <span class="collapse-chevron ${vs.pinnedExpanded ? "" : "collapse-chevron--collapsed"}"
           >${icons.chevronDown}</span
         >
@@ -750,7 +757,7 @@ function renderPinnedSection(
                 ({ index, text, role }) => html`
                   <div class="agent-chat__pinned-item">
                     <span class="agent-chat__pinned-role"
-                      >${role === "user" ? userRoleLabel : "Assistant"}</span
+                      >${role === "user" ? userRoleLabel : uiText("Assistant", "Trợ lý")}</span
                     >
                     <span class="agent-chat__pinned-text"
                       >${text.slice(0, 100)}${text.length > 100 ? "..." : ""}</span
@@ -761,7 +768,7 @@ function renderPinnedSection(
                         pinned.unpin(index);
                         requestUpdate();
                       }}
-                      title="Unpin"
+                      title=${uiText("Unpin", "Bỏ ghim")}
                     >
                       ${icons.x}
                     </button>
@@ -790,7 +797,7 @@ function renderSlashMenu(
         id=${SLASH_MENU_LISTBOX_ID}
         class="slash-menu"
         role="listbox"
-        aria-label="Command arguments"
+        aria-label=${uiText("Command arguments", "Tham số lệnh")}
       >
         <div class="slash-menu-group">
           <div class="slash-menu-group__label">
@@ -819,7 +826,8 @@ function renderSlashMenu(
           )}
         </div>
         <div class="slash-menu-footer">
-          <kbd>↑↓</kbd> navigate <kbd>Tab</kbd> fill <kbd>Enter</kbd> run <kbd>Esc</kbd> close
+          <kbd>↑↓</kbd> ${uiText("navigate", "di chuyển")} <kbd>Tab</kbd> ${uiText("fill", "điền")}
+          <kbd>Enter</kbd> ${uiText("run", "chạy")} <kbd>Esc</kbd> ${uiText("close", "đóng")}
         </div>
       </div>
     `;
@@ -870,9 +878,14 @@ function renderSlashMenu(
               ${cmd.args ? html`<span class="slash-menu-args">${cmd.args}</span>` : nothing}
               <span class="slash-menu-desc">${cmd.description}</span>
               ${cmd.argOptions?.length
-                ? html`<span class="slash-menu-badge">${cmd.argOptions.length} options</span>`
+                ? html`<span class="slash-menu-badge">
+                    ${uiText(
+                      `${cmd.argOptions.length} options`,
+                      `${cmd.argOptions.length} tùy chọn`,
+                    )}
+                  </span>`
                 : cmd.executeLocal && !cmd.args
-                  ? html` <span class="slash-menu-badge">instant</span> `
+                  ? html` <span class="slash-menu-badge">${uiText("instant", "tức thì")}</span> `
                   : nothing}
             </div>
           `,
@@ -884,7 +897,12 @@ function renderSlashMenu(
   const hiddenCount = vs.slashMenuExpanded ? 0 : getHiddenCommandCount();
 
   return html`
-    <div id=${SLASH_MENU_LISTBOX_ID} class="slash-menu" role="listbox" aria-label="Slash commands">
+    <div
+      id=${SLASH_MENU_LISTBOX_ID}
+      class="slash-menu"
+      role="listbox"
+      aria-label=${uiText("Slash commands", "Lệnh slash")}
+    >
       ${sections}
       ${hiddenCount > 0
         ? html`<button
@@ -896,11 +914,15 @@ function renderSlashMenu(
               updateSlashMenu(props.draft, requestUpdate);
             }}
           >
-            Show ${hiddenCount} more command${hiddenCount !== 1 ? "s" : ""}
+            ${uiText(
+              `Show ${hiddenCount} more command${hiddenCount !== 1 ? "s" : ""}`,
+              `Hiện thêm ${hiddenCount} lệnh`,
+            )}
           </button>`
         : nothing}
       <div class="slash-menu-footer">
-        <kbd>↑↓</kbd> navigate <kbd>Tab</kbd> fill <kbd>Enter</kbd> select <kbd>Esc</kbd> close
+        <kbd>↑↓</kbd> ${uiText("navigate", "di chuyển")} <kbd>Tab</kbd> ${uiText("fill", "điền")}
+        <kbd>Enter</kbd> ${uiText("select", "chọn")} <kbd>Esc</kbd> ${uiText("close", "đóng")}
       </div>
     </div>
   `;
@@ -926,9 +948,15 @@ export function renderChat(props: ChatProps) {
 
   const placeholder = props.connected
     ? hasAttachments
-      ? t("chat.composer.placeholderWithAttachments")
-      : t("chat.composer.placeholder", { name: props.assistantName || "agent" })
-    : t("chat.composer.placeholderDisconnected");
+      ? uiText("Add a message or paste more images...", "Thêm tin nhắn hoặc dán thêm ảnh...")
+      : uiText(
+          `Message ${props.assistantName || "agent"} (Enter to send)`,
+          `Nhắn cho ${props.assistantName || "agent"} (Enter để gửi)`,
+        )
+    : uiText(
+        "Connect to the gateway to start chatting...",
+        "Kết nối tới gateway để bắt đầu chat...",
+      );
 
   const requestUpdate = props.onRequestUpdate ?? (() => {});
   const splitRatio = props.splitRatio ?? 0.6;
@@ -980,7 +1008,10 @@ export function renderChat(props: ChatProps) {
       <div class="chat-thread-inner">
         ${showLoadingSkeleton
           ? html`
-              <div class="chat-loading-skeleton" aria-label="Loading chat">
+              <div
+                class="chat-loading-skeleton"
+                aria-label=${uiText("Loading chat", "Đang tải chat")}
+              >
                 <div class="chat-line assistant">
                   <div class="chat-msg">
                     <div class="chat-bubble">
@@ -1019,7 +1050,11 @@ export function renderChat(props: ChatProps) {
           : nothing}
         ${isEmpty && !vs.searchOpen ? renderWelcomeState(props) : nothing}
         ${isEmpty && vs.searchOpen
-          ? html` <div class="agent-chat__empty">No matching messages</div> `
+          ? html`
+              <div class="agent-chat__empty">
+                ${uiText("No matching messages", "Không có tin nhắn khớp")}
+              </div>
+            `
           : nothing}
         ${repeat(
           chatItems,
@@ -1266,8 +1301,8 @@ export function renderChat(props: ChatProps) {
                       class="callout__dismiss"
                       type="button"
                       @click=${props.onDismissError}
-                      aria-label="Dismiss error"
-                      title="Dismiss error"
+                      aria-label=${uiText("Dismiss error", "Bỏ qua lỗi")}
+                      title=${uiText("Dismiss error", "Bỏ qua lỗi")}
                     >
                       ${icons.x}
                     </button>
@@ -1282,8 +1317,8 @@ export function renderChat(props: ChatProps) {
               class="chat-focus-exit"
               type="button"
               @click=${props.onToggleFocusMode}
-              aria-label="Exit focus mode"
-              title="Exit focus mode"
+              aria-label=${uiText("Exit focus mode", "Thoát chế độ tập trung")}
+              title=${uiText("Exit focus mode", "Thoát chế độ tập trung")}
             >
               ${icons.x}
             </button>
@@ -1346,7 +1381,7 @@ export function renderChat(props: ChatProps) {
       ${props.showNewMessages
         ? html`
             <button class="chat-new-messages" type="button" @click=${props.onScrollToBottom}>
-              ${icons.arrowDown} New messages
+              ${icons.arrowDown} ${uiText("New messages", "Tin nhắn mới")}
             </button>
           `
         : nothing}
@@ -1370,10 +1405,10 @@ export function renderChat(props: ChatProps) {
                 ${props.realtimeTalkDetail ??
                 props.realtimeTalkTranscript ??
                 (props.realtimeTalkStatus === "thinking"
-                  ? "Asking OpenClaw..."
+                  ? uiText("Asking OpenClaw...", "Đang hỏi OpenClaw...")
                   : props.realtimeTalkStatus === "connecting"
-                    ? "Connecting Talk..."
-                    : "Talk live")}
+                    ? uiText("Connecting Talk...", "Đang kết nối Talk...")
+                    : uiText("Talk live", "Talk đang live"))}
               </div>
             `
           : nothing}
@@ -1411,8 +1446,8 @@ export function renderChat(props: ChatProps) {
               @click=${() => {
                 document.querySelector<HTMLInputElement>(".agent-chat__file-input")?.click();
               }}
-              title=${t("chat.composer.attachFile")}
-              aria-label=${t("chat.composer.attachFile")}
+              title=${uiText("Attach file", "Đính kèm tệp")}
+              aria-label=${uiText("Attach file", "Đính kèm tệp")}
               ?disabled=${!props.connected}
             >
               ${icons.paperclip}
@@ -1426,11 +1461,11 @@ export function renderChat(props: ChatProps) {
                       : ""}"
                     @click=${props.onToggleRealtimeTalk}
                     title=${props.realtimeTalkActive
-                      ? t("chat.composer.stopTalk")
-                      : t("chat.composer.startTalk")}
+                      ? uiText("Stop Talk", "Dừng Talk")
+                      : uiText("Start Talk", "Bắt đầu Talk")}
                     aria-label=${props.realtimeTalkActive
-                      ? t("chat.composer.stopTalk")
-                      : t("chat.composer.startTalk")}
+                      ? uiText("Stop Talk", "Dừng Talk")
+                      : uiText("Start Talk", "Bắt đầu Talk")}
                     ?disabled=${!props.connected}
                   >
                     ${props.realtimeTalkActive ? icons.volume2 : icons.radio}

@@ -16,6 +16,7 @@ import {
   resolveLocalUserAvatarText,
   resolveLocalUserAvatarUrl,
 } from "../user-identity.ts";
+import { viDashboardText as uiText } from "../vi-dashboard-text.ts";
 import {
   assistantAvatarFallbackUrl,
   resolveChatAvatarRenderUrl,
@@ -131,21 +132,50 @@ const BUILTIN_THEME_OPTIONS: ThemeOption[] = [
   { id: "dash", label: "Dash" },
 ];
 
-const BORDER_RADIUS_STOPS: Array<{ value: BorderRadiusStop; label: string }> = [
-  { value: 0, label: "None" },
-  { value: 25, label: "Slight" },
-  { value: 50, label: "Default" },
-  { value: 75, label: "Round" },
-  { value: 100, label: "Full" },
+const BORDER_RADIUS_STOPS: Array<{ value: BorderRadiusStop; label: string; viLabel: string }> = [
+  { value: 0, label: "None", viLabel: "Không" },
+  { value: 25, label: "Slight", viLabel: "Nhẹ" },
+  { value: 50, label: "Default", viLabel: "Mặc định" },
+  { value: 75, label: "Round", viLabel: "Bo tròn" },
+  { value: 100, label: "Full", viLabel: "Đầy đủ" },
 ];
 
 const THINKING_LEVELS = ["off", "low", "medium", "high"];
 const TOOL_PROFILES = ["minimal", "coding", "messaging", "full"];
-const LOCAL_USER_LABEL = "You";
 // Keep raw uploads comfortably below the 2 MB persisted data URL limit after
 // base64 expansion and a small MIME/header prefix are added.
 const MAX_LOCAL_USER_AVATAR_FILE_BYTES = 1_500_000;
 const MAX_ASSISTANT_AVATAR_UPLOAD_BYTES = MAX_LOCAL_USER_AVATAR_FILE_BYTES;
+
+function localUserLabel(): string {
+  return uiText("You", "Bạn");
+}
+
+function formatThinkingLevelLabel(level: string): string {
+  switch (level) {
+    case "off":
+      return uiText("Off", "Tắt");
+    case "low":
+      return uiText("Low", "Thấp");
+    case "medium":
+      return uiText("Medium", "Vừa");
+    case "high":
+      return uiText("High", "Cao");
+    default:
+      return level;
+  }
+}
+
+function formatThemeModeLabel(mode: ThemeMode): string {
+  switch (mode) {
+    case "light":
+      return uiText("Light", "Sáng");
+    case "dark":
+      return uiText("Dark", "Tối");
+    case "system":
+      return uiText("System", "Hệ thống");
+  }
+}
 
 function renderDefaultUserAvatar() {
   return html`
@@ -160,16 +190,17 @@ function renderLocalUserAvatarPreview(avatar: string | null | undefined) {
   const identity = normalizeLocalUserIdentity({ name: null, avatar });
   const avatarUrl = resolveLocalUserAvatarUrl(identity);
   const avatarText = resolveLocalUserAvatarText(identity);
+  const label = localUserLabel();
   if (avatarUrl) {
-    return html`<img class="qs-user-avatar" src=${avatarUrl} alt=${LOCAL_USER_LABEL} />`;
+    return html`<img class="qs-user-avatar" src=${avatarUrl} alt=${label} />`;
   }
   if (avatarText) {
-    return html`<div class="qs-user-avatar qs-user-avatar--text" aria-label=${LOCAL_USER_LABEL}>
+    return html`<div class="qs-user-avatar qs-user-avatar--text" aria-label=${label}>
       ${avatarText}
     </div>`;
   }
   return html`
-    <div class="qs-user-avatar qs-user-avatar--default" aria-label=${LOCAL_USER_LABEL}>
+    <div class="qs-user-avatar qs-user-avatar--default" aria-label=${label}>
       ${renderDefaultUserAvatar()}
     </div>
   `;
@@ -218,25 +249,29 @@ function formatAssistantAvatarIssue(
     return null;
   }
   if (status === "remote") {
-    return "Remote URLs are blocked by Control UI image policy";
+    return uiText(
+      "Remote URLs are blocked by Control UI image policy",
+      "URL từ xa bị chặn bởi chính sách ảnh của Control UI",
+    );
   }
   if (reason === "missing") {
-    return "File not found";
+    return uiText("File not found", "Không tìm thấy tệp");
   }
   if (reason === "unsupported_extension") {
-    return "Unsupported image type";
+    return uiText("Unsupported image type", "Kiểu ảnh không được hỗ trợ");
   }
   if (reason === "outside_workspace") {
-    return "Outside workspace";
+    return uiText("Outside workspace", "Ngoài workspace");
   }
   if (reason === "too_large") {
-    return "Image is too large";
+    return uiText("Image is too large", "Ảnh quá lớn");
   }
-  return reason ? "Cannot render avatar" : null;
+  return reason ? uiText("Cannot render avatar", "Không thể hiển thị avatar") : null;
 }
 
 function renderAssistantAvatarPreview(props: QuickSettingsProps) {
-  const assistantName = normalizeOptionalString(props.assistantName) ?? "Assistant";
+  const assistantName =
+    normalizeOptionalString(props.assistantName) ?? uiText("Assistant", "Trợ lý");
   const assistantAvatarOverride = normalizeOptionalString(props.assistantAvatarOverride);
   const assistantAvatarUrl = resolveAssistantPreviewAvatarUrl(props);
   if (assistantAvatarUrl) {
@@ -347,17 +382,25 @@ function profileSettingsEqual(a: ProfileSettings, b: ProfileSettings): boolean {
 }
 
 function formatCharBudget(value: number): string {
-  return `${value.toLocaleString()} chars`;
+  return uiText(`${value.toLocaleString()} chars`, `${value.toLocaleString()} ký tự`);
 }
 
 function formatContextInjectionLabel(mode: ProfileSettings["contextInjection"]): string {
-  return mode === "always" ? "Every turn" : "Skip safe follow-ups";
+  return mode === "always"
+    ? uiText("Every turn", "Mỗi lượt")
+    : uiText("Skip safe follow-ups", "Bỏ qua follow-up an toàn");
 }
 
 function describeContextInjection(mode: ProfileSettings["contextInjection"]): string {
   return mode === "always"
-    ? "Reinject workspace bootstrap context on every turn."
-    : "Skip bootstrap reinjection after a completed safe follow-up.";
+    ? uiText(
+        "Reinject workspace bootstrap context on every turn.",
+        "Nạp lại ngữ cảnh bootstrap workspace ở mỗi lượt.",
+      )
+    : uiText(
+        "Skip bootstrap reinjection after a completed safe follow-up.",
+        "Bỏ qua nạp lại bootstrap sau một follow-up an toàn đã hoàn tất.",
+      );
 }
 
 function renderProfileStat(params: {
@@ -374,7 +417,9 @@ function renderProfileStat(params: {
         <span class="qs-profile-stat__value">${params.value}</span>
       </div>
       <div class="qs-profile-stat__sub">
-        ${changed ? `Was ${params.previousValue}` : "Matches current default"}
+        ${changed
+          ? uiText(`Was ${params.previousValue}`, `Trước đó: ${params.previousValue}`)
+          : uiText("Matches current default", "Khớp mặc định hiện tại")}
       </div>
       <div class="qs-profile-stat__note muted">${params.note}</div>
     </div>
@@ -398,17 +443,17 @@ function renderCardHeader(icon: TemplateResult, title: string, action?: Template
 function renderModelCard(props: QuickSettingsProps) {
   return html`
     <div class="qs-card qs-card--model">
-      ${renderCardHeader(icons.brain, "Model & Thinking")}
+      ${renderCardHeader(icons.brain, uiText("Model & Thinking", "Mô hình & Suy luận"))}
       <div class="qs-card__body">
         <div class="qs-row">
-          <span class="qs-row__label">Model</span>
+          <span class="qs-row__label">${uiText("Model", "Mô hình")}</span>
           <button class="qs-row__value qs-row__value--action" @click=${props.onModelChange}>
             <code>${props.currentModel || "default"}</code>
             <span class="qs-row__chevron">${icons.chevronRight}</span>
           </button>
         </div>
         <div class="qs-row">
-          <span class="qs-row__label">Thinking</span>
+          <span class="qs-row__label">${uiText("Thinking", "Suy luận")}</span>
           <div class="qs-segmented">
             ${THINKING_LEVELS.map(
               (level) => html`
@@ -418,19 +463,21 @@ function renderModelCard(props: QuickSettingsProps) {
                     : ""}"
                   @click=${() => props.onThinkingChange?.(level)}
                 >
-                  ${level.charAt(0).toUpperCase() + level.slice(1)}
+                  ${formatThinkingLevelLabel(level)}
                 </button>
               `,
             )}
           </div>
         </div>
         <div class="qs-row">
-          <span class="qs-row__label">Fast mode</span>
+          <span class="qs-row__label">${uiText("Fast mode", "Chế độ nhanh")}</span>
           <label class="qs-toggle">
             <input type="checkbox" .checked=${props.fastMode} @change=${props.onFastModeToggle} />
             <span class="qs-toggle__track"></span>
             <span class="qs-toggle__hint muted"
-              >${props.fastMode ? "On — cheaper, less capable" : "Off"}</span
+              >${props.fastMode
+                ? uiText("On - cheaper, less capable", "Bật - rẻ hơn, kém năng lực hơn")
+                : uiText("Off", "Tắt")}</span
             >
           </label>
         </div>
@@ -443,15 +490,19 @@ function renderChannelsCard(props: QuickSettingsProps) {
   const connectedCount = props.channels.filter((c) => c.connected).length;
   const badge =
     connectedCount > 0
-      ? html`<span class="qs-badge qs-badge--ok">${connectedCount} connected</span>`
+      ? html`<span class="qs-badge qs-badge--ok">
+          ${uiText(`${connectedCount} connected`, `${connectedCount} đã kết nối`)}
+        </span>`
       : undefined;
 
   return html`
     <div class="qs-card qs-card--channels">
-      ${renderCardHeader(icons.send, "Channels", badge)}
+      ${renderCardHeader(icons.send, uiText("Channels", "Kênh"), badge)}
       <div class="qs-card__body">
         ${props.channels.length === 0
-          ? html`<div class="qs-empty muted">No channels configured</div>`
+          ? html`<div class="qs-empty muted">
+              ${uiText("No channels configured", "Chưa cấu hình kênh")}
+            </div>`
           : props.channels.map(
               (ch) => html`
                 <div class="qs-row">
@@ -461,12 +512,14 @@ function renderChannelsCard(props: QuickSettingsProps) {
                   </span>
                   <span class="qs-row__value">
                     ${ch.connected
-                      ? html`<span class="muted">${ch.detail ?? "Connected"}</span>`
+                      ? html`<span class="muted"
+                          >${ch.detail ?? uiText("Connected", "Đã kết nối")}</span
+                        >`
                       : html`<button
                           class="qs-link-btn"
                           @click=${() => props.onChannelConfigure?.(ch.id)}
                         >
-                          Connect →
+                          ${uiText("Connect ->", "Kết nối →")}
                         </button>`}
                   </span>
                 </div>
@@ -482,25 +535,40 @@ function renderAutomationsCard(props: QuickSettingsProps) {
 
   return html`
     <div class="qs-card qs-card--automations">
-      ${renderCardHeader(icons.zap, "Automations")}
+      ${renderCardHeader(icons.zap, uiText("Automations", "Tự động hóa"))}
       <div class="qs-card__body">
         <div class="qs-row">
           <span class="qs-row__label">
-            ${cronJobCount} scheduled task${cronJobCount !== 1 ? "s" : ""}
+            ${uiText(
+              `${cronJobCount} scheduled task${cronJobCount !== 1 ? "s" : ""}`,
+              `${cronJobCount} tác vụ đã lên lịch`,
+            )}
           </span>
-          <button class="qs-link-btn" @click=${props.onManageCron}>Manage →</button>
+          <button class="qs-link-btn" @click=${props.onManageCron}>
+            ${uiText("Manage ->", "Quản lý →")}
+          </button>
         </div>
         <div class="qs-row">
           <span class="qs-row__label">
-            ${skillCount} skill${skillCount !== 1 ? "s" : ""} installed
+            ${uiText(
+              `${skillCount} skill${skillCount !== 1 ? "s" : ""} installed`,
+              `${skillCount} kỹ năng đã cài`,
+            )}
           </span>
-          <button class="qs-link-btn" @click=${props.onBrowseSkills}>Browse →</button>
+          <button class="qs-link-btn" @click=${props.onBrowseSkills}>
+            ${uiText("Browse ->", "Duyệt →")}
+          </button>
         </div>
         <div class="qs-row">
           <span class="qs-row__label">
-            ${mcpServerCount} MCP server${mcpServerCount !== 1 ? "s" : ""}
+            ${uiText(
+              `${mcpServerCount} MCP server${mcpServerCount !== 1 ? "s" : ""}`,
+              `${mcpServerCount} MCP server`,
+            )}
           </span>
-          <button class="qs-link-btn" @click=${props.onConfigureMcp}>Configure →</button>
+          <button class="qs-link-btn" @click=${props.onConfigureMcp}>
+            ${uiText("Configure ->", "Cấu hình →")}
+          </button>
         </div>
       </div>
     </div>
@@ -518,12 +586,14 @@ function renderSecurityCard(props: QuickSettingsProps) {
     <div class="qs-card qs-card--security">
       ${renderCardHeader(
         icons.eye,
-        "Security",
-        html`<button class="qs-link-btn" @click=${props.onSecurityConfigure}>Configure →</button>`,
+        uiText("Security", "Bảo mật"),
+        html`<button class="qs-link-btn" @click=${props.onSecurityConfigure}>
+          ${uiText("Configure ->", "Cấu hình →")}
+        </button>`,
       )}
       <div class="qs-card__body">
         <div class="qs-row">
-          <span class="qs-row__label">Gateway auth</span>
+          <span class="qs-row__label">${uiText("Gateway auth", "Xác thực Gateway")}</span>
           <span class="qs-row__value">
             <span class="qs-badge ${gatewayAuth !== "none" ? "qs-badge--ok" : "qs-badge--warn"}"
               >${gatewayAuth}</span
@@ -531,11 +601,11 @@ function renderSecurityCard(props: QuickSettingsProps) {
           </span>
         </div>
         <div class="qs-row">
-          <span class="qs-row__label">Exec policy</span>
+          <span class="qs-row__label">${uiText("Exec policy", "Chính sách exec")}</span>
           <span class="qs-row__value"><span class="qs-badge">${execPolicy}</span></span>
         </div>
         <div class="qs-row">
-          <span class="qs-row__label">Browser enabled</span>
+          <span class="qs-row__label">${uiText("Browser enabled", "Browser đã bật")}</span>
           <label class="qs-toggle">
             <input
               type="checkbox"
@@ -544,11 +614,13 @@ function renderSecurityCard(props: QuickSettingsProps) {
                 props.onBrowserEnabledToggle?.((event.currentTarget as HTMLInputElement).checked)}
             />
             <span class="qs-toggle__track"></span>
-            <span class="qs-toggle__hint muted">${browserEnabled ? "Enabled" : "Disabled"}</span>
+            <span class="qs-toggle__hint muted"
+              >${browserEnabled ? uiText("Enabled", "Đã bật") : uiText("Disabled", "Đã tắt")}</span
+            >
           </label>
         </div>
         <div class="qs-row qs-row--tool-profile">
-          <span class="qs-row__label">Tool profile</span>
+          <span class="qs-row__label">${uiText("Tool profile", "Hồ sơ công cụ")}</span>
           <div class="qs-segmented">
             ${toolProfiles.map(
               (profile) => html`
@@ -566,10 +638,10 @@ function renderSecurityCard(props: QuickSettingsProps) {
           </div>
         </div>
         <div class="qs-row">
-          <span class="qs-row__label">Device auth</span>
+          <span class="qs-row__label">${uiText("Device auth", "Xác thực thiết bị")}</span>
           <span class="qs-row__value">
             <span class="qs-badge ${deviceAuth ? "qs-badge--ok" : "qs-badge--warn"}"
-              >${deviceAuth ? "Enabled" : "Disabled"}</span
+              >${deviceAuth ? uiText("Enabled", "Đã bật") : uiText("Disabled", "Đã tắt")}</span
             >
           </span>
         </div>
@@ -580,18 +652,18 @@ function renderSecurityCard(props: QuickSettingsProps) {
 
 function renderAppearanceCard(props: QuickSettingsProps) {
   const importedThemeName = props.hasCustomTheme
-    ? (props.customThemeLabel ?? "Imported theme")
-    : "Import";
+    ? (props.customThemeLabel ?? uiText("Imported theme", "Giao diện đã nhập"))
+    : uiText("Import", "Nhập");
   const themeOptions: ThemeOption[] = [
     ...BUILTIN_THEME_OPTIONS,
     { id: "custom", label: importedThemeName },
   ];
   return html`
     <div class="qs-card qs-card--appearance">
-      ${renderCardHeader(icons.spark, "Appearance")}
+      ${renderCardHeader(icons.spark, uiText("Appearance", "Giao diện"))}
       <div class="qs-card__body">
         <div class="qs-row">
-          <span class="qs-row__label">Theme</span>
+          <span class="qs-row__label">${uiText("Theme", "Giao diện")}</span>
           <div class="qs-segmented">
             ${themeOptions.map(
               (opt) => html`
@@ -618,7 +690,7 @@ function renderAppearanceCard(props: QuickSettingsProps) {
           </div>
         </div>
         <div class="qs-row">
-          <span class="qs-row__label">Mode</span>
+          <span class="qs-row__label">${uiText("Mode", "Chế độ")}</span>
           <div class="qs-segmented">
             ${(["light", "dark", "system"] as ThemeMode[]).map(
               (mode) => html`
@@ -634,14 +706,14 @@ function renderAppearanceCard(props: QuickSettingsProps) {
                     }
                   }}
                 >
-                  ${mode.charAt(0).toUpperCase() + mode.slice(1)}
+                  ${formatThemeModeLabel(mode)}
                 </button>
               `,
             )}
           </div>
         </div>
         <div class="qs-row">
-          <span class="qs-row__label">Roundness</span>
+          <span class="qs-row__label">${uiText("Roundness", "Bo góc")}</span>
           <div class="qs-segmented">
             ${BORDER_RADIUS_STOPS.map(
               (stop) => html`
@@ -652,7 +724,7 @@ function renderAppearanceCard(props: QuickSettingsProps) {
                     : ""}"
                   @click=${() => props.setBorderRadius(stop.value)}
                 >
-                  ${stop.label}
+                  ${uiText(stop.label, stop.viLabel)}
                 </button>
               `,
             )}
@@ -685,35 +757,44 @@ function renderPersonalCard(props: QuickSettingsProps) {
     assistantAvatarRendered,
     Boolean(assistantAvatarOverride),
   );
-  const assistantAvatarSourceLabel = assistantAvatarOverride ? "UI override" : "IDENTITY.md";
+  const assistantAvatarSourceLabel = assistantAvatarOverride
+    ? uiText("UI override", "Ghi đè UI")
+    : "IDENTITY.md";
   const canOverrideAssistantAvatar = Boolean(props.onAssistantAvatarOverrideChange);
   const assistantAvatarSubtitle = assistantAvatarOverride
-    ? "Override from settings"
+    ? uiText("Override from settings", "Ghi đè từ cài đặt")
     : assistantAvatarIssue
-      ? "Fallback avatar"
+      ? uiText("Fallback avatar", "Avatar fallback")
       : assistantAvatarRendered
         ? "From IDENTITY.md"
-        : "Fallback logo";
+        : uiText("Fallback logo", "Logo fallback");
   return html`
     <div class="qs-card qs-card--personal">
-      ${renderCardHeader(icons.image, "Personal")}
+      ${renderCardHeader(icons.image, uiText("Personal", "Cá nhân"))}
       <div class="qs-card__body">
         <div class="qs-identity-grid">
-          <section class="qs-identity-card" aria-label="Your local chat identity">
+          <section
+            class="qs-identity-card"
+            aria-label=${uiText("Your local chat identity", "Danh tính chat cục bộ của bạn")}
+          >
             ${renderLocalUserAvatarPreview(props.userAvatar)}
             <div class="qs-identity-card__copy">
-              <div class="qs-identity-card__eyebrow">User</div>
-              <div class="qs-identity-card__title">${LOCAL_USER_LABEL}</div>
-              <div class="qs-identity-card__sub">Avatar is browser-local</div>
+              <div class="qs-identity-card__eyebrow">${uiText("User", "Người dùng")}</div>
+              <div class="qs-identity-card__title">${localUserLabel()}</div>
+              <div class="qs-identity-card__sub">
+                ${uiText("Avatar is browser-local", "Avatar chỉ lưu trong trình duyệt")}
+              </div>
               <div class="qs-identity-card__repair">
                 <label class="qs-field">
-                  <span class="qs-row__label">Avatar text / emoji</span>
+                  <span class="qs-row__label">
+                    ${uiText("Avatar text / emoji", "Chữ / emoji avatar")}
+                  </span>
                   <input
                     class="qs-field__input"
                     type="text"
                     maxlength="16"
                     .value=${avatarText}
-                    placeholder="JD or 🦞"
+                    placeholder=${uiText("JD or emoji", "JD hoặc emoji")}
                     @input=${(e: Event) => {
                       const value = (e.target as HTMLInputElement).value;
                       props.onUserAvatarChange?.(value.trim() ? value : null);
@@ -722,7 +803,7 @@ function renderPersonalCard(props: QuickSettingsProps) {
                 </label>
                 <div class="qs-identity-card__actions">
                   <label class="btn btn--sm">
-                    Choose image
+                    ${uiText("Choose image", "Chọn ảnh")}
                     <input
                       type="file"
                       accept="image/*"
@@ -738,20 +819,22 @@ function renderPersonalCard(props: QuickSettingsProps) {
                       props.onUserAvatarChange?.(null);
                     }}
                   >
-                    Clear avatar
+                    ${uiText("Clear avatar", "Xóa avatar")}
                   </button>
                 </div>
-                <div class="muted">Stored in this browser only.</div>
+                <div class="muted">
+                  ${uiText("Stored in this browser only.", "Chỉ lưu trong trình duyệt này.")}
+                </div>
               </div>
             </div>
           </section>
           <section
             class="qs-identity-card qs-identity-card--assistant"
-            aria-label="Assistant identity"
+            aria-label=${uiText("Assistant identity", "Danh tính trợ lý")}
           >
             ${renderAssistantAvatarPreview(props)}
             <div class="qs-identity-card__copy">
-              <div class="qs-identity-card__eyebrow">Assistant</div>
+              <div class="qs-identity-card__eyebrow">${uiText("Assistant", "Trợ lý")}</div>
               <div class="qs-identity-card__title">${assistantName}</div>
               <div class="qs-identity-card__sub">${assistantAvatarSubtitle}</div>
               ${assistantAvatarSource
@@ -774,10 +857,10 @@ function renderPersonalCard(props: QuickSettingsProps) {
                       <div class="qs-identity-card__actions">
                         <label class="btn btn--sm">
                           ${props.assistantAvatarUploadBusy
-                            ? "Saving..."
+                            ? uiText("Saving...", "Đang lưu...")
                             : assistantAvatarOverride
-                              ? "Replace image"
-                              : "Choose image"}
+                              ? uiText("Replace image", "Thay ảnh")
+                              : uiText("Choose image", "Chọn ảnh")}
                           <input
                             type="file"
                             accept="image/*"
@@ -796,13 +879,16 @@ function renderPersonalCard(props: QuickSettingsProps) {
                                   void props.onAssistantAvatarClearOverride?.();
                                 }}
                               >
-                                Clear override
+                                ${uiText("Clear override", "Xóa ghi đè")}
                               </button>
                             `
                           : nothing}
                       </div>
                       <div class="muted">
-                        Stores a Control UI override. Clear it to return to IDENTITY.md.
+                        ${uiText(
+                          "Stores a Control UI override. Clear it to return to IDENTITY.md.",
+                          "Lưu ghi đè Control UI. Xóa để quay lại IDENTITY.md.",
+                        )}
                       </div>
                     </div>
                   `
@@ -842,11 +928,16 @@ function renderPresetsCard(props: QuickSettingsProps) {
           <span class="qs-status-dot"></span>
           <div class="qs-profile-state__text">
             <span class="qs-profile-state__title"
-              >${selectedPreset?.label ?? "Custom"} is selected but not saved yet.</span
+              >${uiText(
+                `${selectedPreset?.label ?? "Custom"} is selected but not saved yet.`,
+                `${selectedPreset?.label ?? "Tùy chỉnh"} đã được chọn nhưng chưa lưu.`,
+              )}</span
             >
             <span class="qs-profile-state__copy"
-              >Save Profile writes it as the default. Apply Now writes it and reloads the current
-              session.</span
+              >${uiText(
+                "Save Profile writes it as the default. Apply Now writes it and reloads the current session.",
+                "Lưu hồ sơ sẽ ghi làm mặc định. Áp dụng ngay sẽ ghi và tải lại phiên hiện tại.",
+              )}</span
             >
           </div>
         </div>
@@ -857,10 +948,16 @@ function renderPresetsCard(props: QuickSettingsProps) {
             <span class="qs-status-dot qs-status-dot--ok"></span>
             <div class="qs-profile-state__text">
               <span class="qs-profile-state__title"
-                >${savedPreset.label} is your current default.</span
+                >${uiText(
+                  `${savedPreset.label} is your current default.`,
+                  `${savedPreset.label} là mặc định hiện tại.`,
+                )}</span
               >
               <span class="qs-profile-state__copy"
-                >Profiles only change bootstrap size and follow-up reinjection behavior.</span
+                >${uiText(
+                  "Profiles only change bootstrap size and follow-up reinjection behavior.",
+                  "Hồ sơ chỉ thay đổi kích thước bootstrap và hành vi nạp lại follow-up.",
+                )}</span
               >
             </div>
           </div>
@@ -869,40 +966,65 @@ function renderPresetsCard(props: QuickSettingsProps) {
           <div class="qs-profile-state" aria-live="polite">
             <span class="qs-status-dot"></span>
             <div class="qs-profile-state__text">
-              <span class="qs-profile-state__title">Custom bootstrap settings are active.</span>
+              <span class="qs-profile-state__title">
+                ${uiText(
+                  "Custom bootstrap settings are active.",
+                  "Cài đặt bootstrap tùy chỉnh đang hoạt động.",
+                )}
+              </span>
               <span class="qs-profile-state__copy"
-                >Choose a built-in profile to replace the current custom values.</span
+                >${uiText(
+                  "Choose a built-in profile to replace the current custom values.",
+                  "Chọn hồ sơ tích hợp để thay các giá trị tùy chỉnh hiện tại.",
+                )}</span
               >
             </div>
           </div>
         `;
-  const panelTitle = selectedPreset?.label ?? "Custom Configuration";
+  const panelTitle = selectedPreset?.label ?? uiText("Custom Configuration", "Cấu hình tùy chỉnh");
   const panelDescription =
-    selectedPreset?.detail ?? "This config does not currently match one of the built-in profiles.";
+    selectedPreset?.detail ??
+    uiText(
+      "This config does not currently match one of the built-in profiles.",
+      "Cấu hình này hiện không khớp với hồ sơ tích hợp nào.",
+    );
   const panelImpact =
     selectedPreset?.impact ??
-    "Pick a profile to stage a focused change to bootstrap size and follow-up behavior.";
+    uiText(
+      "Pick a profile to stage a focused change to bootstrap size and follow-up behavior.",
+      "Chọn hồ sơ để chuẩn bị thay đổi tập trung vào kích thước bootstrap và hành vi follow-up.",
+    );
   const commitCopy = hasPendingProfileChange
-    ? "Save Profile writes this as the default. Apply Now writes it and reloads the current session."
-    : "Other staged config edits are pending. Saving here will commit all staged config changes.";
+    ? uiText(
+        "Save Profile writes this as the default. Apply Now writes it and reloads the current session.",
+        "Lưu hồ sơ sẽ ghi cấu hình này làm mặc định. Áp dụng ngay sẽ ghi và tải lại phiên hiện tại.",
+      )
+    : uiText(
+        "Other staged config edits are pending. Saving here will commit all staged config changes.",
+        "Đang có chỉnh sửa cấu hình khác chờ áp dụng. Lưu tại đây sẽ commit toàn bộ thay đổi cấu hình đang chờ.",
+      );
 
   return html`
     <div class="qs-card qs-card--span-all">
       ${renderCardHeader(
         icons.zap,
-        "Context Profile",
+        uiText("Context Profile", "Hồ sơ ngữ cảnh"),
         hasPendingProfileChange
-          ? html`<span class="qs-badge qs-badge--warn">Pending</span>`
+          ? html`<span class="qs-badge qs-badge--warn">${uiText("Pending", "Đang chờ")}</span>`
           : savedPreset
-            ? html`<span class="qs-badge qs-badge--ok">Saved</span>`
-            : html`<span class="qs-badge">Custom</span>`,
+            ? html`<span class="qs-badge qs-badge--ok">${uiText("Saved", "Đã lưu")}</span>`
+            : html`<span class="qs-badge">${uiText("Custom", "Tùy chỉnh")}</span>`,
       )}
       <div class="qs-card__body qs-profiles">
         <div class="qs-profiles__copy">
-          <div class="qs-profiles__eyebrow">Bootstrap Context</div>
+          <div class="qs-profiles__eyebrow">
+            ${uiText("Bootstrap Context", "Ngữ cảnh bootstrap")}
+          </div>
           <p class="qs-profiles__intro">
-            Choose how much workspace context OpenClaw injects into each run. These profiles do not
-            change your model, tools, channels, or theme.
+            ${uiText(
+              "Choose how much workspace context OpenClaw injects into each run. These profiles do not change your model, tools, channels, or theme.",
+              "Chọn lượng ngữ cảnh workspace OpenClaw đưa vào mỗi lần chạy. Các hồ sơ này không thay đổi mô hình, công cụ, kênh hoặc giao diện.",
+            )}
           </p>
           ${stateBanner}
           <div class="qs-presets-grid">
@@ -930,10 +1052,14 @@ function renderPresetsCard(props: QuickSettingsProps) {
                     </div>
                     <div class="qs-preset__badges">
                       ${preset.id === savedPresetId
-                        ? html`<span class="qs-badge qs-badge--ok">Current</span>`
+                        ? html`<span class="qs-badge qs-badge--ok"
+                            >${uiText("Current", "Hiện tại")}</span
+                          >`
                         : nothing}
                       ${hasPendingProfileChange && preset.id === selectedPresetId
-                        ? html`<span class="qs-badge qs-badge--warn">Selected</span>`
+                        ? html`<span class="qs-badge qs-badge--warn"
+                            >${uiText("Selected", "Đã chọn")}</span
+                          >`
                         : nothing}
                     </div>
                   </div>
@@ -956,7 +1082,9 @@ function renderPresetsCard(props: QuickSettingsProps) {
 
         <div class="qs-profile-panel">
           <div class="qs-profile-panel__eyebrow">
-            ${selectedPreset ? "Selected Profile" : "Current Values"}
+            ${selectedPreset
+              ? uiText("Selected Profile", "Hồ sơ đã chọn")
+              : uiText("Current Values", "Giá trị hiện tại")}
           </div>
           <h4 class="qs-profile-panel__title">${panelTitle}</h4>
           <p class="qs-profile-panel__copy">${panelDescription}</p>
@@ -964,19 +1092,25 @@ function renderPresetsCard(props: QuickSettingsProps) {
 
           <div class="qs-profile-panel__stats">
             ${renderProfileStat({
-              label: "Bootstrap Per File",
+              label: uiText("Bootstrap Per File", "Bootstrap mỗi tệp"),
               value: formatCharBudget(draftSettings.bootstrapMaxChars),
               previousValue: formatCharBudget(savedSettings.bootstrapMaxChars),
-              note: "Maximum context injected from any single bootstrap file.",
+              note: uiText(
+                "Maximum context injected from any single bootstrap file.",
+                "Ngữ cảnh tối đa nạp từ một tệp bootstrap.",
+              ),
             })}
             ${renderProfileStat({
-              label: "Bootstrap Total",
+              label: uiText("Bootstrap Total", "Tổng bootstrap"),
               value: formatCharBudget(draftSettings.bootstrapTotalMaxChars),
               previousValue: formatCharBudget(savedSettings.bootstrapTotalMaxChars),
-              note: "Total combined context allowed across all bootstrap files.",
+              note: uiText(
+                "Total combined context allowed across all bootstrap files.",
+                "Tổng ngữ cảnh cho phép trên toàn bộ tệp bootstrap.",
+              ),
             })}
             ${renderProfileStat({
-              label: "Follow-up Turns",
+              label: uiText("Follow-up Turns", "Lượt follow-up"),
               value: formatContextInjectionLabel(draftSettings.contextInjection),
               previousValue: formatContextInjectionLabel(savedSettings.contextInjection),
               note: describeContextInjection(draftSettings.contextInjection),
@@ -993,7 +1127,7 @@ function renderPresetsCard(props: QuickSettingsProps) {
                       ?disabled=${props.configSaving === true || props.configApplying === true}
                       @click=${props.onResetConfig}
                     >
-                      Discard
+                      ${uiText("Discard", "Bỏ")}
                     </button>
                     <button
                       class="btn btn--sm primary"
@@ -1001,17 +1135,19 @@ function renderPresetsCard(props: QuickSettingsProps) {
                       @click=${props.onSaveConfig}
                     >
                       ${props.configSaving === true
-                        ? "Saving…"
+                        ? uiText("Saving…", "Đang lưu…")
                         : hasPendingProfileChange
-                          ? "Save Profile"
-                          : "Save Changes"}
+                          ? uiText("Save Profile", "Lưu hồ sơ")
+                          : uiText("Save Changes", "Lưu thay đổi")}
                     </button>
                     <button
                       class="btn btn--sm"
                       ?disabled=${!canCommit}
                       @click=${props.onApplyConfig}
                     >
-                      ${props.configApplying === true ? "Applying…" : "Apply Now"}
+                      ${props.configApplying === true
+                        ? uiText("Applying…", "Đang áp dụng…")
+                        : uiText("Apply Now", "Áp dụng ngay")}
                     </button>
                   </div>
                 </div>
@@ -1019,8 +1155,14 @@ function renderPresetsCard(props: QuickSettingsProps) {
             : html`
                 <div class="qs-profile-panel__footer muted" aria-live="polite">
                   ${savedPreset
-                    ? "Saved and ready. Choose another profile to stage a change."
-                    : "Current values are custom. Choose a profile to stage a change."}
+                    ? uiText(
+                        "Saved and ready. Choose another profile to stage a change.",
+                        "Đã lưu và sẵn sàng. Chọn hồ sơ khác để chuẩn bị thay đổi.",
+                      )
+                    : uiText(
+                        "Current values are custom. Choose a profile to stage a change.",
+                        "Giá trị hiện tại là tùy chỉnh. Chọn hồ sơ để chuẩn bị thay đổi.",
+                      )}
                 </div>
               `}
         </div>
@@ -1034,7 +1176,9 @@ function renderConnectionFooter(props: QuickSettingsProps) {
     <div class="qs-footer">
       <div class="qs-footer__row">
         <span class="qs-status-dot ${props.connected ? "qs-status-dot--ok" : ""}"></span>
-        <span class="muted">${props.connected ? "Connected" : "Offline"}</span>
+        <span class="muted">
+          ${props.connected ? uiText("Connected", "Đã kết nối") : uiText("Offline", "Ngoại tuyến")}
+        </span>
         ${props.assistantName ? html`<span class="muted">· ${props.assistantName}</span>` : nothing}
         ${props.version ? html`<span class="muted">· v${props.version}</span>` : nothing}
       </div>
@@ -1048,9 +1192,9 @@ export function renderQuickSettings(props: QuickSettingsProps) {
   return html`
     <div class="qs-container">
       <div class="qs-header">
-        <h2 class="qs-header__title">${icons.settings} Settings</h2>
+        <h2 class="qs-header__title">${icons.settings} ${uiText("Settings", "Cài đặt")}</h2>
         <button class="btn btn--sm" @click=${props.onAdvancedSettings}>
-          Advanced ${icons.chevronRight}
+          ${uiText("Advanced", "Nâng cao")} ${icons.chevronRight}
         </button>
       </div>
 

@@ -1,5 +1,5 @@
 import { html } from "lit";
-import { t } from "../../i18n/index.ts";
+import { viDashboardText as uiText } from "../vi-dashboard-text.ts";
 import {
   agentLogoUrl,
   assistantAvatarFallbackUrl,
@@ -16,11 +16,23 @@ export type ChatWelcomeProps = {
   onSend: () => void;
 };
 
-const WELCOME_SUGGESTION_KEYS = [
-  "chat.welcome.suggestions.whatCanYouDo",
-  "chat.welcome.suggestions.summarizeRecentSessions",
-  "chat.welcome.suggestions.configureChannel",
-  "chat.welcome.suggestions.checkSystemHealth",
+const WELCOME_SUGGESTIONS = [
+  {
+    en: "What can you do?",
+    vi: "Bạn có thể làm gì?",
+  },
+  {
+    en: "Summarize my recent sessions",
+    vi: "Tóm tắt các phiên gần đây của tôi",
+  },
+  {
+    en: "Help me configure a channel",
+    vi: "Giúp tôi cấu hình một kênh",
+  },
+  {
+    en: "Check system health",
+    vi: "Kiểm tra tình trạng hệ thống",
+  },
 ];
 
 function resolveAssistantAvatarUrl(
@@ -41,7 +53,7 @@ export function resolveAssistantDisplayAvatar(
 }
 
 export function renderWelcomeState(props: ChatWelcomeProps) {
-  const name = props.assistantName || "Assistant";
+  const name = props.assistantName || uiText("Assistant", "Trợ lý");
   const avatar = resolveAssistantAvatarUrl(props);
   const avatarText = avatar ? null : resolveAssistantTextAvatar(props.assistantAvatar);
   const fallbackAvatarUrl = assistantAvatarFallbackUrl(props.basePath ?? "");
@@ -66,16 +78,16 @@ export function renderWelcomeState(props: ChatWelcomeProps) {
       <h2>${name}</h2>
       <div class="agent-chat__badges">
         <span class="agent-chat__badge"
-          ><img src=${logoUrl} alt="" /> ${t("chat.welcome.ready")}</span
+          ><img src=${logoUrl} alt="" /> ${uiText("Ready to chat", "Sẵn sàng chat")}</span
         >
       </div>
       <p class="agent-chat__hint">
-        ${t("chat.welcome.hintBeforeShortcut")} <kbd>/</kbd>
-        ${t("chat.welcome.hintAfterShortcut")}
+        ${uiText("Type a message below", "Nhập tin nhắn bên dưới")} &middot; <kbd>/</kbd>
+        ${uiText("for commands", "để mở lệnh")}
       </p>
       <div class="agent-chat__suggestions">
-        ${WELCOME_SUGGESTION_KEYS.map((key) => {
-          const text = t(key);
+        ${WELCOME_SUGGESTIONS.map(({ en, vi }) => {
+          const text = uiText(en, vi);
           return html`
             <button
               type="button"

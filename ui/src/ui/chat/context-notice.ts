@@ -1,6 +1,7 @@
 import { html, nothing } from "lit";
 import { icons } from "../icons.ts";
 import type { GatewaySessionRow } from "../types.ts";
+import { viDashboardText as uiText } from "../vi-dashboard-text.ts";
 
 const CONTEXT_NOTICE_RATIO = 0.85;
 const CONTEXT_COMPACT_RATIO = 0.9;
@@ -145,7 +146,7 @@ export function renderContextNotice(
               <span class="context-notice__meter-fill" style="width:${model.pct}%"></span>
             </span>
           `}
-      <span>${model.pct}% context used</span>
+      <span>${uiText(`${model.pct}% context used`, `Đã dùng ${model.pct}% context`)}</span>
       <span class="context-notice__detail">${model.detail}</span>
       ${canRenderCompact
         ? html`
@@ -154,8 +155,11 @@ export function renderContextNotice(
                 ? "context-notice__action--busy"
                 : ""}"
               type="button"
-              title="Compact session context"
-              aria-label="Compact recommended session context"
+              title=${uiText("Compact session context", "Nén context phiên")}
+              aria-label=${uiText(
+                "Compact recommended session context",
+                "Nén context phiên được khuyến nghị",
+              )}
               ?disabled=${compactDisabled}
               @click=${(event: Event) => {
                 event.preventDefault();
@@ -167,7 +171,11 @@ export function renderContextNotice(
               }}
             >
               ${options.compactBusy ? icons.loader : icons.minimize}
-              <span>${options.compactBusy ? "Compacting" : "Compact"}</span>
+              <span
+                >${options.compactBusy
+                  ? uiText("Compacting", "Đang nén")
+                  : uiText("Compact", "Nén")}</span
+              >
             </button>
           `
         : nothing}
