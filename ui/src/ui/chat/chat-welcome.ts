@@ -1,4 +1,5 @@
 import { html } from "lit";
+import { viDashboardText as uiText } from "../vi-dashboard-text.ts";
 import {
   agentLogoUrl,
   assistantAvatarFallbackUrl,
@@ -16,10 +17,22 @@ export type ChatWelcomeProps = {
 };
 
 const WELCOME_SUGGESTIONS = [
-  "What can you do?",
-  "Summarize my recent sessions",
-  "Help me configure a channel",
-  "Check system health",
+  {
+    en: "What can you do?",
+    vi: "Bạn có thể làm gì?",
+  },
+  {
+    en: "Summarize my recent sessions",
+    vi: "Tóm tắt các phiên gần đây của tôi",
+  },
+  {
+    en: "Help me configure a channel",
+    vi: "Giúp tôi cấu hình một kênh",
+  },
+  {
+    en: "Check system health",
+    vi: "Kiểm tra tình trạng hệ thống",
+  },
 ];
 
 function resolveAssistantAvatarUrl(
@@ -40,7 +53,7 @@ export function resolveAssistantDisplayAvatar(
 }
 
 export function renderWelcomeState(props: ChatWelcomeProps) {
-  const name = props.assistantName || "Assistant";
+  const name = props.assistantName || uiText("Assistant", "Trợ lý");
   const avatar = resolveAssistantAvatarUrl(props);
   const avatarText = avatar ? null : resolveAssistantTextAvatar(props.assistantAvatar);
   const fallbackAvatarUrl = assistantAvatarFallbackUrl(props.basePath ?? "");
@@ -64,12 +77,18 @@ export function renderWelcomeState(props: ChatWelcomeProps) {
             </div>`}
       <h2>${name}</h2>
       <div class="agent-chat__badges">
-        <span class="agent-chat__badge"><img src=${logoUrl} alt="" /> Ready to chat</span>
+        <span class="agent-chat__badge"
+          ><img src=${logoUrl} alt="" /> ${uiText("Ready to chat", "Sẵn sàng chat")}</span
+        >
       </div>
-      <p class="agent-chat__hint">Type a message below &middot; <kbd>/</kbd> for commands</p>
+      <p class="agent-chat__hint">
+        ${uiText("Type a message below", "Nhập tin nhắn bên dưới")} &middot; <kbd>/</kbd>
+        ${uiText("for commands", "để mở lệnh")}
+      </p>
       <div class="agent-chat__suggestions">
-        ${WELCOME_SUGGESTIONS.map(
-          (text) => html`
+        ${WELCOME_SUGGESTIONS.map(({ en, vi }) => {
+          const text = uiText(en, vi);
+          return html`
             <button
               type="button"
               class="agent-chat__suggestion"
@@ -80,8 +99,8 @@ export function renderWelcomeState(props: ChatWelcomeProps) {
             >
               ${text}
             </button>
-          `,
-        )}
+          `;
+        })}
       </div>
     </div>
   `;

@@ -24,6 +24,7 @@ import type {
   CronSortDir,
 } from "../types.ts";
 import type { CronFormState } from "../ui-types.ts";
+import { viDashboardText as uiText } from "../vi-dashboard-text.ts";
 
 export type CronProps = {
   basePath: string;
@@ -156,7 +157,7 @@ function buildChannelOptions(props: CronProps): string[] {
 
 function resolveChannelLabel(props: CronProps, channel: string): string {
   if (channel === "last") {
-    return "last";
+    return uiText("last", "gần nhất");
   }
   const meta = props.channelMeta?.find((entry) => entry.id === channel);
   if (meta?.label) {
@@ -293,8 +294,8 @@ function fieldLabelForKey(
     payloadThinking: t("cron.form.thinking"),
     timeoutSeconds: t("cron.form.timeoutSeconds"),
     deliveryTo: t("cron.form.to"),
-    failureAlertAfter: "Failure alert after",
-    failureAlertCooldownSeconds: "Failure alert cooldown",
+    failureAlertAfter: uiText("Failure alert after", "Cảnh báo lỗi sau"),
+    failureAlertCooldownSeconds: uiText("Failure alert cooldown", "Thời gian chờ cảnh báo lỗi"),
   };
   return labels[key];
 }
@@ -429,7 +430,11 @@ export function renderCron(props: CronProps) {
       </div>
       <div class="cron-summary-strip__actions">
         ${props.onQuickCreate
-          ? html` <button class="btn btn--primary" @click=${props.onQuickCreate}>+ New</button> `
+          ? html`
+              <button class="btn btn--primary" @click=${props.onQuickCreate}>
+                ${uiText("+ New", "+ Mới")}
+              </button>
+            `
           : nothing}
         <button
           class=${props.loading ? "btn cron-refresh-btn--loading" : "btn"}
@@ -1062,7 +1067,7 @@ export function renderCron(props: CronProps) {
                 <div class="cron-help">${t("cron.form.clearAgentHelp")}</div>
               </label>
               <label class="field cron-span-2">
-                ${renderFieldLabel("Session key")}
+                ${renderFieldLabel(uiText("Session key", "Khóa phiên"))}
                 <input
                   id="cron-session-key"
                   .value=${props.form.sessionKey}
@@ -1072,7 +1077,12 @@ export function renderCron(props: CronProps) {
                     })}
                   placeholder="agent:main:main"
                 />
-                <div class="cron-help">Optional routing key for job delivery and wake routing.</div>
+                <div class="cron-help">
+                  ${uiText(
+                    "Optional routing key for job delivery and wake routing.",
+                    "Khóa định tuyến tùy chọn cho phân phối job và định tuyến wake.",
+                  )}
+                </div>
               </label>
               ${isCronSchedule
                 ? html`
@@ -1133,7 +1143,7 @@ export function renderCron(props: CronProps) {
               ${isAgentTurn
                 ? html`
                     <label class="field cron-span-2">
-                      ${renderFieldLabel("Account ID")}
+                      ${renderFieldLabel(uiText("Account ID", "ID tài khoản"))}
                       <input
                         id="cron-delivery-account-id"
                         .value=${props.form.deliveryAccountId}
@@ -1143,10 +1153,13 @@ export function renderCron(props: CronProps) {
                           props.onFormChange({
                             deliveryAccountId: (e.target as HTMLInputElement).value,
                           })}
-                        placeholder="default"
+                        placeholder=${uiText("default", "mặc định")}
                       />
                       <div class="cron-help">
-                        Optional channel account ID for multi-account setups.
+                        ${uiText(
+                          "Optional channel account ID for multi-account setups.",
+                          "ID tài khoản kênh tùy chọn cho thiết lập nhiều tài khoản.",
+                        )}
                       </div>
                     </label>
                     <label class="field checkbox cron-checkbox cron-span-2">
@@ -1158,9 +1171,14 @@ export function renderCron(props: CronProps) {
                             payloadLightContext: (e.target as HTMLInputElement).checked,
                           })}
                       />
-                      <span class="field-checkbox__label">Light context</span>
+                      <span class="field-checkbox__label"
+                        >${uiText("Light context", "Ngữ cảnh nhẹ")}</span
+                      >
                       <div class="cron-help">
-                        Use lightweight bootstrap context for this agent job.
+                        ${uiText(
+                          "Use lightweight bootstrap context for this agent job.",
+                          "Dùng ngữ cảnh bootstrap nhẹ cho job agent này.",
+                        )}
                       </div>
                     </label>
                     <label class="field">
@@ -1196,7 +1214,7 @@ export function renderCron(props: CronProps) {
               ${isAgentTurn
                 ? html`
                     <label class="field cron-span-2">
-                      ${renderFieldLabel("Failure alerts")}
+                      ${renderFieldLabel(uiText("Failure alerts", "Cảnh báo lỗi"))}
                       <select
                         .value=${props.form.failureAlertMode}
                         @change=${(e: Event) =>
@@ -1205,18 +1223,27 @@ export function renderCron(props: CronProps) {
                               .value as CronFormState["failureAlertMode"],
                           })}
                       >
-                        <option value="inherit">Inherit global setting</option>
-                        <option value="disabled">Disable for this job</option>
-                        <option value="custom">Custom per-job settings</option>
+                        <option value="inherit">
+                          ${uiText("Inherit global setting", "Kế thừa cài đặt toàn cục")}
+                        </option>
+                        <option value="disabled">
+                          ${uiText("Disable for this job", "Tắt cho job này")}
+                        </option>
+                        <option value="custom">
+                          ${uiText("Custom per-job settings", "Cài đặt tùy chỉnh theo từng job")}
+                        </option>
                       </select>
                       <div class="cron-help">
-                        Control when this job sends repeated-failure alerts.
+                        ${uiText(
+                          "Control when this job sends repeated-failure alerts.",
+                          "Kiểm soát thời điểm job gửi cảnh báo lỗi lặp lại.",
+                        )}
                       </div>
                     </label>
                     ${props.form.failureAlertMode === "custom"
                       ? html`
                           <label class="field">
-                            ${renderFieldLabel("Alert after")}
+                            ${renderFieldLabel(uiText("Alert after", "Cảnh báo sau"))}
                             <input
                               id="cron-failure-alert-after"
                               .value=${props.form.failureAlertAfter}
@@ -1232,14 +1259,21 @@ export function renderCron(props: CronProps) {
                                 })}
                               placeholder="2"
                             />
-                            <div class="cron-help">Consecutive errors before alerting.</div>
+                            <div class="cron-help">
+                              ${uiText(
+                                "Consecutive errors before alerting.",
+                                "Số lỗi liên tiếp trước khi cảnh báo.",
+                              )}
+                            </div>
                             ${renderFieldError(
                               props.fieldErrors.failureAlertAfter,
                               errorIdForField("failureAlertAfter"),
                             )}
                           </label>
                           <label class="field">
-                            ${renderFieldLabel("Cooldown (seconds)")}
+                            ${renderFieldLabel(
+                              uiText("Cooldown (seconds)", "Thời gian chờ (giây)"),
+                            )}
                             <input
                               id="cron-failure-alert-cooldown-seconds"
                               .value=${props.form.failureAlertCooldownSeconds}
@@ -1257,14 +1291,19 @@ export function renderCron(props: CronProps) {
                                 })}
                               placeholder="3600"
                             />
-                            <div class="cron-help">Minimum seconds between alerts.</div>
+                            <div class="cron-help">
+                              ${uiText(
+                                "Minimum seconds between alerts.",
+                                "Số giây tối thiểu giữa các cảnh báo.",
+                              )}
+                            </div>
                             ${renderFieldError(
                               props.fieldErrors.failureAlertCooldownSeconds,
                               errorIdForField("failureAlertCooldownSeconds"),
                             )}
                           </label>
                           <label class="field">
-                            ${renderFieldLabel("Alert channel")}
+                            ${renderFieldLabel(uiText("Alert channel", "Kênh cảnh báo"))}
                             <select
                               .value=${props.form.failureAlertChannel || "last"}
                               @change=${(e: Event) =>
@@ -1281,7 +1320,7 @@ export function renderCron(props: CronProps) {
                             </select>
                           </label>
                           <label class="field">
-                            ${renderFieldLabel("Alert to")}
+                            ${renderFieldLabel(uiText("Alert to", "Cảnh báo tới"))}
                             <input
                               .value=${props.form.failureAlertTo}
                               list="cron-delivery-to-suggestions"
@@ -1289,14 +1328,17 @@ export function renderCron(props: CronProps) {
                                 props.onFormChange({
                                   failureAlertTo: (e.target as HTMLInputElement).value,
                                 })}
-                              placeholder="+1555... or chat id"
+                              placeholder=${uiText("+1555... or chat id", "+1555... hoặc chat id")}
                             />
                             <div class="cron-help">
-                              Optional recipient override for failure alerts.
+                              ${uiText(
+                                "Optional recipient override for failure alerts.",
+                                "Ghi đè người nhận tùy chọn cho cảnh báo lỗi.",
+                              )}
                             </div>
                           </label>
                           <label class="field">
-                            ${renderFieldLabel("Alert mode")}
+                            ${renderFieldLabel(uiText("Alert mode", "Chế độ cảnh báo"))}
                             <select
                               .value=${props.form.failureAlertDeliveryMode || "announce"}
                               @change=${(e: Event) =>
@@ -1305,19 +1347,26 @@ export function renderCron(props: CronProps) {
                                     .value as CronFormState["failureAlertDeliveryMode"],
                                 })}
                             >
-                              <option value="announce">Announce (via channel)</option>
-                              <option value="webhook">Webhook (HTTP POST)</option>
+                              <option value="announce">
+                                ${uiText("Announce (via channel)", "Thông báo (qua kênh)")}
+                              </option>
+                              <option value="webhook">
+                                ${uiText("Webhook (HTTP POST)", "Webhook (HTTP POST)")}
+                              </option>
                             </select>
                           </label>
                           <label class="field">
-                            ${renderFieldLabel("Alert account ID")}
+                            ${renderFieldLabel(uiText("Alert account ID", "ID tài khoản cảnh báo"))}
                             <input
                               .value=${props.form.failureAlertAccountId}
                               @input=${(e: Event) =>
                                 props.onFormChange({
                                   failureAlertAccountId: (e.target as HTMLInputElement).value,
                                 })}
-                              placeholder="Account ID for multi-account setups"
+                              placeholder=${uiText(
+                                "Account ID for multi-account setups",
+                                "ID tài khoản cho thiết lập nhiều tài khoản",
+                              )}
                             />
                           </label>
                         `
@@ -1589,7 +1638,7 @@ function renderJob(job: CronJob, props: CronProps) {
               selectAnd(() => props.onRun(job, "due"));
             }}
           >
-            Run if due
+            ${uiText("Run if due", "Chạy nếu đến hạn")}
           </button>
           <button
             class="btn"
