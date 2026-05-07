@@ -174,6 +174,8 @@ function formatThemeModeLabel(mode: ThemeMode): string {
       return uiText("Dark", "Tối");
     case "system":
       return uiText("System", "Hệ thống");
+    default:
+      return mode;
   }
 }
 
