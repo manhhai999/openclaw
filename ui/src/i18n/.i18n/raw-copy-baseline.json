@@ -496,6 +496,13 @@
       "kind": "object-property",
       "name": "description",
       "path": "ui/src/ui/views/config-form.render.ts",
+      "text": "Approval routing and forwarding controls"
+    },
+    {
+      "count": 1,
+      "kind": "object-property",
+      "name": "description",
+      "path": "ui/src/ui/views/config-form.render.ts",
       "text": "Audio input/output settings"
     },
     {
@@ -573,14 +580,21 @@
       "kind": "object-property",
       "name": "description",
       "path": "ui/src/ui/views/config-form.render.ts",
-      "text": "Key bindings and shortcuts"
+      "text": "Log levels and output configuration"
     },
     {
       "count": 1,
       "kind": "object-property",
       "name": "description",
       "path": "ui/src/ui/views/config-form.render.ts",
-      "text": "Log levels and output configuration"
+      "text": "Media generation and processing settings"
+    },
+    {
+      "count": 1,
+      "kind": "object-property",
+      "name": "description",
+      "path": "ui/src/ui/views/config-form.render.ts",
+      "text": "Memory indexing, recall, and persistence"
     },
     {
       "count": 1,
@@ -602,6 +616,13 @@
       "name": "description",
       "path": "ui/src/ui/views/config-form.render.ts",
       "text": "Model Context Protocol server definitions"
+    },
+    {
+      "count": 1,
+      "kind": "object-property",
+      "name": "description",
+      "path": "ui/src/ui/views/config-form.render.ts",
+      "text": "Node host controls and exposed local capabilities"
     },
     {
       "count": 1,
@@ -664,6 +685,13 @@
       "kind": "object-property",
       "name": "description",
       "path": "ui/src/ui/views/config-form.render.ts",
+      "text": "Top-level binding rules for routing and persistent ACP conversation ownership. Use type=route for normal routing and type=acp for persistent ACP harness bindings."
+    },
+    {
+      "count": 1,
+      "kind": "object-property",
+      "name": "description",
+      "path": "ui/src/ui/views/config-form.render.ts",
       "text": "User interface preferences"
     },
     {
@@ -700,6 +728,13 @@
       "name": "label",
       "path": "ui/src/ui/views/config-form.render.ts",
       "text": "Agents"
+    },
+    {
+      "count": 1,
+      "kind": "object-property",
+      "name": "label",
+      "path": "ui/src/ui/views/config-form.render.ts",
+      "text": "Approvals"
     },
     {
       "count": 1,
@@ -825,6 +860,20 @@
       "kind": "object-property",
       "name": "label",
       "path": "ui/src/ui/views/config-form.render.ts",
+      "text": "Media"
+    },
+    {
+      "count": 1,
+      "kind": "object-property",
+      "name": "label",
+      "path": "ui/src/ui/views/config-form.render.ts",
+      "text": "Memory"
+    },
+    {
+      "count": 1,
+      "kind": "object-property",
+      "name": "label",
+      "path": "ui/src/ui/views/config-form.render.ts",
       "text": "Messages"
     },
     {
@@ -840,6 +889,13 @@
       "name": "label",
       "path": "ui/src/ui/views/config-form.render.ts",
       "text": "Models"
+    },
+    {
+      "count": 1,
+      "kind": "object-property",
+      "name": "label",
+      "path": "ui/src/ui/views/config-form.render.ts",
+      "text": "Node Host"
     },
     {
       "count": 1,
@@ -910,6 +966,20 @@
       "name": "label",
       "path": "ui/src/ui/views/config-form.render.ts",
       "text": "Web"
+    },
+    {
+      "count": 1,
+      "kind": "object-property",
+      "name": "placeholder",
+      "path": "ui/src/ui/views/config-form.shared.ts",
+      "text": "placeholder"
+    },
+    {
+      "count": 1,
+      "kind": "object-property",
+      "name": "title",
+      "path": "ui/src/ui/views/config-form.shared.ts",
+      "text": "tiêu đề"
     },
     {
       "count": 1,
@@ -1000,21 +1070,7 @@
       "kind": "object-property",
       "name": "label",
       "path": "ui/src/ui/views/config.ts",
-      "text": "Cron"
-    },
-    {
-      "count": 1,
-      "kind": "object-property",
-      "name": "label",
-      "path": "ui/src/ui/views/config.ts",
       "text": "Dash"
-    },
-    {
-      "count": 1,
-      "kind": "object-property",
-      "name": "label",
-      "path": "ui/src/ui/views/config.ts",
-      "text": "Gateway"
     },
     {
       "count": 1,
@@ -1029,13 +1085,6 @@
       "name": "label",
       "path": "ui/src/ui/views/config.ts",
       "text": "MCP"
-    },
-    {
-      "count": 1,
-      "kind": "object-property",
-      "name": "label",
-      "path": "ui/src/ui/views/config.ts",
-      "text": "UI"
     },
     {
       "count": 1,
