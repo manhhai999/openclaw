@@ -1,5 +1,8 @@
 import { html } from "lit";
-import { viDashboardText as uiText } from "../vi-dashboard-text.ts";
+import {
+  viDashboardI18nText as i18nText,
+  viDashboardText as uiText,
+} from "../vi-dashboard-text.ts";
 import {
   agentLogoUrl,
   assistantAvatarFallbackUrl,
@@ -18,19 +21,19 @@ export type ChatWelcomeProps = {
 
 const WELCOME_SUGGESTIONS = [
   {
-    en: "What can you do?",
+    key: "chat.welcome.suggestions.whatCanYouDo",
     vi: "Bạn có thể làm gì?",
   },
   {
-    en: "Summarize my recent sessions",
+    key: "chat.welcome.suggestions.summarizeRecentSessions",
     vi: "Tóm tắt các phiên gần đây của tôi",
   },
   {
-    en: "Help me configure a channel",
+    key: "chat.welcome.suggestions.configureChannel",
     vi: "Giúp tôi cấu hình một kênh",
   },
   {
-    en: "Check system health",
+    key: "chat.welcome.suggestions.checkSystemHealth",
     vi: "Kiểm tra tình trạng hệ thống",
   },
 ];
@@ -78,16 +81,16 @@ export function renderWelcomeState(props: ChatWelcomeProps) {
       <h2>${name}</h2>
       <div class="agent-chat__badges">
         <span class="agent-chat__badge"
-          ><img src=${logoUrl} alt="" /> ${uiText("Ready to chat", "Sẵn sàng chat")}</span
+          ><img src=${logoUrl} alt="" /> ${i18nText("chat.welcome.ready", "Sẵn sàng chat")}</span
         >
       </div>
       <p class="agent-chat__hint">
-        ${uiText("Type a message below", "Nhập tin nhắn bên dưới")} &middot; <kbd>/</kbd>
-        ${uiText("for commands", "để mở lệnh")}
+        ${i18nText("chat.welcome.hintBeforeShortcut", "Nhập tin nhắn bên dưới ·")}
+        <kbd>/</kbd> ${i18nText("chat.welcome.hintAfterShortcut", "để mở lệnh")}
       </p>
       <div class="agent-chat__suggestions">
-        ${WELCOME_SUGGESTIONS.map(({ en, vi }) => {
-          const text = uiText(en, vi);
+        ${WELCOME_SUGGESTIONS.map(({ key, vi }) => {
+          const text = i18nText(key, vi);
           return html`
             <button
               type="button"

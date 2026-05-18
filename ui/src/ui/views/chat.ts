@@ -50,7 +50,10 @@ import { detectTextDirection } from "../text-direction.ts";
 import type { SessionsListResult } from "../types.ts";
 import type { ChatAttachment, ChatQueueItem } from "../ui-types.ts";
 import { resolveLocalUserName } from "../user-identity.ts";
-import { viDashboardText as uiText } from "../vi-dashboard-text.ts";
+import {
+  viDashboardI18nText as i18nText,
+  viDashboardText as uiText,
+} from "../vi-dashboard-text.ts";
 import { renderMarkdownSidebar } from "./markdown-sidebar.ts";
 import "../components/resizable-divider.ts";
 
@@ -948,15 +951,11 @@ export function renderChat(props: ChatProps) {
 
   const placeholder = props.connected
     ? hasAttachments
-      ? uiText("Add a message or paste more images...", "Thêm tin nhắn hoặc dán thêm ảnh...")
-      : uiText(
-          `Message ${props.assistantName || "agent"} (Enter to send)`,
-          `Nhắn cho ${props.assistantName || "agent"} (Enter để gửi)`,
-        )
-    : uiText(
-        "Connect to the gateway to start chatting...",
-        "Kết nối tới gateway để bắt đầu chat...",
-      );
+      ? i18nText("chat.composer.placeholderWithAttachments", "Thêm tin nhắn hoặc dán thêm ảnh...")
+      : i18nText("chat.composer.placeholder", "Nhắn cho {name} (Enter để gửi)", {
+          name: props.assistantName || "agent",
+        })
+    : i18nText("chat.composer.placeholderDisconnected", "Kết nối tới gateway để bắt đầu chat...");
 
   const requestUpdate = props.onRequestUpdate ?? (() => {});
   const splitRatio = props.splitRatio ?? 0.6;
@@ -1446,8 +1445,8 @@ export function renderChat(props: ChatProps) {
               @click=${() => {
                 document.querySelector<HTMLInputElement>(".agent-chat__file-input")?.click();
               }}
-              title=${uiText("Attach file", "Đính kèm tệp")}
-              aria-label=${uiText("Attach file", "Đính kèm tệp")}
+              title=${i18nText("chat.composer.attachFile", "Đính kèm tệp")}
+              aria-label=${i18nText("chat.composer.attachFile", "Đính kèm tệp")}
               ?disabled=${!props.connected}
             >
               ${icons.paperclip}
@@ -1461,11 +1460,11 @@ export function renderChat(props: ChatProps) {
                       : ""}"
                     @click=${props.onToggleRealtimeTalk}
                     title=${props.realtimeTalkActive
-                      ? uiText("Stop Talk", "Dừng Talk")
-                      : uiText("Start Talk", "Bắt đầu Talk")}
+                      ? i18nText("chat.composer.stopTalk", "Dừng Talk")
+                      : i18nText("chat.composer.startTalk", "Bắt đầu Talk")}
                     aria-label=${props.realtimeTalkActive
-                      ? uiText("Stop Talk", "Dừng Talk")
-                      : uiText("Start Talk", "Bắt đầu Talk")}
+                      ? i18nText("chat.composer.stopTalk", "Dừng Talk")
+                      : i18nText("chat.composer.startTalk", "Bắt đầu Talk")}
                     ?disabled=${!props.connected}
                   >
                     ${props.realtimeTalkActive ? icons.volume2 : icons.radio}
