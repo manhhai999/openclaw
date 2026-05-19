@@ -1,6 +1,5 @@
 import { html } from "lit";
 import { repeat } from "lit/directives/repeat.js";
-import { t } from "../../i18n/index.ts";
 import { CHAT_SESSIONS_ACTIVE_MINUTES, CHAT_SESSIONS_REFRESH_LIMIT } from "../app-chat.ts";
 import type { AppViewState } from "../app-view-state.ts";
 import { createChatModelOverride } from "../chat-model-ref.ts";
@@ -29,6 +28,10 @@ import {
   resolveThinkingDefaultForModel,
 } from "../thinking.ts";
 import type { GatewayThinkingLevelOption, SessionsListResult } from "../types.ts";
+import {
+  viDashboardI18nText as i18nText,
+  viDashboardText as uiText,
+} from "../vi-dashboard-text.ts";
 
 type ChatSessionSwitchHandler = (state: AppViewState, nextSessionKey: string) => void;
 
@@ -59,7 +62,7 @@ export function renderChatSessionSelect(
       <label class="field chat-controls__session chat-controls__session-picker">
         <select
           data-chat-session-select="true"
-          aria-label=${t("chat.selectors.session")}
+          aria-label=${i18nText("chat.selectors.session", "Phiên chat")}
           .value=${state.sessionKey}
           title=${selectedSessionLabel}
           ?disabled=${!state.connected || sessionGroups.length === 0}
@@ -114,7 +117,7 @@ function renderChatAgentSelect(
     <label class="field chat-controls__session chat-controls__agent">
       <select
         data-chat-agent-filter="true"
-        aria-label=${t("chat.selectors.agentFilter")}
+        aria-label=${i18nText("chat.selectors.agentFilter", "Lọc phiên theo agent")}
         title=${selectedLabel}
         .value=${activeAgentId}
         ?disabled=${!state.connected}
@@ -178,7 +181,7 @@ function renderChatModelSelect(state: AppViewState) {
     <label class="field chat-controls__session chat-controls__model">
       <select
         data-chat-model-select="true"
-        aria-label=${t("chat.selectors.model")}
+        aria-label=${i18nText("chat.selectors.model", "Mô hình chat")}
         title=${selectedLabel}
         ?disabled=${disabled}
         @change=${async (e: Event) => {
@@ -321,7 +324,7 @@ export function renderChatThinkingSelect(state: AppViewState) {
       <select
         class="chat-controls__thinking-select-full"
         data-chat-thinking-select="true"
-        aria-label=${t("chat.selectors.thinkingLevel")}
+        aria-label=${i18nText("chat.selectors.thinkingLevel", "Mức thinking của chat")}
         title=${selectedLabel}
         ?disabled=${disabled}
         @change=${onChange}
@@ -377,7 +380,10 @@ async function switchChatModel(state: AppViewState, nextModel: string): Promise<
     } catch (err) {
       // Roll back so the picker reflects the actual server model.
       state.chatModelOverrides = { ...state.chatModelOverrides, [targetSessionKey]: prevOverride };
-      state.lastError = `Failed to set model: ${String(err)}`;
+      state.lastError = uiText(
+        `Failed to set model: ${String(err)}`,
+        `Không đặt được mô hình: ${String(err)}`,
+      );
       return false;
     } finally {
       clearPendingSwitch();
@@ -435,7 +441,10 @@ async function switchChatThinkingLevel(state: AppViewState, nextThinkingLevel: s
   } catch (err) {
     patchSessionThinkingLevel(state, targetSessionKey, previousThinkingLevel);
     state.chatThinkingLevel = normalizedPrev ?? null;
-    state.lastError = `Failed to set thinking level: ${String(err)}`;
+    state.lastError = uiText(
+      `Failed to set thinking level: ${String(err)}`,
+      `Không đặt được mức thinking: ${String(err)}`,
+    );
   }
 }
 
@@ -475,17 +484,17 @@ export function parseSessionKey(key: string): SessionKeyInfo {
 
   // Main session.
   if (key === "main" || key === "agent:main:main") {
-    return { prefix: "", fallbackName: "Main Session" };
+    return { prefix: "", fallbackName: uiText("Main Session", "Phiên chính") };
   }
 
   // Subagent.
   if (key.includes(":subagent:")) {
-    return { prefix: "Subagent:", fallbackName: "Subagent:" };
+    return { prefix: "Subagent:", fallbackName: uiText("Subagent:", "Subagent:") };
   }
 
   // Cron job.
   if (normalized.startsWith("cron:") || key.includes(":cron:")) {
-    return { prefix: "Cron:", fallbackName: "Cron Job:" };
+    return { prefix: "Cron:", fallbackName: uiText("Cron Job:", "Job Cron:") };
   }
 
   // Direct chat: agent:<x>:<channel>:direct:<id>.
@@ -502,13 +511,16 @@ export function parseSessionKey(key: string): SessionKeyInfo {
   if (groupMatch) {
     const channel = groupMatch[1];
     const channelLabel = CHANNEL_LABELS[channel] ?? capitalize(channel);
-    return { prefix: "", fallbackName: `${channelLabel} Group` };
+    return { prefix: "", fallbackName: uiText(`${channelLabel} Group`, `Nhóm ${channelLabel}`) };
   }
 
   // Channel-prefixed legacy keys, for example "imessage:g-...".
   for (const ch of KNOWN_CHANNEL_KEYS) {
     if (key === ch || key.startsWith(`${ch}:`)) {
-      return { prefix: "", fallbackName: `${CHANNEL_LABELS[ch]} Session` };
+      return {
+        prefix: "",
+        fallbackName: uiText(`${CHANNEL_LABELS[ch]} Session`, `Phiên ${CHANNEL_LABELS[ch]}`),
+      };
     }
   }
 
@@ -688,7 +700,7 @@ export function resolveSessionOptionGroups(
           `agent:${normalizeLowercaseStringOrEmpty(parsed.agentId)}`,
           resolveAgentGroupLabel(state, parsed.agentId),
         )
-      : ensureGroup("other", "Other Sessions");
+      : ensureGroup("other", uiText("Other Sessions", "Phiên khác"));
     const scopeLabel = normalizeOptionalString(parsed?.rest) ?? key;
     let label = resolveSessionScopedOptionLabel(key, row, parsed?.rest);
     if (isChild) {

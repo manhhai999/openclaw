@@ -52,6 +52,10 @@ function renderNodesText(overrides: Partial<NodesProps>): string {
   return container.textContent ?? "";
 }
 
+function compactText(text: string): string {
+  return text.replace(/\s+/g, " ").trim();
+}
+
 describe("nodes devices pending rendering", () => {
   it("shows requested and approved access for a scope upgrade", () => {
     const text = renderNodesText({
@@ -77,10 +81,11 @@ describe("nodes devices pending rendering", () => {
       },
     });
 
-    expect(text).toContain("scope upgrade requires approval");
-    expect(text).toContain("requested: roles: operator");
-    expect(text).toContain("approved now: roles: operator");
-    expect(text).toContain("operator.admin, operator.read");
+    const compact = compactText(text);
+    expect(compact).toContain("scope upgrade requires approval");
+    expect(compact).toContain("requested: roles: operator");
+    expect(compact).toContain("approved now: roles: operator");
+    expect(compact).toContain("operator.admin, operator.read");
   });
 
   it("normalizes pending device ids before matching paired access", () => {
@@ -107,8 +112,9 @@ describe("nodes devices pending rendering", () => {
       },
     });
 
-    expect(text).toContain("scope upgrade requires approval");
-    expect(text).toContain("approved now: roles: operator");
+    const compact = compactText(text);
+    expect(compact).toContain("scope upgrade requires approval");
+    expect(compact).toContain("approved now: roles: operator");
   });
 
   it("does not show upgrade context for key-mismatched pending requests", () => {

@@ -1,6 +1,6 @@
 import { html, nothing } from "lit";
-import { t } from "../../i18n/index.ts";
 import { icons } from "../icons.ts";
+import { viDashboardI18nText as uiText } from "../vi-dashboard-text.ts";
 
 export type ChatRunControlsProps = {
   canAbort: boolean;
@@ -25,8 +25,8 @@ export function renderChatRunControls(props: ChatRunControlsProps) {
             <button
               class="btn btn--ghost"
               @click=${props.onNewSession}
-              title=${t("chat.runControls.newSession")}
-              aria-label=${t("chat.runControls.newSession")}
+              title=${uiText("chat.runControls.newSession", "Phiên mới")}
+              aria-label=${uiText("chat.runControls.newSession", "Phiên mới")}
             >
               ${icons.plus}
             </button>
@@ -34,8 +34,8 @@ export function renderChatRunControls(props: ChatRunControlsProps) {
       <button
         class="btn btn--ghost"
         @click=${props.onExport}
-        title=${t("chat.runControls.export")}
-        aria-label=${t("chat.runControls.exportChat")}
+        title=${uiText("chat.runControls.export", "Xuất")}
+        aria-label=${uiText("chat.runControls.exportChat", "Xuất chat")}
         ?disabled=${!props.hasMessages}
       >
         ${icons.download}
@@ -52,16 +52,16 @@ export function renderChatRunControls(props: ChatRunControlsProps) {
                 props.onSend();
               }}
               ?disabled=${!props.connected || props.sending}
-              title=${t("chat.runControls.queue")}
-              aria-label=${t("chat.runControls.queueMessage")}
+              title=${uiText("chat.runControls.queue", "Xếp hàng")}
+              aria-label=${uiText("chat.runControls.queueMessage", "Xếp tin nhắn vào hàng chờ")}
             >
               ${icons.send}
             </button>
             <button
               class="chat-send-btn chat-send-btn--stop"
               @click=${props.onAbort}
-              title=${t("chat.runControls.stop")}
-              aria-label=${t("chat.runControls.stopGenerating")}
+              title=${uiText("chat.runControls.stop", "Dừng")}
+              aria-label=${uiText("chat.runControls.stopGenerating", "Dừng tạo phản hồi")}
             >
               ${icons.stop}
             </button>
@@ -76,10 +76,12 @@ export function renderChatRunControls(props: ChatRunControlsProps) {
                 props.onSend();
               }}
               ?disabled=${!props.connected || props.sending}
-              title=${props.isBusy ? t("chat.runControls.queue") : t("chat.runControls.send")}
+              title=${props.isBusy
+                ? uiText("chat.runControls.queue", "Xếp hàng")
+                : uiText("chat.runControls.send", "Gửi")}
               aria-label=${props.isBusy
-                ? t("chat.runControls.queueMessage")
-                : t("chat.runControls.sendMessage")}
+                ? uiText("chat.runControls.queueMessage", "Xếp tin nhắn vào hàng chờ")
+                : uiText("chat.runControls.sendMessage", "Gửi tin nhắn")}
             >
               ${icons.send}
             </button>
