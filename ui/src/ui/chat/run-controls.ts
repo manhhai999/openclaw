@@ -1,5 +1,6 @@
 import { html, nothing } from "lit";
 import { icons } from "../icons.ts";
+import { viDashboardText as uiText } from "../vi-dashboard-text.ts";
 
 export type ChatRunControlsProps = {
   canAbort: boolean;
@@ -24,8 +25,8 @@ export function renderChatRunControls(props: ChatRunControlsProps) {
             <button
               class="btn btn--ghost"
               @click=${props.onNewSession}
-              title="New session"
-              aria-label="New session"
+              title=${uiText("New session", "Phiên mới")}
+              aria-label=${uiText("New session", "Phiên mới")}
             >
               ${icons.plus}
             </button>
@@ -33,8 +34,8 @@ export function renderChatRunControls(props: ChatRunControlsProps) {
       <button
         class="btn btn--ghost"
         @click=${props.onExport}
-        title="Export"
-        aria-label="Export chat"
+        title=${uiText("Export", "Xuất")}
+        aria-label=${uiText("Export chat", "Xuất chat")}
         ?disabled=${!props.hasMessages}
       >
         ${icons.download}
@@ -51,16 +52,16 @@ export function renderChatRunControls(props: ChatRunControlsProps) {
                 props.onSend();
               }}
               ?disabled=${!props.connected || props.sending}
-              title="Queue"
-              aria-label="Queue message"
+              title=${uiText("Queue", "Xếp hàng")}
+              aria-label=${uiText("Queue message", "Xếp tin nhắn vào hàng chờ")}
             >
               ${icons.send}
             </button>
             <button
               class="chat-send-btn chat-send-btn--stop"
               @click=${props.onAbort}
-              title="Stop"
-              aria-label="Stop generating"
+              title=${uiText("Stop", "Dừng")}
+              aria-label=${uiText("Stop generating", "Dừng tạo phản hồi")}
             >
               ${icons.stop}
             </button>
@@ -75,8 +76,10 @@ export function renderChatRunControls(props: ChatRunControlsProps) {
                 props.onSend();
               }}
               ?disabled=${!props.connected || props.sending}
-              title=${props.isBusy ? "Queue" : "Send"}
-              aria-label=${props.isBusy ? "Queue message" : "Send message"}
+              title=${props.isBusy ? uiText("Queue", "Xếp hàng") : uiText("Send", "Gửi")}
+              aria-label=${props.isBusy
+                ? uiText("Queue message", "Xếp tin nhắn vào hàng chờ")
+                : uiText("Send message", "Gửi tin nhắn")}
             >
               ${icons.send}
             </button>

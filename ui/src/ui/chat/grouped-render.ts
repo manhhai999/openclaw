@@ -16,6 +16,7 @@ import type {
   ToolCard,
 } from "../types/chat-types.ts";
 import { resolveLocalUserName } from "../user-identity.ts";
+import { viDashboardText as uiText } from "../vi-dashboard-text.ts";
 export { resolveAssistantTextAvatar } from "../views/agents-utils.ts";
 import { renderChatAvatar } from "./chat-avatar.ts";
 import { renderCopyAsMarkdownButton } from "./copy-as-markdown.ts";
@@ -50,8 +51,8 @@ export function formatChatTimestampForDisplay(timestamp: number): ChatTimestampD
   const date = new Date(timestamp);
   if (!Number.isFinite(date.getTime())) {
     return {
-      label: "Unknown date",
-      title: "Unknown date",
+      label: uiText("Unknown date", "Không rõ ngày"),
+      title: uiText("Unknown date", "Không rõ ngày"),
       dateTime: "",
     };
   }
@@ -602,9 +603,12 @@ function renderMessageMeta(meta: GroupMeta | null) {
 
   return html`
     <details class="msg-meta">
-      <summary class="msg-meta__summary" title="Show message context details">
+      <summary
+        class="msg-meta__summary"
+        title=${uiText("Show message context details", "Hiện chi tiết context tin nhắn")}
+      >
         <span class="msg-meta__summary-icon" aria-hidden="true">${icons.chevronRight}</span>
-        <span>Context</span>
+        <span>${uiText("Context", "Context")}</span>
       </summary>
       <span class="msg-meta__details">${parts}</span>
     </details>
@@ -639,8 +643,8 @@ function renderDeleteButton(onDelete: () => void, side: DeleteConfirmSide) {
     <span class="chat-delete-wrap">
       <button
         class="chat-group-delete"
-        title="Delete"
-        aria-label="Delete message"
+        title=${uiText("Delete", "Xóa")}
+        aria-label=${uiText("Delete message", "Xóa tin nhắn")}
         @click=${(e: Event) => {
           if (shouldSkipDeleteConfirm()) {
             onDelete();
@@ -656,14 +660,14 @@ function renderDeleteButton(onDelete: () => void, side: DeleteConfirmSide) {
           const popover = document.createElement("div");
           popover.className = `chat-delete-confirm chat-delete-confirm--${side}`;
           popover.innerHTML = `
-            <p class="chat-delete-confirm__text">Delete this message?</p>
+            <p class="chat-delete-confirm__text">${uiText("Delete this message?", "Xóa tin nhắn này?")}</p>
             <label class="chat-delete-confirm__remember">
               <input type="checkbox" class="chat-delete-confirm__check" />
-              <span>Don't ask again</span>
+              <span>${uiText("Don't ask again", "Đừng hỏi lại")}</span>
             </label>
             <div class="chat-delete-confirm__actions">
-              <button class="chat-delete-confirm__cancel" type="button">Cancel</button>
-              <button class="chat-delete-confirm__yes" type="button">Delete</button>
+              <button class="chat-delete-confirm__cancel" type="button">${uiText("Cancel", "Hủy")}</button>
+              <button class="chat-delete-confirm__yes" type="button">${uiText("Delete", "Xóa")}</button>
             </div>
           `;
           wrap.appendChild(popover);
@@ -1194,7 +1198,10 @@ function renderAssistantAttachments(
             return renderAssistantAttachmentStatusCard({
               kind: "image",
               label: attachment.label,
-              badge: availability.status === "checking" ? "Checking..." : "Unavailable",
+              badge:
+                availability.status === "checking"
+                  ? uiText("Checking...", "Đang kiểm tra...")
+                  : uiText("Unavailable", "Không khả dụng"),
               reason: availability.status === "unavailable" ? availability.reason : undefined,
             });
           }
@@ -1215,10 +1222,14 @@ function renderAssistantAttachments(
                 ${!attachmentUrl
                   ? html`<span
                       class="chat-assistant-attachment-badge chat-assistant-attachment-badge--muted"
-                      >${availability.status === "checking" ? "Checking..." : "Unavailable"}</span
+                      >${availability.status === "checking"
+                        ? uiText("Checking...", "Đang kiểm tra...")
+                        : uiText("Unavailable", "Không khả dụng")}</span
                     >`
                   : attachment.isVoiceNote
-                    ? html`<span class="chat-assistant-attachment-badge">Voice note</span>`
+                    ? html`<span class="chat-assistant-attachment-badge"
+                        >${uiText("Voice note", "Ghi âm")}</span
+                      >`
                     : nothing}
               </div>
               ${attachmentUrl
@@ -1236,7 +1247,10 @@ function renderAssistantAttachments(
             return renderAssistantAttachmentStatusCard({
               kind: "video",
               label: attachment.label,
-              badge: availability.status === "checking" ? "Checking..." : "Unavailable",
+              badge:
+                availability.status === "checking"
+                  ? uiText("Checking...", "Đang kiểm tra...")
+                  : uiText("Unavailable", "Không khả dụng"),
               reason: availability.status === "unavailable" ? availability.reason : undefined,
             });
           }
@@ -1257,7 +1271,10 @@ function renderAssistantAttachments(
           return renderAssistantAttachmentStatusCard({
             kind: "document",
             label: attachment.label,
-            badge: availability.status === "checking" ? "Checking..." : "Unavailable",
+            badge:
+              availability.status === "checking"
+                ? uiText("Checking...", "Đang kiểm tra...")
+                : uiText("Unavailable", "Không khả dụng"),
             reason: availability.status === "unavailable" ? availability.reason : undefined,
           });
         }
@@ -1341,14 +1358,17 @@ function detectJson(text: string): { parsed: unknown; pretty: string } | null {
 /** Build a short summary label for collapsed JSON (type + key count or array length). */
 function jsonSummaryLabel(parsed: unknown): string {
   if (Array.isArray(parsed)) {
-    return `Array (${parsed.length} item${parsed.length === 1 ? "" : "s"})`;
+    return uiText(
+      `Array (${parsed.length} item${parsed.length === 1 ? "" : "s"})`,
+      `Array (${parsed.length} mục)`,
+    );
   }
   if (parsed && typeof parsed === "object") {
     const keys = Object.keys(parsed as Record<string, unknown>);
     if (keys.length <= 4) {
       return `{ ${keys.join(", ")} }`;
     }
-    return `Object (${keys.length} keys)`;
+    return uiText(`Object (${keys.length} keys)`, `Object (${keys.length} khóa)`);
   }
   return "JSON";
 }
@@ -1358,8 +1378,8 @@ function renderExpandButton(markdown: string, onOpenSidebar: (content: SidebarCo
     <button
       class="btn btn--xs chat-expand-btn"
       type="button"
-      title="Open in canvas"
-      aria-label="Open in canvas"
+      title=${uiText("Open in canvas", "Mở trong canvas")}
+      aria-label=${uiText("Open in canvas", "Mở trong canvas")}
       @click=${() => onOpenSidebar({ kind: "markdown", content: markdown })}
     >
       <span class="chat-expand-btn__icon" aria-hidden="true">${icons.panelRightOpen}</span>
@@ -1475,9 +1495,9 @@ function renderGroupedMessage(
   const toolMessageLabel =
     singleToolCard && !markdown && !hasImages
       ? singleToolCard.outputText?.trim()
-        ? "Tool output"
-        : "Tool call"
-      : "Tool output";
+        ? uiText("Tool output", "Đầu ra công cụ")
+        : uiText("Tool call", "Lệnh gọi công cụ")
+      : uiText("Tool output", "Đầu ra công cụ");
 
   const hasActions = canCopyMarkdown || canExpand;
   const duplicateCount = Math.max(1, Math.floor(opts.duplicateCount ?? 1));

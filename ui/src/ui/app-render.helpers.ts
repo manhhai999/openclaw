@@ -1,5 +1,5 @@
 import { html, nothing } from "lit";
-import { t } from "../i18n/index.ts";
+import { t, i18n, SUPPORTED_LOCALES, isSupportedLocale, type Locale } from "../i18n/index.ts";
 import { refreshChat, refreshChatAvatar } from "./app-chat.ts";
 import { syncUrlWithSessionKey } from "./app-settings.ts";
 import type { AppViewState } from "./app-view-state.ts";
@@ -746,6 +746,35 @@ export function renderTopbarThemeModeToggle(state: AppViewState) {
         `;
       })}
     </div>
+  `;
+}
+
+export function renderTopbarLocaleSelect(state: AppViewState) {
+  const currentLocale = isSupportedLocale(state.settings.locale)
+    ? state.settings.locale
+    : i18n.getLocale();
+
+  return html`
+    <label class="topbar-locale" title=${t("overview.access.language")}>
+      <span class="topbar-locale__label">${t("overview.access.language")}</span>
+      <select
+        class="topbar-locale__select"
+        aria-label=${t("overview.access.language")}
+        .value=${currentLocale}
+        @change=${(event: Event) => {
+          const locale = (event.target as HTMLSelectElement).value as Locale;
+          void i18n.setLocale(locale);
+          state.applySettings({ ...state.settings, locale });
+        }}
+      >
+        ${SUPPORTED_LOCALES.map((locale) => {
+          const key = locale.replace(/-([a-zA-Z])/g, (_, char) => char.toUpperCase());
+          return html`<option value=${locale} ?selected=${currentLocale === locale}>
+            ${t(`languages.${key}`)}
+          </option>`;
+        })}
+      </select>
+    </label>
   `;
 }
 

@@ -2,6 +2,7 @@ import { html, nothing } from "lit";
 import { formatDurationCompact } from "../../../../src/infra/format-time/format-duration.ts";
 import { t } from "../../i18n/index.ts";
 import { normalizeLowercaseStringOrEmpty } from "../string-coerce.ts";
+import { viDashboardText as uiText } from "../vi-dashboard-text.ts";
 import {
   formatCost,
   formatDayLabel,
@@ -102,7 +103,7 @@ function renderFilterChips(
                 class="filter-chip-remove"
                 @click=${onClearDays}
                 title=${t("usage.filters.remove")}
-                aria-label="Remove days filter"
+                aria-label=${uiText("Remove days filter", "Xóa bộ lọc ngày")}
               >
                 ×
               </button>
@@ -117,7 +118,7 @@ function renderFilterChips(
                 class="filter-chip-remove"
                 @click=${onClearHours}
                 title=${t("usage.filters.remove")}
-                aria-label="Remove hours filter"
+                aria-label=${uiText("Remove hours filter", "Xóa bộ lọc giờ")}
               >
                 ×
               </button>
@@ -132,7 +133,7 @@ function renderFilterChips(
                 class="filter-chip-remove"
                 @click=${onClearSessions}
                 title=${t("usage.filters.remove")}
-                aria-label="Remove session filter"
+                aria-label=${uiText("Remove session filter", "Xóa bộ lọc phiên")}
               >
                 ×
               </button>
@@ -536,7 +537,11 @@ function renderUsageInsights(
     })
     .toSorted((a, b) => b.rate - a.rate)
     .slice(0, 5)
-    .map(({ rate: _rate, ...rest }) => rest);
+    .map((item) => ({
+      label: item.label,
+      value: item.value,
+      sub: item.sub,
+    }));
 
   const topModels = aggregates.byModel.slice(0, 5).map((entry) => ({
     label: entry.model ?? t("usage.common.unknown"),
