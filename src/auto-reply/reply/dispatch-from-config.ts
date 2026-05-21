@@ -54,6 +54,8 @@ import { measureDiagnosticsTimelineSpan } from "../../infra/diagnostics-timeline
 import { formatErrorMessage } from "../../infra/errors.js";
 import { getSessionBindingService } from "../../infra/outbound/session-binding-service.js";
 import {
+  logMessageDispatchCompleted,
+  logMessageDispatchStarted,
   logMessageProcessed,
   logMessageQueued,
   logSessionStateChange,
@@ -324,20 +326,24 @@ const createShouldEmitVerboseProgress = (params: {
   storePath?: string;
   fallbackLevel: string;
 }) => {
-  return () => {
+  const resolveLevel = () => {
     if (params.sessionKey && params.storePath) {
       try {
         const store = loadSessionStore(params.storePath);
         const entry = resolveSessionStoreEntry({ store, sessionKey: params.sessionKey }).existing;
         const currentLevel = normalizeVerboseLevel(entry?.verboseLevel ?? "");
         if (currentLevel) {
-          return currentLevel !== "off";
+          return currentLevel;
         }
       } catch {
         // Ignore transient store read failures and fall back to the current dispatch snapshot.
       }
     }
-    return params.fallbackLevel !== "off";
+    return normalizeVerboseLevel(params.fallbackLevel) ?? "off";
+  };
+  return {
+    shouldEmit: () => resolveLevel() !== "off",
+    shouldEmitFull: () => resolveLevel() === "full",
   };
 };
 
@@ -620,6 +626,7 @@ export async function dispatchReplyFromConfig(
       config: cfg,
       attributes: traceAttributes,
     });
+  let agentDispatchStartedAt = 0;
 
   const recordProcessed = (
     outcome: "completed" | "skipped" | "error",
@@ -637,6 +644,39 @@ export async function dispatchReplyFromConfig(
       messageId,
       sessionKey,
       durationMs: Date.now() - startTime,
+      outcome,
+      reason: opts?.reason,
+      error: opts?.error,
+    });
+  };
+
+  const recordAgentDispatchStarted = () => {
+    if (!diagnosticsEnabled || agentDispatchStartedAt > 0) {
+      return;
+    }
+    agentDispatchStartedAt = Date.now();
+    logMessageDispatchStarted({
+      channel,
+      sessionKey: acpDispatchSessionKey,
+      source: "replyResolver",
+    });
+  };
+
+  const recordAgentDispatchCompleted = (
+    outcome: "completed" | "skipped" | "error",
+    opts?: {
+      reason?: string;
+      error?: string;
+    },
+  ) => {
+    if (!diagnosticsEnabled || agentDispatchStartedAt <= 0) {
+      return;
+    }
+    logMessageDispatchCompleted({
+      channel,
+      sessionKey: acpDispatchSessionKey,
+      source: "replyResolver",
+      durationMs: Date.now() - agentDispatchStartedAt,
       outcome,
       reason: opts?.reason,
       error: opts?.error,
@@ -689,7 +729,7 @@ export async function dispatchReplyFromConfig(
     : initialSessionStoreEntry;
   const sessionAgentId = resolveSessionAgentId({ sessionKey: acpDispatchSessionKey, config: cfg });
   const sessionAgentCfg = resolveAgentConfig(cfg, sessionAgentId);
-  const shouldEmitVerboseProgress = createShouldEmitVerboseProgress({
+  const verboseProgress = createShouldEmitVerboseProgress({
     sessionKey: acpDispatchSessionKey,
     storePath: sessionStoreEntry.storePath,
     fallbackLevel:
@@ -700,6 +740,8 @@ export async function dispatchReplyFromConfig(
           "",
       ) ?? "off",
   });
+  const shouldEmitVerboseProgress = verboseProgress.shouldEmit;
+  const shouldEmitFullVerboseProgress = verboseProgress.shouldEmitFull;
   const replyRoute = resolveEffectiveReplyRoute({ ctx, entry: sessionStoreEntry.entry });
   // Restore route thread context only from the active turn or the thread-scoped session key.
   // Do not read thread ids from the normalised session store here: `origin.threadId` can be
@@ -1232,13 +1274,43 @@ export async function dispatchReplyFromConfig(
       !sendPolicyDenied &&
       shouldEmitVerboseProgress() &&
       shouldSendVerboseProgressMessages;
+    let finalReplyDeliveryStarted = false;
+    const hasExecApprovalPayload = (payload: ReplyPayload) => {
+      const execApproval =
+        payload.channelData &&
+        typeof payload.channelData === "object" &&
+        !Array.isArray(payload.channelData)
+          ? payload.channelData.execApproval
+          : undefined;
+      return execApproval && typeof execApproval === "object" && !Array.isArray(execApproval);
+    };
+    const shouldSuppressLateTextOnlyToolProgress = (payload: ReplyPayload) => {
+      if (!finalReplyDeliveryStarted) {
+        return false;
+      }
+      const reply = resolveSendableOutboundReplyParts(payload);
+      return !reply.hasMedia && !hasExecApprovalPayload(payload);
+    };
+    const shouldSuppressMessageToolOnlyTextErrorProgress = (payload: ReplyPayload) => {
+      if (
+        sourceReplyDeliveryMode !== "message_tool_only" ||
+        shouldEmitFullVerboseProgress() ||
+        payload.isError !== true
+      ) {
+        return false;
+      }
+      const reply = resolveSendableOutboundReplyParts(payload);
+      return !reply.hasMedia && !hasExecApprovalPayload(payload);
+    };
     const sendFinalPayload = async (
       payload: ReplyPayload,
     ): Promise<{ queuedFinal: boolean; routedFinalCount: number }> => {
       const sourceReplyTranscriptMirror =
         getReplyPayloadMetadata(payload)?.sourceReplyTranscriptMirror;
-      if (hasOutboundReplyContent(payload, { trimText: true })) {
+      const hasVisibleFinalContent = hasOutboundReplyContent(payload, { trimText: true });
+      if (hasVisibleFinalContent) {
         markInboundDedupeReplayUnsafe();
+        finalReplyDeliveryStarted = true;
       }
       const ttsPayload = await maybeApplyTtsToReplyPayload({
         payload,
@@ -1533,6 +1605,15 @@ export async function dispatchReplyFromConfig(
     const shouldSuppressProgressDelivery = () =>
       sendPolicyDenied ||
       (suppressDelivery && !shouldDeliverVerboseProgressDespiteSourceSuppression());
+    const hasVisibleRegularVerboseToolProgress =
+      shouldEmitVerboseProgress() &&
+      !shouldEmitFullVerboseProgress() &&
+      shouldSendVerboseProgressMessages &&
+      ctx.InboundEventKind !== "room_event" &&
+      !shouldSuppressProgressDelivery();
+    const suppressToolErrorWarnings =
+      params.replyOptions?.suppressToolErrorWarnings ??
+      (hasVisibleRegularVerboseToolProgress ? true : undefined);
     const onToolResultFromReplyOptions = params.replyOptions?.onToolResult;
     const onPlanUpdateFromReplyOptions = params.replyOptions?.onPlanUpdate;
     const onApprovalEventFromReplyOptions = params.replyOptions?.onApprovalEvent;
@@ -1567,12 +1648,14 @@ export async function dispatchReplyFromConfig(
     const replyConfig = withFullRuntimeReplyConfig(
       params.configOverride ? (applyMergePatch(cfg, params.configOverride) as OpenClawConfig) : cfg,
     );
+    recordAgentDispatchStarted();
     const replyResult = await traceReplyPhase("reply.run_reply_resolver", () =>
       replyResolver(
         ctx,
         {
           ...params.replyOptions,
           sourceReplyDeliveryMode,
+          suppressToolErrorWarnings,
           typingPolicy: typing.typingPolicy,
           suppressTyping: typing.suppressTyping,
           onPartialReply: wrapProgressCallback(params.replyOptions?.onPartialReply),
@@ -1622,17 +1705,15 @@ export async function dispatchReplyFromConfig(
               if (!deliveryPayload) {
                 return;
               }
+              if (shouldSuppressLateTextOnlyToolProgress(deliveryPayload)) {
+                return;
+              }
+              if (shouldSuppressMessageToolOnlyTextErrorProgress(deliveryPayload)) {
+                return;
+              }
               if (shouldSuppressDefaultToolProgressMessages()) {
                 const hasMedia = resolveSendableOutboundReplyParts(deliveryPayload).hasMedia;
-                const execApproval =
-                  deliveryPayload.channelData &&
-                  typeof deliveryPayload.channelData === "object" &&
-                  !Array.isArray(deliveryPayload.channelData)
-                    ? deliveryPayload.channelData.execApproval
-                    : undefined;
-                const hasExecApproval =
-                  execApproval && typeof execApproval === "object" && !Array.isArray(execApproval);
-                if (!hasMedia && !hasExecApproval && deliveryPayload.isError !== true) {
+                if (!hasMedia && !hasExecApprovalPayload(deliveryPayload)) {
                   return;
                 }
               }
@@ -1808,6 +1889,7 @@ export async function dispatchReplyFromConfig(
           },
         );
         if (tailDispatchResult?.handled) {
+          recordAgentDispatchCompleted("completed");
           return attachSourceReplyDeliveryMode({
             queuedFinal: tailDispatchResult.queuedFinal,
             counts: tailDispatchResult.counts,
@@ -1938,6 +2020,7 @@ export async function dispatchReplyFromConfig(
     const counts = dispatcher.getQueuedCounts();
     counts.final += routedFinalCount;
     commitInboundDedupeIfClaimed();
+    recordAgentDispatchCompleted("completed");
     recordProcessed(
       "completed",
       pluginFallbackReason ? { reason: pluginFallbackReason } : undefined,
@@ -1956,6 +2039,7 @@ export async function dispatchReplyFromConfig(
         releaseInboundDedupe(inboundDedupeClaim.key);
       }
     }
+    recordAgentDispatchCompleted("error", { error: String(err) });
     recordProcessed("error", { error: String(err) });
     markIdle("message_error");
     throw err;
