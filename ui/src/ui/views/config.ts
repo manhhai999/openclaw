@@ -785,16 +785,16 @@ function renderRawDiffValue(
 type ThemeOption = {
   id: ThemeName;
   label: string;
-  description: string;
+  description: string | readonly [en: string, vi: string];
   icon: TemplateResult;
 };
 const BUILTIN_THEME_OPTIONS: ThemeOption[] = [
-  { id: "claw", label: "Claw", description: uiText("Chroma family", "Họ Chroma"), icon: icons.zap },
-  { id: "knot", label: "Knot", description: uiText("Black & red", "Đen & đỏ"), icon: icons.link },
+  { id: "claw", label: "Claw", description: ["Chroma family", "Họ Chroma"], icon: icons.zap },
+  { id: "knot", label: "Knot", description: ["Black & red", "Đen & đỏ"], icon: icons.link },
   {
     id: "dash",
     label: "Dash",
-    description: uiText("Chocolate blueprint", "Bản thiết kế chocolate"),
+    description: ["Chocolate blueprint", "Bản thiết kế chocolate"],
     icon: icons.barChart,
   },
 ];
@@ -976,13 +976,16 @@ function renderAppearanceSection(props: ConfigProps) {
           ${uiText("Choose a theme family.", "Chọn họ theme.")}
         </p>
         <div class="settings-theme-grid">
-          ${themeOptions.map(
-            (opt) => html`
+          ${themeOptions.map((opt) => {
+            const description = Array.isArray(opt.description)
+              ? uiText(...opt.description)
+              : opt.description;
+            return html`
               <button
                 class="settings-theme-card ${opt.id === props.theme
                   ? "settings-theme-card--active"
                   : ""}"
-                title=${opt.description}
+                title=${description}
                 @click=${(e: Event) => {
                   if (opt.id === "custom" && !props.hasCustomTheme) {
                     props.onOpenCustomThemeImport?.();
@@ -1004,8 +1007,8 @@ function renderAppearanceSection(props: ConfigProps) {
                     >`
                   : nothing}
               </button>
-            `,
-          )}
+            `;
+          })}
         </div>
         ${showCustomThemeImport
           ? html`

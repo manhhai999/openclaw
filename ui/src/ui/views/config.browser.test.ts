@@ -352,6 +352,23 @@ describe("config view", () => {
     expect(onSectionChange).toHaveBeenCalledWith("gateway");
   });
 
+  it("resolves built-in theme descriptions from the active locale at render time", async () => {
+    await i18n.setLocale("vi");
+    try {
+      const { container } = renderConfigView({ activeSection: "__appearance__" });
+      const titles = Array.from(container.querySelectorAll(".settings-theme-card")).map((card) =>
+        card.getAttribute("title"),
+      );
+
+      expect(titles).toContain("Họ Chroma");
+      expect(titles).toContain("Đen & đỏ");
+      expect(titles).toContain("Bản thiết kế chocolate");
+      expect(titles).not.toContain("Chroma family");
+    } finally {
+      await i18n.setLocale("en");
+    }
+  });
+
   it("localizes Vietnamese scoped config schema labels, help, and badges", async () => {
     await i18n.setLocale("vi");
     try {

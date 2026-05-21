@@ -56,16 +56,18 @@ type ExecApprovalsState = {
 
 const EXEC_APPROVALS_DEFAULT_SCOPE = "__defaults__";
 
-const SECURITY_OPTIONS: Array<{ value: ExecSecurity; label: string }> = [
-  { value: "deny", label: uiText("Deny", "Từ chối") },
-  { value: "allowlist", label: uiText("Allowlist", "Danh sách cho phép") },
-  { value: "full", label: uiText("Full", "Đầy đủ") },
+type LocalizedLabel = readonly [en: string, vi: string];
+
+const SECURITY_OPTIONS: Array<{ value: ExecSecurity; label: LocalizedLabel }> = [
+  { value: "deny", label: ["Deny", "Từ chối"] },
+  { value: "allowlist", label: ["Allowlist", "Danh sách cho phép"] },
+  { value: "full", label: ["Full", "Đầy đủ"] },
 ];
 
-const ASK_OPTIONS: Array<{ value: ExecAsk; label: string }> = [
-  { value: "off", label: uiText("Off", "Tắt") },
-  { value: "on-miss", label: uiText("On miss", "Khi thiếu") },
-  { value: "always", label: uiText("Always", "Luôn hỏi") },
+const ASK_OPTIONS: Array<{ value: ExecAsk; label: LocalizedLabel }> = [
+  { value: "off", label: ["Off", "Tắt"] },
+  { value: "on-miss", label: ["On miss", "Khi thiếu"] },
+  { value: "always", label: ["Always", "Luôn hỏi"] },
 ];
 
 function normalizeSecurity(value?: string): ExecSecurity {
@@ -397,7 +399,7 @@ function renderExecApprovalsPolicy(state: ExecApprovalsState) {
               ${SECURITY_OPTIONS.map(
                 (option) =>
                   html`<option value=${option.value} ?selected=${securityValue === option.value}>
-                    ${option.label}
+                    ${uiText(...option.label)}
                   </option>`,
               )}
             </select>
@@ -437,7 +439,7 @@ function renderExecApprovalsPolicy(state: ExecApprovalsState) {
               ${ASK_OPTIONS.map(
                 (option) =>
                   html`<option value=${option.value} ?selected=${askValue === option.value}>
-                    ${option.label}
+                    ${uiText(...option.label)}
                   </option>`,
               )}
             </select>
@@ -483,7 +485,7 @@ function renderExecApprovalsPolicy(state: ExecApprovalsState) {
               ${SECURITY_OPTIONS.map(
                 (option) =>
                   html`<option value=${option.value} ?selected=${askFallbackValue === option.value}>
-                    ${option.label}
+                    ${uiText(...option.label)}
                   </option>`,
               )}
             </select>

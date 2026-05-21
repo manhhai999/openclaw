@@ -78,13 +78,11 @@ export type SkillsProps = {
   onClawHubInstall: (slug: string) => void;
 };
 
-type StatusTabDef = { id: SkillsStatusFilter; label: string };
-
-const STATUS_TABS: StatusTabDef[] = [
-  { id: "all", label: uiText("All", "Tất cả") },
-  { id: "ready", label: uiText("Ready", "Sẵn sàng") },
-  { id: "needs-setup", label: uiText("Needs Setup", "Cần thiết lập") },
-  { id: "disabled", label: uiText("Disabled", "Đã tắt") },
+const STATUS_TABS: Array<{ id: SkillsStatusFilter; label: readonly [en: string, vi: string] }> = [
+  { id: "all", label: ["All", "Tất cả"] },
+  { id: "ready", label: ["Ready", "Sẵn sàng"] },
+  { id: "needs-setup", label: ["Needs Setup", "Cần thiết lập"] },
+  { id: "disabled", label: ["Disabled", "Đã tắt"] },
 ];
 
 function skillMatchesStatus(skill: SkillStatusEntry, status: SkillsStatusFilter): boolean {
@@ -168,16 +166,17 @@ export function renderSkills(props: SkillsProps) {
       </div>
 
       <div class="agent-tabs" style="margin-top: 14px;">
-        ${STATUS_TABS.map(
-          (tab) => html`
+        ${STATUS_TABS.map((tab) => {
+          const label = uiText(...tab.label);
+          return html`
             <button
               class="agent-tab ${props.statusFilter === tab.id ? "active" : ""}"
               @click=${() => props.onStatusFilterChange(tab.id)}
             >
-              ${tab.label}<span class="agent-tab-count">${statusCounts[tab.id]}</span>
+              ${label}<span class="agent-tab-count">${statusCounts[tab.id]}</span>
             </button>
-          `,
-        )}
+          `;
+        })}
       </div>
 
       <div
